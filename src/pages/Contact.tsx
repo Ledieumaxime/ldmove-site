@@ -33,8 +33,9 @@ const ContactPage = () => {
     const prenom = form.prenom.trim();
     const nom = form.nom.trim();
     const email = form.email.trim();
+    const message = form.message.trim();
 
-    if (!prenom || !nom || !email) {
+    if (!prenom || !nom || !email || !message) {
       toast.error(t("contact.error.missing"));
       return;
     }
@@ -55,7 +56,7 @@ const ContactPage = () => {
           email,
           phone: form.phone,
           country: form.country,
-          message: form.message,
+          message,
         },
       });
 

@@ -45,7 +45,7 @@ const ApplyPage = () => {
     const nom = form.nom.trim();
     const email = form.email.trim();
 
-    if (!prenom || !nom || !email) {
+    if (!prenom || !nom || !email || !form.goal || !form.level) {
       toast.error(t("apply.error.missing"));
       return;
     }
