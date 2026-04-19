@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 33% 98%;
+    --foreground: 30 10% 15%;
+
+    --card: 40 30% 96%;
+    --card-foreground: 30 10% 15%;
+
+    --popover: 40 33% 98%;
+    --popover-foreground: 30 10% 15%;
+
+    --primary: 30 10% 15%;
+    --primary-foreground: 40 33% 98%;
+
+    --secondary: 35 30% 92%;
+    --secondary-foreground: 30 10% 15%;
+
+    --muted: 35 20% 93%;
+    --muted-foreground: 30 8% 50%;
+
+    --accent: 28 85% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 35 20% 88%;
+    --input: 35 20% 88%;
+    --ring: 28 85% 55%;
+
+    --radius: 0.75rem;
+
+    --sand: 35 30% 92%;
+    --sand-dark: 33 25% 82%;
+    --ocean: 185 35% 55%;
+    --ocean-light: 185 40% 92%;
+    --jungle: 150 30% 45%;
+    --jungle-light: 150 25% 92%;
+    --sunset: 28 85% 55%;
+    --sunset-light: 28 80% 94%;
+    --ruby: 0 70% 50%;
+    --ruby-light: 0 65% 94%;
+    --gold: 42 90% 55%;
+    --gold-light: 42 85% 94%;
+    --warm-white: 40 33% 98%;
+
+    --font-heading: 'Playfair Display', serif;
+    --font-body: 'DM Sans', sans-serif;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+  }
+}
+
+@layer utilities {
+  .font-heading {
+    font-family: var(--font-heading);
+  }
+  .font-body {
+    font-family: var(--font-body);
+  }
+  .text-gradient {
+    @apply bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent;
+  }
+}
