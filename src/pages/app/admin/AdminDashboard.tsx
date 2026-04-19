@@ -149,7 +149,7 @@ const AdminDashboard = () => {
           Coach Dashboard
         </p>
         <h1 className="font-heading text-3xl md:text-4xl font-bold">
-          Hi {profile?.first_name ?? "Coach"} 👋
+          Hi {profile?.first_name ?? "Coach"}
         </h1>
       </div>
 

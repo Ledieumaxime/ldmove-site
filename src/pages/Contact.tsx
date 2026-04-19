@@ -29,14 +29,30 @@ const ContactPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const prenom = form.prenom.trim();
+    const nom = form.nom.trim();
+    const email = form.email.trim();
+
+    if (!prenom || !nom || !email) {
+      toast.error(t("contact.error.missing"));
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error(t("contact.error.email"));
+      return;
+    }
+
     setSending(true);
 
     try {
       const { error } = await supabase.functions.invoke("send-coaching-application", {
         body: {
-          first_name: form.prenom,
-          last_name: form.nom,
-          email: form.email,
+          first_name: prenom,
+          last_name: nom,
+          email,
           phone: form.phone,
           country: form.country,
           message: form.message,

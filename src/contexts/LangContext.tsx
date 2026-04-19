@@ -275,8 +275,10 @@ const translations: Record<string, Record<Lang, string>> = {
   "contact.reassurance": { fr: "Je lis chaque message avec attention. Je te répondrai par email ou WhatsApp dans les meilleurs délais.", en: "I read every message carefully. I'll reply via email or WhatsApp as soon as possible." },
   "contact.confidential": { fr: "🔒 Tes informations restent strictement confidentielles et ne seront jamais partagées.", en: "🔒 Your information remains strictly confidential and will never be shared." },
   "contact.submit": { fr: "Envoyer mon message", en: "Send My Message" },
-  "contact.success": { fr: "Merci ! Ton message a bien été envoyé. Je te réponds sous 24–48h 💪", en: "Thanks! Your message has been sent. I'll get back to you within 24–48h 💪" },
+  "contact.success": { fr: "Merci ! Ton message a bien été envoyé. Je te réponds sous 24–48h.", en: "Thanks! Your message has been sent. I'll get back to you within 24–48h." },
   "contact.error": { fr: "Une erreur est survenue. Réessaie plus tard ou contacte-moi directement à ld_move@icloud.com.", en: "Something went wrong. Please try again later or contact me directly at ld_move@icloud.com." },
+  "contact.error.missing": { fr: "Merci de remplir tous les champs obligatoires (marqués d'un *).", en: "Please fill in all required fields (marked with *)." },
+  "contact.error.email": { fr: "L'adresse email saisie n'est pas valide. Vérifie qu'elle est au bon format (exemple : prenom@domaine.com).", en: "The email address entered is not valid. Please check the format (example: name@domain.com)." },
 
   // Apply page (coaching application)
   "apply.tag": { fr: "Coaching 1:1", en: "1:1 Coaching" },
@@ -315,8 +317,10 @@ const translations: Record<string, Record<Lang, string>> = {
   "apply.reassurance": { fr: "Ce n'est pas un engagement définitif. On échange d'abord pour s'assurer que le coaching est adapté à tes besoins.", en: "This isn't a final commitment. We'll chat first to make sure coaching is the right fit for your needs." },
   "apply.submit": { fr: "Envoyer ma candidature", en: "Submit My Application" },
   "apply.confidential": { fr: "🔒 Tes informations restent strictement confidentielles et ne seront jamais partagées.", en: "🔒 Your information remains strictly confidential and will never be shared." },
-  "apply.success": { fr: "Merci ! Ta candidature a bien été envoyée. Je te recontacte sous 48h 💪", en: "Thanks! Your application has been sent. I'll get back to you within 48h 💪" },
+  "apply.success": { fr: "Merci ! Ta candidature a bien été envoyée. Je te recontacte sous 48h.", en: "Thanks! Your application has been sent. I'll get back to you within 48h." },
   "apply.error": { fr: "Une erreur est survenue. Réessaie plus tard ou contacte-moi directement à ld_move@icloud.com.", en: "Something went wrong. Please try again later or contact me directly at ld_move@icloud.com." },
+  "apply.error.missing": { fr: "Merci de remplir tous les champs obligatoires (marqués d'un *).", en: "Please fill in all required fields (marked with *)." },
+  "apply.error.email": { fr: "L'adresse email saisie n'est pas valide. Vérifie qu'elle est au bon format (exemple : prenom@domaine.com).", en: "The email address entered is not valid. Please check the format (example: name@domain.com)." },
 
   // FAQ page
   "faq.tag": { fr: "FAQ", en: "FAQ" },

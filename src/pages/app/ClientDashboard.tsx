@@ -116,7 +116,7 @@ const ClientDashboard = () => {
       <div>
         <p className="text-sm text-muted-foreground uppercase tracking-wider">Welcome</p>
         <h1 className="font-heading text-3xl md:text-4xl font-bold">
-          Hi {profile?.first_name ?? ""} 👋
+          Hi {profile?.first_name ?? ""}
         </h1>
       </div>
 

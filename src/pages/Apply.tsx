@@ -39,14 +39,31 @@ const ApplyPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Client-side validation: show user-friendly messages before hitting the server.
+    const prenom = form.prenom.trim();
+    const nom = form.nom.trim();
+    const email = form.email.trim();
+
+    if (!prenom || !nom || !email) {
+      toast.error(t("apply.error.missing"));
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error(t("apply.error.email"));
+      return;
+    }
+
     setSending(true);
 
     try {
       const { error } = await supabase.functions.invoke("send-coaching-application", {
         body: {
-          first_name: form.prenom,
-          last_name: form.nom,
-          email: form.email,
+          first_name: prenom,
+          last_name: nom,
+          email,
           phone: form.phone,
           country: form.country,
           goal: form.goal,
