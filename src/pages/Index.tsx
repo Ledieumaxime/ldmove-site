@@ -55,12 +55,11 @@ const Index = () => {
             >
               <video
                 src={heroVideo}
-                poster={heroHome}
                 autoPlay
                 muted
                 loop
                 playsInline
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover bg-foreground"
               />
             </motion.div>
           </div>
