@@ -6,7 +6,7 @@ import Layout from "@/components/Layout";
 import SectionWrapper from "@/components/SectionWrapper";
 import { useLang } from "@/contexts/LangContext";
 import heroHome from "@/assets/hero-home.jpg";
-import heroVideo from "@/assets/hero-intro.mov";
+import heroVideo from "@/assets/hero-intro.mp4";
 import coachingHip from "@/assets/coaching-hip.jpg";
 import coachingSeated from "@/assets/coaching-seated.jpg";
 import coachingBali from "@/assets/coaching-bali.jpg";
