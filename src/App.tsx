@@ -11,8 +11,6 @@ import AProposPage from "./pages/APropos";
 import ContactPage from "./pages/Contact";
 import ApplyPage from "./pages/Apply";
 import FAQPage from "./pages/FAQ";
-import MiddleSplitPage from "./pages/MiddleSplit";
-import HandstandPage from "./pages/Handstand";
 import ConsultationPage from "./pages/Consultation";
 import HandstandComingSoon from "./pages/HandstandComingSoon";
 import MiddleSplitComingSoon from "./pages/MiddleSplitComingSoon";
@@ -57,8 +55,6 @@ const App = () => (
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/apply" element={<ApplyPage />} />
               <Route path="/faq" element={<FAQPage />} />
-              <Route path="/programmes/middle-split" element={<MiddleSplitPage />} />
-              <Route path="/programmes/handstand-debutant" element={<HandstandPage />} />
               <Route path="/programmes/handstand-coming-soon" element={<HandstandComingSoon />} />
               <Route path="/programmes/middle-split-coming-soon" element={<MiddleSplitComingSoon />} />
               <Route path="/consultation" element={<ConsultationPage />} />
