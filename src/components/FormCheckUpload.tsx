@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Video, X, CheckCircle2, Loader2 } from "lucide-react";
-import { sbGet, sbPost } from "@/integrations/supabase/api";
+import { Video, X, CheckCircle2, Loader2, Trash2 } from "lucide-react";
+import { sbGet, sbPost, sbDelete } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 
@@ -147,6 +147,33 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
     e.target.value = "";
   };
 
+  const remove = async (check: FormCheck) => {
+    if (!window.confirm("Delete this form check video? This cannot be undone.")) return;
+    setError(null);
+    try {
+      if (check.video_url) {
+        const token = getToken();
+        if (token) {
+          await fetch(
+            `${SUPABASE_URL}/storage/v1/object/form-checks/${check.video_url}`,
+            {
+              method: "DELETE",
+              headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+        }
+      }
+      await sbDelete(`form_check_submissions?id=eq.${check.id}`);
+      await load();
+    } catch (e) {
+      console.error(e);
+      setError("Failed to delete video. Please try again.");
+    }
+  };
+
   const count = checks.length;
 
   return (
@@ -176,7 +203,7 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
                   : "bg-amber-50 border-amber-200"
               }`}
             >
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-1 gap-2">
                 <span className="font-semibold">
                   {c.status === "reviewed" ? (
                     <span className="text-green-700 inline-flex items-center gap-1">
@@ -186,9 +213,20 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
                     <span className="text-amber-700">Awaiting review</span>
                   )}
                 </span>
-                <span className="text-[10px] text-muted-foreground">
-                  {new Date(c.created_at).toLocaleDateString("en-US")}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground">
+                    {new Date(c.created_at).toLocaleDateString("en-US")}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => remove(c)}
+                    aria-label="Delete video"
+                    title="Delete video"
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
               {c.client_note && <p className="mb-1 italic">Your note: {c.client_note}</p>}
               {signedUrls[c.id] && (
