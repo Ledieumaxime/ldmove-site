@@ -17,6 +17,8 @@ import ConsultationPage from "./pages/Consultation";
 import HandstandComingSoon from "./pages/HandstandComingSoon";
 import MiddleSplitComingSoon from "./pages/MiddleSplitComingSoon";
 import NotFound from "./pages/NotFound";
+import LegalNoticePage from "./pages/LegalNotice";
+import PrivacyPage from "./pages/Privacy";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -60,6 +62,8 @@ const App = () => (
               <Route path="/programmes/handstand-coming-soon" element={<HandstandComingSoon />} />
               <Route path="/programmes/middle-split-coming-soon" element={<MiddleSplitComingSoon />} />
               <Route path="/consultation" element={<ConsultationPage />} />
+              <Route path="/legal" element={<LegalNoticePage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
 
               {/* Espace connecté */}
               <Route path="/app/login" element={<AppLogin />} />

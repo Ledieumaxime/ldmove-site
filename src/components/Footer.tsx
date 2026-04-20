@@ -56,7 +56,22 @@ const Footer = () => {
             <img src={logoWhite} alt="LD Move logo" className="h-16 md:h-24 w-auto opacity-80 invert" />
           </div>
         </div>
-        <div className="mt-12 pt-8 border-t border-primary-foreground/10 text-center">
+        <div className="mt-12 pt-8 border-t border-primary-foreground/10 flex flex-col items-center gap-3 text-center">
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
+            <Link
+              to="/legal"
+              className="font-body text-xs text-primary-foreground/50 hover:text-accent transition-colors"
+            >
+              Legal notice
+            </Link>
+            <span className="text-xs text-primary-foreground/20">·</span>
+            <Link
+              to="/privacy"
+              className="font-body text-xs text-primary-foreground/50 hover:text-accent transition-colors"
+            >
+              Privacy policy
+            </Link>
+          </div>
           <p className="font-body text-xs text-primary-foreground/40">
             © {new Date().getFullYear()} LD Move – Maxime Ledieu. {t("footer.rights")}
           </p>
