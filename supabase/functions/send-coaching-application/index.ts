@@ -90,6 +90,14 @@ ${message}`;
 
 Received at: ${new Date().toISOString()}`;
 
+        // Until ldmove.com is verified on Resend, we must use onboarding@resend.dev
+        // which only delivers to the account-owner address. Once the domain is
+        // verified, swap both `from` addresses below for `hello@ldmove.com` (or
+        // whatever final address you pick) and the confirmation-to-prospect email
+        // will start working for real.
+        const FROM_ADDRESS = "LD Move <onboarding@resend.dev>";
+
+        // 1. Notify the coach
         const res = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -97,8 +105,9 @@ Received at: ${new Date().toISOString()}`;
             Authorization: `Bearer ${RESEND_API_KEY}`,
           },
           body: JSON.stringify({
-            from: "LD Move <onboarding@resend.dev>",
+            from: FROM_ADDRESS,
             to: ["ld_move@icloud.com"],
+            reply_to: email,
             subject: `${subjectPrefix} from ${first_name} ${last_name}`,
             text: emailBody.trim(),
           }),
@@ -106,6 +115,42 @@ Received at: ${new Date().toISOString()}`;
 
         if (!res.ok) {
           console.error("Email send failed:", await res.text());
+        }
+
+        // 2. Auto-confirmation to the prospect so they know the message went through
+        const confirmationSubject = isCoachingApp
+          ? "Thanks for your application — LD Move"
+          : "Thanks for your message — LD Move";
+        const confirmationBody = `Hi ${first_name},
+
+Thanks for reaching out to LD Move — I've received your ${isCoachingApp ? "coaching application" : "message"} and will get back to you within 48 hours.
+
+If anything urgent comes up in the meantime, you can reply to this email directly.
+
+Talk soon,
+Maxime
+LD Move`;
+
+        const confRes = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${RESEND_API_KEY}`,
+          },
+          body: JSON.stringify({
+            from: FROM_ADDRESS,
+            to: [email],
+            reply_to: "ld_move@icloud.com",
+            subject: confirmationSubject,
+            text: confirmationBody,
+          }),
+        });
+
+        if (!confRes.ok) {
+          // Expected to fail for non-owner addresses until ldmove.com is verified
+          // on Resend. Log but do not disrupt the flow — the coach still gets the
+          // notification and can reach out manually.
+          console.warn("Prospect confirmation not sent:", await confRes.text());
         }
       } catch (emailErr) {
         console.error("Email notification error:", emailErr);
