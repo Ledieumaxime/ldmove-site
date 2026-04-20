@@ -26,6 +26,7 @@ const ApplyPage = () => {
     nom: "",
     email: "",
     phone: "",
+    noWhatsapp: false,
     country: "",
     goal: "",
     level: "",
@@ -45,7 +46,16 @@ const ApplyPage = () => {
     const nom = form.nom.trim();
     const email = form.email.trim();
 
-    if (!prenom || !nom || !email || !form.goal || !form.level) {
+    const phone = form.phone.trim();
+
+    if (
+      !prenom ||
+      !nom ||
+      !email ||
+      !form.goal ||
+      !form.level ||
+      (!form.noWhatsapp && !phone)
+    ) {
       toast.error(t("apply.error.missing"));
       return;
     }
@@ -64,7 +74,7 @@ const ApplyPage = () => {
           first_name: prenom,
           last_name: nom,
           email,
-          phone: form.phone,
+          phone: form.noWhatsapp ? "No WhatsApp" : phone,
           country: form.country,
           goal: form.goal,
           level: form.level,
@@ -81,6 +91,7 @@ const ApplyPage = () => {
         nom: "",
         email: "",
         phone: "",
+        noWhatsapp: false,
         country: "",
         goal: "",
         level: "",
@@ -161,10 +172,10 @@ const ApplyPage = () => {
             />
           </div>
 
-          {/* Téléphone / WhatsApp */}
+          {/* WhatsApp */}
           <div>
             <label className="font-body text-sm font-medium mb-2 block">
-              {t("apply.phone")}
+              {t("apply.phone")} <span className="text-destructive">*</span>
             </label>
             <Input
               type="tel"
@@ -172,11 +183,27 @@ const ApplyPage = () => {
               onChange={(e) => update("phone", e.target.value)}
               placeholder={t("apply.phone.ph")}
               maxLength={30}
-              className="bg-card"
+              disabled={form.noWhatsapp}
+              className="bg-card disabled:opacity-50"
             />
             <p className="font-body text-xs text-muted-foreground mt-1.5">
               {t("apply.phone.help")}
             </p>
+            <label className="flex items-center gap-2 mt-2 font-body text-sm text-muted-foreground cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.noWhatsapp}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    noWhatsapp: e.target.checked,
+                    phone: e.target.checked ? "" : p.phone,
+                  }))
+                }
+                className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
+              />
+              {t("apply.phone.none")}
+            </label>
           </div>
 
           {/* Pays */}

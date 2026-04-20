@@ -19,6 +19,7 @@ const ContactPage = () => {
     nom: "",
     email: "",
     phone: "",
+    noWhatsapp: false,
     country: "",
     message: "",
   });
@@ -35,7 +36,9 @@ const ContactPage = () => {
     const email = form.email.trim();
     const message = form.message.trim();
 
-    if (!prenom || !nom || !email || !message) {
+    const phone = form.phone.trim();
+
+    if (!prenom || !nom || !email || !message || (!form.noWhatsapp && !phone)) {
       toast.error(t("contact.error.missing"));
       return;
     }
@@ -54,7 +57,7 @@ const ContactPage = () => {
           first_name: prenom,
           last_name: nom,
           email,
-          phone: form.phone,
+          phone: form.noWhatsapp ? "No WhatsApp" : phone,
           country: form.country,
           message,
         },
@@ -68,6 +71,7 @@ const ContactPage = () => {
         nom: "",
         email: "",
         phone: "",
+        noWhatsapp: false,
         country: "",
         message: "",
       });
@@ -145,10 +149,10 @@ const ContactPage = () => {
             />
           </div>
 
-          {/* Téléphone / WhatsApp */}
+          {/* WhatsApp */}
           <div>
             <label className="font-body text-sm font-medium mb-2 block">
-              {t("contact.phone")}
+              {t("contact.phone")} <span className="text-destructive">*</span>
             </label>
             <Input
               type="tel"
@@ -156,11 +160,27 @@ const ContactPage = () => {
               onChange={(e) => update("phone", e.target.value)}
               placeholder={t("contact.phone.ph")}
               maxLength={30}
-              className="bg-card"
+              disabled={form.noWhatsapp}
+              className="bg-card disabled:opacity-50"
             />
             <p className="font-body text-xs text-muted-foreground mt-1.5">
               {t("contact.phone.help")}
             </p>
+            <label className="flex items-center gap-2 mt-2 font-body text-sm text-muted-foreground cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.noWhatsapp}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    noWhatsapp: e.target.checked,
+                    phone: e.target.checked ? "" : p.phone,
+                  }))
+                }
+                className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
+              />
+              {t("contact.phone.none")}
+            </label>
           </div>
 
           {/* Pays */}
