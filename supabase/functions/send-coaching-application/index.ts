@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -90,12 +90,7 @@ ${message}`;
 
 Received at: ${new Date().toISOString()}`;
 
-        // Until ldmove.com is verified on Resend, we must use onboarding@resend.dev
-        // which only delivers to the account-owner address. Once the domain is
-        // verified, swap both `from` addresses below for `hello@ldmove.com` (or
-        // whatever final address you pick) and the confirmation-to-prospect email
-        // will start working for real.
-        const FROM_ADDRESS = "LD Move <onboarding@resend.dev>";
+        const FROM_ADDRESS = "LD Move <coach@ldmove.com>";
 
         // 1. Notify the coach
         const res = await fetch("https://api.resend.com/emails", {
