@@ -181,21 +181,21 @@ const ProgramDetail = () => {
           <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-3">
             <Lock className="text-accent" size={20} />
           </div>
-          <h2 className="font-heading text-xl font-bold mb-1">Accès verrouillé</h2>
+          <h2 className="font-heading text-xl font-bold mb-1">Locked</h2>
           <p className="text-sm text-muted-foreground mb-4">
             Unlock this program to access the weeks and exercises.
           </p>
           <p className="font-heading text-3xl font-bold mb-4">
             {program.price_eur}€
             {program.billing_type === "subscription" && (
-              <span className="text-base text-muted-foreground"> /mois</span>
+              <span className="text-base text-muted-foreground"> /month</span>
             )}
           </p>
           <Button onClick={handleUnlock} disabled={unlocking} className="w-full md:w-auto">
             {unlocking ? "Redirecting to Stripe…" : "Unlock"}
           </Button>
           <p className="text-xs text-muted-foreground mt-3">
-            Paiement sécurisé par Stripe. Accès débloqué immédiatement.
+            Secure payment via Stripe. Instant access after unlock.
           </p>
         </div>
       )}
@@ -240,7 +240,7 @@ const ProgramDetail = () => {
                         Day {w.week_number}
                       </p>
                       <h3 className="font-heading text-xl font-bold">
-                        {w.title ?? `Jour ${w.week_number}`}
+                        {w.title ?? `Session ${w.week_number}`}
                       </h3>
                       {w.notes && <p className="text-sm opacity-80 mt-1">{w.notes}</p>}
                     </div>
@@ -438,7 +438,7 @@ const ItemCard = ({
             rel="noopener noreferrer"
             className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold bg-accent text-white rounded-full px-2.5 py-1 hover:bg-accent/90"
           >
-            ▶ Vidéo
+            ▶ Video
           </a>
         )}
       </div>

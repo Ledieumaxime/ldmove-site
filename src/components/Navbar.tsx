@@ -14,7 +14,7 @@ const Navbar = () => {
   const { t } = useLang();
   const { session } = useAuth();
   const appLink = session ? "/app/home" : "/app/login";
-  const appLabel = session ? "Mon espace" : "Connexion";
+  const appLabel = session ? "My space" : "Login";
 
   const navLinks = [
     { to: "/", label: t("nav.home") },
