@@ -346,7 +346,7 @@ const ProgramDetail = () => {
   );
 };
 
-// Color code per section type — only green (warmup) or red (everything else)
+// Color code per section type — blue (warmup) or red (everything else)
 function sectionStyle(section: string): {
   badge: string;
   border: string;
@@ -357,11 +357,11 @@ function sectionStyle(section: string): {
   const isWarmup = section.toUpperCase().includes("WARM");
   if (isWarmup) {
     return {
-      badge: "bg-emerald-100 text-emerald-800",
-      border: "border-2 !border-emerald-500",
-      groupBox: "border-2 border-emerald-500 bg-emerald-50/60",
-      groupBadge: "bg-emerald-200 text-emerald-900",
-      groupBullet: "bg-emerald-500",
+      badge: "bg-sky-100 text-sky-800",
+      border: "border-2 !border-sky-500",
+      groupBox: "border-2 border-sky-500 bg-sky-50/60",
+      groupBadge: "bg-sky-200 text-sky-900",
+      groupBullet: "bg-sky-500",
     };
   }
   return {
