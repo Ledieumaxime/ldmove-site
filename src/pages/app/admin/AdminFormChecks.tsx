@@ -1,5 +1,5 @@
 import { useEffect, useState, useLayoutEffect } from "react";
-import { Clock, User, CheckCircle2, MessageCircle, Video } from "lucide-react";
+import { Clock, User, CheckCircle2, MessageCircle, Video, ChevronDown, ChevronUp, Check } from "lucide-react";
 import { sbGet, sbPatch } from "@/integrations/supabase/api";
 import { Button } from "@/components/ui/button";
 import ExerciseComments from "@/components/ExerciseComments";
@@ -236,7 +236,11 @@ const AdminFormChecks = () => {
             <h2 className="font-heading text-2xl font-bold">
               Archived ({reviewedChecks.length + answeredThreads.length})
             </h2>
-            <span className="text-sm text-muted-foreground">{showArchived ? "▲" : "▼"}</span>
+            {showArchived ? (
+              <ChevronUp size={16} className="text-muted-foreground" />
+            ) : (
+              <ChevronDown size={16} className="text-muted-foreground" />
+            )}
           </button>
           {showArchived && (
             <div className="space-y-6">
@@ -289,8 +293,13 @@ const ThreadCard = ({ thread, compact = false }: { thread: Thread; compact?: boo
               <span className="text-muted-foreground">·</span>
               <span className="text-muted-foreground">{thread.exerciseName}</span>
             </div>
-            <p className="text-sm text-muted-foreground mt-1 truncate">
-              {thread.needsReply ? "💬 " : "✓ "}"{thread.lastBody}"
+            <p className="text-sm text-muted-foreground mt-1 truncate inline-flex items-center gap-1.5">
+              {thread.needsReply ? (
+                <MessageCircle size={12} className="shrink-0 text-accent" />
+              ) : (
+                <Check size={12} className="shrink-0 text-green-600" />
+              )}
+              "{thread.lastBody}"
             </p>
           </div>
           <div className="text-right shrink-0">

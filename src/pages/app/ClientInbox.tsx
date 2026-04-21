@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from "react";
-import { MessageCircle, Video, CheckCircle2, User, Clock } from "lucide-react";
+import { MessageCircle, Video, CheckCircle2, User, Clock, ChevronDown, ChevronUp } from "lucide-react";
 import { sbGet } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import ExerciseComments from "@/components/ExerciseComments";
@@ -199,7 +199,11 @@ const ClientInbox = () => {
             <h2 className="font-heading text-2xl font-bold">
               Read ({readThreads.length})
             </h2>
-            <span className="text-sm text-muted-foreground">{showArchived ? "▲" : "▼"}</span>
+            {showArchived ? (
+              <ChevronUp size={16} className="text-muted-foreground" />
+            ) : (
+              <ChevronDown size={16} className="text-muted-foreground" />
+            )}
           </button>
           {showArchived && (
             <div className="space-y-3">

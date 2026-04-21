@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Lock, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Lock, ArrowLeft, CheckCircle2, Play } from "lucide-react";
 import { sbGet, sbPost } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -435,7 +435,7 @@ const ItemCard = ({
             rel="noopener noreferrer"
             className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold bg-accent text-white rounded-full px-2.5 py-1 hover:bg-accent/90"
           >
-            ▶ Video
+            <Play size={12} className="fill-current" /> Video
           </a>
         )}
       </div>
