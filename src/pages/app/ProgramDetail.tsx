@@ -236,11 +236,8 @@ const ProgramDetail = () => {
                 return (
                   <div key={w.id} className="bg-white border border-border rounded-2xl overflow-hidden">
                     <div className="bg-foreground text-background px-5 py-4">
-                      <p className="text-xs opacity-70 uppercase tracking-wider font-semibold">
-                        Day {w.week_number}
-                      </p>
                       <h3 className="font-heading text-xl font-bold">
-                        {w.title ?? `Session ${w.week_number}`}
+                        {w.title?.trim() ? w.title : `Day ${w.week_number}`}
                       </h3>
                       {w.notes && <p className="text-sm opacity-80 mt-1">{w.notes}</p>}
                     </div>
