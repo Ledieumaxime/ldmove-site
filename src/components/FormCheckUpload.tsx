@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Video, X, CheckCircle2, Loader2, Trash2 } from "lucide-react";
+import { Video, X, CheckCircle2, Loader2, Trash2, Camera, Upload } from "lucide-react";
 import { sbGet, sbPost, sbDelete } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -270,9 +270,9 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
                   size="sm"
                   variant="outline"
                   onClick={() => camInput.current?.click()}
-                  className="text-xs"
+                  className="text-xs gap-1.5"
                 >
-                  📷 Record now
+                  <Camera size={14} /> Record now
                 </Button>
                 <input
                   ref={fileInput}
@@ -286,9 +286,9 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
                   size="sm"
                   variant="outline"
                   onClick={() => fileInput.current?.click()}
-                  className="text-xs"
+                  className="text-xs gap-1.5"
                 >
-                  📁 Upload file
+                  <Upload size={14} /> Upload file
                 </Button>
               </div>
               <p className="text-[10px] text-muted-foreground">
