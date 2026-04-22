@@ -46,6 +46,7 @@ export type IntakeAnswers = {
   shoulder_mobility?: string | null;
   squat_flat_heels?: string | null;
   backbend?: string | null;
+  rope_climb?: string | null;
 };
 
 const is = (v: string | null | undefined, ...expected: string[]) =>
@@ -85,7 +86,9 @@ export const ASSESSMENT_EXERCISES: AssessmentExercise[] = [
     gate: (i) => !i || !is(i.muscle_up, "Never / still learning") },
   { n: 15, name: "Ring muscle up", desc: "1 clean rep.", section: "strength",
     gate: (i) => !i || is(i.muscle_up, "Yes strict (rings)") },
-  { n: 16, name: "Rope climb (arms only, no legs)", desc: "1 ascent.", section: "strength" },
+  { n: 16, name: "Rope climb (arms only, no legs)", desc: "1 ascent.", section: "strength",
+    verifies: "rope_climb",
+    gate: (i) => !i || !is(i.rope_climb, "Never tried / with legs only") },
 
   // Gymnastics skills (optional)
   { n: 17, name: "Handstand (wall, back to wall)", desc: "Hold 10 seconds or more, side angle.", section: "gymnastics",

@@ -32,6 +32,7 @@ type Intake = {
   front_lever: string | null;
   lsit_vsit: string | null;
   hspu: string | null;
+  rope_climb: string | null;
   hamstrings: string | null;
   splits: string[] | null;
   shoulder_mobility: string | null;
@@ -68,6 +69,7 @@ const empty = (cid: string): Intake => ({
   front_lever: "",
   lsit_vsit: "",
   hspu: "",
+  rope_climb: "",
   hamstrings: "",
   splits: [],
   shoulder_mobility: "",
@@ -154,6 +156,7 @@ const OnboardingIntake = () => {
     if (!required(form.front_lever)) missing.push("Front lever");
     if (!required(form.lsit_vsit)) missing.push("L-sit / V-sit");
     if (!required(form.hspu)) missing.push("HSPU");
+    if (!required(form.rope_climb)) missing.push("Rope climb");
     if (!required(form.hamstrings)) missing.push("Hamstrings flexibility");
     if (!(form.splits?.length)) missing.push("Splits");
     if (!required(form.shoulder_mobility)) missing.push("Shoulder mobility");
@@ -474,6 +477,18 @@ const OnboardingIntake = () => {
               "1 – 3 strict reps",
               "5+ strict reps",
               "90° HSPU or rings",
+            ]}
+          />
+          <RadioField
+            label="Rope climb (arms only)"
+            desc="Can you climb a rope using only your arms (no legs)?"
+            required
+            value={form.rope_climb}
+            onChange={(v) => update("rope_climb", v)}
+            options={[
+              "Never tried / with legs only",
+              "Yes, arms only (short distance)",
+              "Yes, arms only (5 m+)",
             ]}
           />
         </Section>

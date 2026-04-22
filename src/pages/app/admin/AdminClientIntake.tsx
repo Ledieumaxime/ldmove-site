@@ -42,6 +42,7 @@ type Intake = {
   front_lever: string | null;
   lsit_vsit: string | null;
   hspu: string | null;
+  rope_climb: string | null;
   hamstrings: string | null;
   splits: string[] | null;
   shoulder_mobility: string | null;

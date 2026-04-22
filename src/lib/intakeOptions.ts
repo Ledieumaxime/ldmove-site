@@ -37,6 +37,11 @@ export const INTAKE_OPTIONS = {
     "5+ strict reps",
     "90° HSPU or rings",
   ],
+  rope_climb: [
+    "Never tried / with legs only",
+    "Yes, arms only (short distance)",
+    "Yes, arms only (5 m+)",
+  ],
 
   hamstrings: [
     "Palms flat on the floor",
@@ -75,6 +80,7 @@ export const VERIFIABLE_FIELDS: Array<{
   { field: "front_lever", label: "Front lever", section: "skills", exerciseN: 22 },
   { field: "lsit_vsit", label: "L-sit / V-sit", section: "skills", exerciseN: 20 },
   { field: "hspu", label: "HSPU", section: "skills", exerciseN: 19 },
+  { field: "rope_climb", label: "Rope climb (arms only)", section: "skills", exerciseN: 16 },
 
   { field: "hamstrings", label: "Pike stretch — standing toe touch", section: "mobility", exerciseN: 8 },
   { field: "shoulder_mobility", label: "Shoulder wall test — arms overhead", section: "mobility", exerciseN: 7 },
