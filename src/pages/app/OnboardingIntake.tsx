@@ -35,6 +35,9 @@ type Intake = {
   rope_climb: string | null;
   hamstrings: string | null;
   splits: string[] | null;
+  front_split_left: string | null;
+  front_split_right: string | null;
+  middle_split: string | null;
   shoulder_mobility: string | null;
   squat_flat_heels: string | null;
   backbend: string | null;
@@ -72,6 +75,9 @@ const empty = (cid: string): Intake => ({
   rope_climb: "",
   hamstrings: "",
   splits: [],
+  front_split_left: "",
+  front_split_right: "",
+  middle_split: "",
   shoulder_mobility: "",
   squat_flat_heels: "",
   backbend: "",
@@ -158,7 +164,9 @@ const OnboardingIntake = () => {
     if (!required(form.hspu)) missing.push("HSPU");
     if (!required(form.rope_climb)) missing.push("Rope climb");
     if (!required(form.hamstrings)) missing.push("Hamstrings flexibility");
-    if (!(form.splits?.length)) missing.push("Splits");
+    if (!required(form.front_split_left)) missing.push("Front split (left)");
+    if (!required(form.front_split_right)) missing.push("Front split (right)");
+    if (!required(form.middle_split)) missing.push("Middle split");
     if (!required(form.shoulder_mobility)) missing.push("Shoulder mobility");
     if (!required(form.squat_flat_heels)) missing.push("Deep squat with flat heels");
     if (!required(form.backbend)) missing.push("Backbend flexibility");
@@ -505,19 +513,26 @@ const OnboardingIntake = () => {
               "I can't reach my knees",
             ]}
           />
-          <CheckboxField
-            label="Splits"
+          <RadioField
+            label="Front split — left leg forward"
             required
-            values={form.splits ?? []}
-            onToggle={(v) => toggle("splits", v)}
-            options={[
-              "None yet",
-              "In progress",
-              "Full splits",
-              "Pancake — none yet",
-              "Pancake — in progress",
-              "Chest on floor",
-            ]}
+            value={form.front_split_left}
+            onChange={(v) => update("front_split_left", v)}
+            options={["Never tried", "In progress", "Full"]}
+          />
+          <RadioField
+            label="Front split — right leg forward"
+            required
+            value={form.front_split_right}
+            onChange={(v) => update("front_split_right", v)}
+            options={["Never tried", "In progress", "Full"]}
+          />
+          <RadioField
+            label="Middle split"
+            required
+            value={form.middle_split}
+            onChange={(v) => update("middle_split", v)}
+            options={["Never tried", "In progress", "Full"]}
           />
           <RadioField
             label="Shoulder wall test — arms overhead"

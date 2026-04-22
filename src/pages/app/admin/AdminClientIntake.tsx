@@ -45,6 +45,9 @@ type Intake = {
   rope_climb: string | null;
   hamstrings: string | null;
   splits: string[] | null;
+  front_split_left: string | null;
+  front_split_right: string | null;
+  middle_split: string | null;
   shoulder_mobility: string | null;
   squat_flat_heels: string | null;
   backbend: string | null;

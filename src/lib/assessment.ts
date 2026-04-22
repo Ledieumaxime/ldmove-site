@@ -43,6 +43,9 @@ export type IntakeAnswers = {
   hspu?: string | null;
   hamstrings?: string | null;
   splits?: string[] | null;
+  front_split_left?: string | null;
+  front_split_right?: string | null;
+  middle_split?: string | null;
   shoulder_mobility?: string | null;
   squat_flat_heels?: string | null;
   backbend?: string | null;
@@ -73,9 +76,8 @@ export const ASSESSMENT_EXERCISES: AssessmentExercise[] = [
     verifies: "shoulder_mobility" },
   { n: 8, name: "Pike stretch", desc: "Standing, legs straight, reach down towards the floor. Side angle. Say out loud how far from the floor your hands are.", section: "required",
     verifies: "hamstrings" },
-  { n: 9, name: "Front split — left leg", desc: "Best attempt, side angle.", section: "required" },
-  { n: 10, name: "Front split — right leg", desc: "Best attempt, side angle.", section: "required" },
-  { n: 11, name: "Side split", desc: "Best attempt, front angle.", section: "required" },
+  { n: 9, name: "Front split", desc: "Best attempt on each leg. One video, film both sides.", section: "required" },
+  { n: 11, name: "Middle split", desc: "Best attempt, front angle.", section: "required" },
   { n: 12, name: "Pancake (seated, legs wide)", desc: "Sit on floor with legs wide, lean forward with chest towards the floor. Film from the front.", section: "required" },
 
   // Strength skills (optional)
