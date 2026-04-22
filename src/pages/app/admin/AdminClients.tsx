@@ -338,16 +338,34 @@ const InviteForm = ({
     setSending(true);
     setErr(null);
     try {
-      const { data, error } = await supabase.functions.invoke("invite-client", {
-        body: {
-          email: email.trim(),
-          first_name: firstName.trim(),
-          program_id: programId || null,
-        },
-      });
-      if (error) throw new Error(error.message || "Invite failed");
-      if (data && (data as { error?: string }).error) {
-        throw new Error((data as { error: string }).error);
+      // Call the edge function directly so we can surface the real error body
+      // from the server instead of the generic supabase-js "non-2xx" message.
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+      const raw = localStorage.getItem("ldmove-session");
+      const token = raw ? JSON.parse(raw).access_token : null;
+      if (!token) throw new Error("Your session expired. Please log out and log back in.");
+
+      const res = await fetch(
+        `${SUPABASE_URL}/functions/v1/invite-client`,
+        {
+          method: "POST",
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: email.trim(),
+            first_name: firstName.trim(),
+            program_id: programId || null,
+          }),
+        }
+      );
+
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || body.error) {
+        throw new Error(body.error || `Server error (${res.status})`);
       }
       onDone();
     } catch (e) {
