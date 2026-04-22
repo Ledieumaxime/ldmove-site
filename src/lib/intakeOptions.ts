@@ -60,11 +60,7 @@ export const INTAKE_OPTIONS = {
     "I can't touch the wall",
   ],
   squat_flat_heels: ["Yes easily", "With effort", "No"],
-  backbend: [
-    "Never tried / stiff",
-    "Bridge from floor",
-    "Bridge from standing",
-  ],
+  backbend: ["No", "Stiff", "Yes", "Bridge from standing"],
 } as const;
 
 export const VERIFIABLE_FIELDS: Array<{

@@ -124,7 +124,7 @@ export const ASSESSMENT_EXERCISES: AssessmentExercise[] = [
   // Mobility (optional extras)
   { n: 28, name: "Backbend", desc: "Best attempt, side angle.", section: "mobility",
     verifies: "backbend",
-    gate: (i) => !i || !is(i.backbend, "Never tried / stiff") },
+    gate: (i) => !i || !is(i.backbend, "No", "Stiff") },
 ];
 
 export const visibleExercises = (

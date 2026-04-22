@@ -558,7 +558,7 @@ const OnboardingIntake = () => {
             required
             value={form.backbend}
             onChange={(v) => update("backbend", v)}
-            options={["Never tried / stiff", "Bridge from floor", "Bridge from standing"]}
+            options={["No", "Stiff", "Yes", "Bridge from standing"]}
           />
         </Section>
 
