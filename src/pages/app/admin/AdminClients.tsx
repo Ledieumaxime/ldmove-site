@@ -363,9 +363,16 @@ const InviteForm = ({
         }
       );
 
-      const body = await res.json().catch(() => ({}));
+      const rawText = await res.text();
+      let body: { error?: string } = {};
+      try {
+        body = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        // fall through — will surface rawText below
+      }
       if (!res.ok || body.error) {
-        throw new Error(body.error || `Server error (${res.status})`);
+        const detail = body.error || rawText || `status ${res.status}`;
+        throw new Error(`Server error ${res.status}: ${detail.slice(0, 300)}`);
       }
       onDone();
     } catch (e) {
