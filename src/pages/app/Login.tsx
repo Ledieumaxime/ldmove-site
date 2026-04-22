@@ -16,7 +16,7 @@ const Login = () => {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [magicLoading, setMagicLoading] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -34,37 +34,36 @@ const Login = () => {
     }
   };
 
-  const sendMagicLink = async () => {
+  const sendPasswordReset = async () => {
     const target = email.trim();
     if (!target) {
-      setError("Enter your email first.");
+      setError("Enter your email first, then click 'Forgot password?'.");
       return;
     }
     setError(null);
     setInfo(null);
-    setMagicLoading(true);
+    setForgotLoading(true);
     try {
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
         method: "POST",
         headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
         body: JSON.stringify({
           email: target,
-          create_user: false,
-          options: { email_redirect_to: "https://www.ldmove.com/app/home" },
+          options: { email_redirect_to: "https://www.ldmove.com/app/reset-password" },
         }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(json.msg || json.error_description || "Could not send magic link");
+        setError(json.msg || json.error_description || "Could not send reset email");
       } else {
         setInfo(
-          `Check your inbox — we just sent a login link to ${target}. Click it to sign in.`
+          `If an account exists for ${target}, we've sent a password reset link. Check your inbox.`
         );
       }
     } catch (e) {
       setError(String(e));
     } finally {
-      setMagicLoading(false);
+      setForgotLoading(false);
     }
   };
 
@@ -117,27 +116,16 @@ const Login = () => {
           </Button>
         </form>
 
-        <div className="relative my-5">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-border" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white px-2 text-muted-foreground tracking-wider">or</span>
-          </div>
+        <div className="text-center mt-4">
+          <button
+            type="button"
+            onClick={sendPasswordReset}
+            disabled={forgotLoading}
+            className="text-sm text-muted-foreground hover:text-accent hover:underline"
+          >
+            {forgotLoading ? "Sending…" : "Forgot your password?"}
+          </button>
         </div>
-
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full"
-          onClick={sendMagicLink}
-          disabled={magicLoading}
-        >
-          {magicLoading ? "Sending…" : "Email me a login link"}
-        </Button>
-        <p className="text-center text-[11px] text-muted-foreground mt-1.5">
-          No password needed — we'll send a one-click link to sign you in.
-        </p>
 
         <p className="text-center text-sm text-muted-foreground mt-6">
           No account yet?{" "}

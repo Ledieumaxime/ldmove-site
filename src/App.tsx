@@ -39,6 +39,7 @@ import AdminClientIntake from "./pages/app/admin/AdminClientIntake";
 import CheckoutSuccess from "./pages/app/CheckoutSuccess";
 import OnboardingIntake from "./pages/app/OnboardingIntake";
 import OnboardingAssessmentUpload from "./pages/app/OnboardingAssessmentUpload";
+import SetPassword from "./pages/app/SetPassword";
 
 const queryClient = new QueryClient();
 
@@ -69,6 +70,8 @@ const App = () => (
               {/* Espace connecté */}
               <Route path="/app/login" element={<AppLogin />} />
               <Route path="/app/signup" element={<AppSignup />} />
+              <Route path="/app/welcome" element={<SetPassword mode="welcome" />} />
+              <Route path="/app/reset-password" element={<SetPassword mode="reset" />} />
               <Route
                 path="/app"
                 element={
