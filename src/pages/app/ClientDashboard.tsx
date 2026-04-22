@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Dumbbell, MessageCircle, Archive, ArrowRight, AlertCircle } from "lucide-react";
+import { Dumbbell, MessageCircle, Archive, ArrowRight, AlertCircle, ClipboardList } from "lucide-react";
 import { sbGet } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -41,6 +41,7 @@ const ClientDashboard = () => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [reads, setReads] = useState<CommentRead[]>([]);
   const [checks, setChecks] = useState<FormCheck[]>([]);
+  const [hasIntake, setHasIntake] = useState(true);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -58,12 +59,16 @@ const ClientDashboard = () => {
       sbGet<FormCheck[]>(
         `form_check_submissions?select=id,status,created_at&client_id=eq.${user.id}&order=created_at.desc&limit=10`
       ),
+      sbGet<Array<{ client_id: string }>>(
+        `client_intakes?select=client_id&client_id=eq.${user.id}&limit=1`
+      ),
     ])
-      .then(([p, co, r, fc]) => {
+      .then(([p, co, r, fc, intake]) => {
         setPrograms(p);
         setComments(co);
         setReads(r);
         setChecks(fc);
+        setHasIntake(intake.length > 0);
       })
       .finally(() => setLoading(false));
   }, [user]);
@@ -119,6 +124,32 @@ const ClientDashboard = () => {
           Hi {profile?.first_name ?? ""}
         </h1>
       </div>
+
+      {/* Onboarding banner — shown until intake is filled */}
+      {!hasIntake && (
+        <Link
+          to="/app/onboarding/intake"
+          className="block bg-accent/10 border-2 border-accent/40 text-foreground rounded-2xl p-5 hover:bg-accent/15 transition"
+        >
+          <div className="flex items-start gap-4">
+            <div className="w-11 h-11 rounded-full bg-accent text-white flex items-center justify-center shrink-0">
+              <ClipboardList size={20} />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs uppercase tracking-wider font-semibold text-accent">
+                Start here
+              </p>
+              <h2 className="font-heading text-xl font-bold mt-0.5">
+                Complete your intake form
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                5 minutes to tell me where you are today — this is what I use to design your first program.
+              </p>
+            </div>
+            <ArrowRight size={20} className="text-accent shrink-0 mt-2" />
+          </div>
+        </Link>
+      )}
 
       {/* Current program hero */}
       {currentProgram ? (

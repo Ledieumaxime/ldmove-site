@@ -142,9 +142,16 @@ Deno.serve(async (req) => {
       const subject = `${first_name}, welcome to LD Move`;
       const text = `Hi ${first_name},
 
-I've set up your personal LD Move training space. You can access your program and send me form-check videos right from there.
+I've set up your personal LD Move training space. Start by clicking the link below — you'll be logged in automatically, no password needed.
 
 Open your space: ${action_link}
+
+Before I can build your first program, there are two quick things to complete from inside your space:
+
+  1. Fill the intake form (about 5 minutes)
+  2. Film and send me your assessment videos (the instructions are on the site)
+
+You'll see both as a banner once you log in. Take your time.
 
 If you have any question, just reply to this email.
 
@@ -156,10 +163,18 @@ LD Move`;
 <html><body style="font-family:-apple-system,Segoe UI,Helvetica,sans-serif;background:#f6f4ef;padding:32px;color:#1f2937;">
   <div style="max-width:540px;margin:0 auto;background:#ffffff;border-radius:16px;padding:32px;">
     <p style="font-size:16px;line-height:1.6;margin:0 0 16px;">Hi ${escapeHtml(first_name)},</p>
-    <p style="font-size:16px;line-height:1.6;margin:0 0 20px;">I've set up your personal LD Move training space. You can access your program and send me form-check videos right from there.</p>
+    <p style="font-size:16px;line-height:1.6;margin:0 0 20px;">I've set up your personal LD Move training space. Start by clicking the button below — you'll be logged in automatically, no password needed.</p>
     <p style="margin:28px 0;text-align:center;">
       <a href="${action_link}" style="background:#d97706;color:#ffffff;text-decoration:none;font-weight:600;padding:14px 28px;border-radius:999px;display:inline-block;">Open my space</a>
     </p>
+    <div style="background:#f9fafb;border-radius:12px;padding:20px;margin:24px 0;">
+      <p style="font-size:13px;font-weight:600;color:#111827;margin:0 0 10px;">Once you're in, two quick things to complete:</p>
+      <ol style="font-size:14px;line-height:1.7;color:#374151;padding-left:18px;margin:0;">
+        <li><strong>Fill the intake form</strong> — about 5 minutes, helps me understand where you are.</li>
+        <li><strong>Film and send your assessment videos</strong> — the instructions are on the site.</li>
+      </ol>
+      <p style="font-size:13px;color:#6b7280;margin:12px 0 0;">You'll see both as a banner when you log in.</p>
+    </div>
     <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0 0 8px;">If the button doesn't work, copy this link:</p>
     <p style="font-size:12px;color:#6b7280;word-break:break-all;margin:0 0 24px;">${action_link}</p>
     <p style="font-size:14px;line-height:1.6;margin:24px 0 0;color:#374151;">See you soon,<br/>Maxime · LD Move</p>

@@ -36,6 +36,7 @@ import AdminProgramEdit from "./pages/app/admin/AdminProgramEdit";
 import AdminClients from "./pages/app/admin/AdminClients";
 import AdminFormChecks from "./pages/app/admin/AdminFormChecks";
 import CheckoutSuccess from "./pages/app/CheckoutSuccess";
+import OnboardingIntake from "./pages/app/OnboardingIntake";
 
 const queryClient = new QueryClient();
 
@@ -82,6 +83,7 @@ const App = () => (
                 <Route path="inbox" element={<ClientInbox />} />
                 <Route path="archived" element={<ClientArchived />} />
                 <Route path="checkout-success" element={<CheckoutSuccess />} />
+                <Route path="onboarding/intake" element={<OnboardingIntake />} />
 
                 {/* Admin (coach) */}
                 <Route
