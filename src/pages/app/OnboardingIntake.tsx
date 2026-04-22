@@ -471,11 +471,17 @@ const OnboardingIntake = () => {
         {/* Section 5 */}
         <Section title="Mobility">
           <RadioField
-            label="Hamstrings flexibility"
+            label="Pike stretch — standing toe touch"
+            desc="Stand with legs straight, bend forward. How close are your hands to the floor?"
             required
             value={form.hamstrings}
             onChange={(v) => update("hamstrings", v)}
-            options={["Yes easily", "Almost", "No"]}
+            options={[
+              "Palms flat on the floor",
+              "Fingertips touch the floor",
+              "Below my knees but not the floor",
+              "I can't reach my knees",
+            ]}
           />
           <CheckboxField
             label="Splits"
@@ -492,11 +498,16 @@ const OnboardingIntake = () => {
             ]}
           />
           <RadioField
-            label="Shoulder mobility"
+            label="Shoulder wall test — arms overhead"
+            desc="Stand with your back flat against a wall. Raise both arms straight above your head and try to touch the wall — without arching your lower back."
             required
             value={form.shoulder_mobility}
             onChange={(v) => update("shoulder_mobility", v)}
-            options={["Yes both sides", "One side only", "No"]}
+            options={[
+              "Both hands touch the wall easily",
+              "Only one side touches / I need to arch to do it",
+              "I can't touch the wall",
+            ]}
           />
           <RadioField
             label="Deep squat with flat heels"
@@ -603,36 +614,45 @@ const ThreeCols = ({ children }: { children: React.ReactNode }) => (
 
 const Field = ({
   label,
+  desc,
   required,
   children,
 }: {
   label: string;
+  desc?: string;
   required?: boolean;
   children: React.ReactNode;
 }) => (
   <div>
-    <label className="font-body text-sm font-medium mb-1.5 block">
+    <label className="font-body text-sm font-medium mb-1 block">
       {label}
       {required && <span className="text-destructive ml-1">*</span>}
     </label>
+    {desc && (
+      <p className="font-body text-xs text-muted-foreground mb-2 leading-relaxed">
+        {desc}
+      </p>
+    )}
     {children}
   </div>
 );
 
 const RadioField = ({
   label,
+  desc,
   required,
   value,
   onChange,
   options,
 }: {
   label: string;
+  desc?: string;
   required?: boolean;
   value: string | null;
   onChange: (v: string) => void;
   options: string[];
 }) => (
-  <Field label={label} required={required}>
+  <Field label={label} desc={desc} required={required}>
     <div className="flex flex-wrap gap-2">
       {options.map((opt) => {
         const active = value === opt;

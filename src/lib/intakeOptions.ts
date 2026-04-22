@@ -38,8 +38,17 @@ export const INTAKE_OPTIONS = {
     "90° HSPU or rings",
   ],
 
-  hamstrings: ["Yes easily", "Almost", "No"],
-  shoulder_mobility: ["Yes both sides", "One side only", "No"],
+  hamstrings: [
+    "Palms flat on the floor",
+    "Fingertips touch the floor",
+    "Below my knees but not the floor",
+    "I can't reach my knees",
+  ],
+  shoulder_mobility: [
+    "Both hands touch the wall easily",
+    "Only one side touches / I need to arch to do it",
+    "I can't touch the wall",
+  ],
   squat_flat_heels: ["Yes easily", "With effort", "No"],
   backbend: [
     "Never tried / stiff",
@@ -67,8 +76,8 @@ export const VERIFIABLE_FIELDS: Array<{
   { field: "lsit_vsit", label: "L-sit / V-sit", section: "skills", exerciseN: 20 },
   { field: "hspu", label: "HSPU", section: "skills", exerciseN: 19 },
 
-  { field: "hamstrings", label: "Hamstrings flexibility", section: "mobility", exerciseN: 8 },
-  { field: "shoulder_mobility", label: "Shoulder mobility", section: "mobility", exerciseN: 7 },
+  { field: "hamstrings", label: "Pike stretch — standing toe touch", section: "mobility", exerciseN: 8 },
+  { field: "shoulder_mobility", label: "Shoulder wall test — arms overhead", section: "mobility", exerciseN: 7 },
   { field: "squat_flat_heels", label: "Deep squat (flat heels)", section: "mobility", exerciseN: 4 },
   { field: "backbend", label: "Backbend flexibility", section: "mobility", exerciseN: 28 },
 ];
