@@ -90,7 +90,7 @@ export const VERIFIABLE_FIELDS: Array<{
   { field: "hamstrings", label: "Pike stretch — standing toe touch", section: "mobility", exerciseN: 8 },
   { field: "shoulder_mobility", label: "Shoulder wall test — arms overhead", section: "mobility", exerciseN: 7 },
   { field: "front_split_left", label: "Front split — left leg forward", section: "mobility", exerciseN: 9 },
-  { field: "front_split_right", label: "Front split — right leg forward", section: "mobility", exerciseN: 9 },
+  { field: "front_split_right", label: "Front split — right leg forward", section: "mobility", exerciseN: 10 },
   { field: "middle_split", label: "Middle split", section: "mobility", exerciseN: 11 },
   { field: "squat_flat_heels", label: "Deep squat (flat heels)", section: "mobility", exerciseN: 4 },
   { field: "backbend", label: "Backbend flexibility", section: "mobility", exerciseN: 28 },
