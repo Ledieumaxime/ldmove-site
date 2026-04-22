@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { Mail, UserPlus, Dumbbell, Calendar, Send, X, ClipboardList, ClipboardCheck } from "lucide-react";
+import { Mail, UserPlus, Dumbbell, Calendar, Send, X, ClipboardList, ClipboardCheck, Video, Bell } from "lucide-react";
 import { sbGet, sbPost } from "@/integrations/supabase/api";
 import { notifyProgramPublished } from "@/integrations/supabase/notify";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +32,8 @@ const AdminClients = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
   const [intakeClientIds, setIntakeClientIds] = useState<Set<string>>(new Set());
+  const [videoCountByClient, setVideoCountByClient] = useState<Map<string, number>>(new Map());
+  const [reviewedClientIds, setReviewedClientIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState<string | null>(null);
@@ -40,14 +42,20 @@ const AdminClients = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const [c, p, intakes] = await Promise.all([
+      const [c, p, intakes, videos, reviews] = await Promise.all([
         sbGet<Client[]>("profiles?select=*&role=eq.client&order=created_at.desc"),
         sbGet<Program[]>("programs?select=*&order=created_at.desc"),
         sbGet<Array<{ client_id: string }>>("client_intakes?select=client_id"),
+        sbGet<Array<{ client_id: string }>>("assessment_videos?select=client_id"),
+        sbGet<Array<{ client_id: string }>>("client_level_assessments?select=client_id"),
       ]);
       setClients(c);
       setPrograms(p);
       setIntakeClientIds(new Set(intakes.map((r) => r.client_id)));
+      const counts = new Map<string, number>();
+      for (const v of videos) counts.set(v.client_id, (counts.get(v.client_id) ?? 0) + 1);
+      setVideoCountByClient(counts);
+      setReviewedClientIds(new Set(reviews.map((r) => r.client_id)));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -61,6 +69,10 @@ const AdminClients = () => {
 
   const clientPrograms = (cid: string) =>
     programs.filter((p) => p.type === "custom" && p.assigned_client_id === cid);
+
+  const pendingReviewCount = clients.filter(
+    (c) => (videoCountByClient.get(c.id) ?? 0) > 0 && !reviewedClientIds.has(c.id)
+  ).length;
 
   if (loading) return <div className="text-muted-foreground">Loading…</div>;
   if (error)
@@ -90,6 +102,22 @@ const AdminClients = () => {
         </Button>
       </div>
 
+      {pendingReviewCount > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+            <Bell size={18} className="text-amber-700" />
+          </div>
+          <div>
+            <p className="font-heading font-bold">
+              {pendingReviewCount} assessment{pendingReviewCount > 1 ? "s" : ""} waiting for your review
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Clients flagged below with a yellow badge have uploaded videos you haven't reviewed yet.
+            </p>
+          </div>
+        </div>
+      )}
+
       {inviteOpen && (
         <InviteForm
           unassignedPrograms={programs.filter(
@@ -113,17 +141,30 @@ const AdminClients = () => {
         <div className="space-y-3">
           {clients.map((c) => {
             const progs = clientPrograms(c.id);
+            const videoCount = videoCountByClient.get(c.id) ?? 0;
+            const needsReview = videoCount > 0 && !reviewedClientIds.has(c.id);
             return (
-              <div key={c.id} className="bg-white rounded-2xl border border-border p-5">
+              <div
+                key={c.id}
+                className={`bg-white rounded-2xl p-5 ${needsReview ? "border-2 border-amber-400" : "border border-border"}`}
+              >
                 <div className="flex items-start justify-between flex-wrap gap-3">
                   <div className="flex items-center gap-3">
                     <div className="w-11 h-11 rounded-full bg-accent flex items-center justify-center text-white font-heading text-lg">
                       {c.first_name?.[0] ?? "?"}
                     </div>
                     <div>
-                      <p className="font-heading text-lg font-bold">
-                        {c.first_name} {c.last_name}
-                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-heading text-lg font-bold">
+                          {c.first_name} {c.last_name}
+                        </p>
+                        {needsReview && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-amber-100 text-amber-800 rounded-full px-2 py-0.5">
+                            <Video size={10} />
+                            {videoCount} new video{videoCount > 1 ? "s" : ""} to review
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
                         <Mail size={11} /> {c.email}
                       </p>
