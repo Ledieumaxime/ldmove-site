@@ -482,7 +482,8 @@ const OnboardingIntake = () => {
             value={form.rope_climb}
             onChange={(v) => update("rope_climb", v)}
             options={[
-              "Never tried / with legs only",
+              "Never tried",
+              "With legs only",
               "Yes, arms only (short distance)",
               "Yes, arms only (5 m+)",
             ]}

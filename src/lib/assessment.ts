@@ -88,7 +88,7 @@ export const ASSESSMENT_EXERCISES: AssessmentExercise[] = [
     gate: (i) => !i || is(i.muscle_up, "Yes strict (rings)") },
   { n: 16, name: "Rope climb (arms only, no legs)", desc: "1 ascent.", section: "strength",
     verifies: "rope_climb",
-    gate: (i) => !i || !is(i.rope_climb, "Never tried / with legs only") },
+    gate: (i) => !i || !is(i.rope_climb, "Never tried", "With legs only") },
 
   // Gymnastics skills (optional)
   { n: 17, name: "Handstand (wall, back to wall)", desc: "Hold 10 seconds or more, side angle.", section: "gymnastics",

@@ -38,7 +38,8 @@ export const INTAKE_OPTIONS = {
     "90° HSPU or rings",
   ],
   rope_climb: [
-    "Never tried / with legs only",
+    "Never tried",
+    "With legs only",
     "Yes, arms only (short distance)",
     "Yes, arms only (5 m+)",
   ],
