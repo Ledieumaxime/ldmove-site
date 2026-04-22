@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Home, Dumbbell, User, LogOut } from "lucide-react";
+import { Home, Dumbbell, User, LogOut, Film } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import logo from "@/assets/logo-ldmove.png";
 
@@ -55,11 +55,18 @@ const AppLayout = () => {
         <div className="container flex justify-around md:justify-start md:gap-2 py-2">
           <BottomLink to="/app/home" icon={<Home size={20} />} label="Home" />
           {!isCoach && (
-            <BottomLink
-              to="/app/programs"
-              icon={<Dumbbell size={20} />}
-              label="Programs"
-            />
+            <>
+              <BottomLink
+                to="/app/programs"
+                icon={<Dumbbell size={20} />}
+                label="Programs"
+              />
+              <BottomLink
+                to="/app/archive"
+                icon={<Film size={20} />}
+                label="My videos"
+              />
+            </>
           )}
         </div>
       </nav>
