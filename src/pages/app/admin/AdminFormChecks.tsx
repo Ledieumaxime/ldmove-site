@@ -1,7 +1,8 @@
 import { useEffect, useState, useLayoutEffect } from "react";
-import { Clock, User, CheckCircle2, MessageCircle, Video, ChevronDown, ChevronUp, Check } from "lucide-react";
+import { Clock, User, CheckCircle2, MessageCircle, Video, ChevronDown, ChevronUp, Check, Archive, X } from "lucide-react";
 import { sbGet, sbPatch } from "@/integrations/supabase/api";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import ExerciseComments from "@/components/ExerciseComments";
 import BackToDashboard from "@/components/BackToDashboard";
 
@@ -53,6 +54,9 @@ type FormCheck = {
   status: "pending" | "reviewed";
   created_at: string;
   reviewed_at: string | null;
+  archived_as_progress: boolean;
+  archived_note: string | null;
+  archived_at: string | null;
   profiles?: { first_name: string | null; last_name: string | null } | null;
   program_items?: { custom_name: string | null } | null;
 };
@@ -334,6 +338,8 @@ const CheckCard = ({
   onUpdated: () => void;
 }) => {
   const [saving, setSaving] = useState(false);
+  const [archiveFormOpen, setArchiveFormOpen] = useState(false);
+  const [archiveNote, setArchiveNote] = useState(check.archived_note ?? "");
 
   const toggleReviewed = async () => {
     setSaving(true);
@@ -342,6 +348,38 @@ const CheckCard = ({
       await sbPatch(`form_check_submissions?id=eq.${check.id}`, {
         status: nextStatus,
         reviewed_at: nextStatus === "reviewed" ? new Date().toISOString() : null,
+      });
+      onUpdated();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const archive = async () => {
+    setSaving(true);
+    try {
+      await sbPatch(`form_check_submissions?id=eq.${check.id}`, {
+        archived_as_progress: true,
+        archived_note: archiveNote.trim() || null,
+        archived_at: new Date().toISOString(),
+      });
+      setArchiveFormOpen(false);
+      onUpdated();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const unarchive = async () => {
+    setSaving(true);
+    try {
+      await sbPatch(`form_check_submissions?id=eq.${check.id}`, {
+        archived_as_progress: false,
+        archived_at: null,
       });
       onUpdated();
     } catch (e) {
@@ -397,7 +435,7 @@ const CheckCard = ({
         <p className="text-xs text-muted-foreground italic">Video unavailable.</p>
       )}
 
-      <div className="mt-3">
+      <div className="mt-3 flex flex-wrap gap-2">
         <Button
           size="sm"
           variant={check.status === "reviewed" ? "outline" : "default"}
@@ -412,10 +450,75 @@ const CheckCard = ({
             ? "Mark as pending again"
             : "Mark as reviewed"}
         </Button>
-        <p className="text-[11px] text-muted-foreground mt-2">
-          Use the comment thread below to reply to the client.
-        </p>
+        {check.archived_as_progress ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={unarchive}
+            disabled={saving}
+            className="gap-2 text-amber-700 border-amber-200 bg-amber-50"
+          >
+            <Archive size={14} />
+            Archived — remove
+          </Button>
+        ) : (
+          !archiveFormOpen && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setArchiveFormOpen(true)}
+              disabled={saving}
+              className="gap-2"
+            >
+              <Archive size={14} />
+              Archive as progress
+            </Button>
+          )
+        )}
       </div>
+
+      {archiveFormOpen && !check.archived_as_progress && (
+        <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+          <label className="text-xs font-semibold text-amber-800 uppercase tracking-wide block">
+            Short description (what's this progress about?)
+          </label>
+          <Input
+            value={archiveNote}
+            onChange={(e) => setArchiveNote(e.target.value)}
+            placeholder="e.g. Handstand — first 5 sec freestanding hold"
+            maxLength={200}
+          />
+          <div className="flex gap-2">
+            <Button size="sm" onClick={archive} disabled={saving} className="gap-1.5">
+              <Archive size={14} />
+              {saving ? "Saving…" : "Archive"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setArchiveFormOpen(false);
+                setArchiveNote(check.archived_note ?? "");
+              }}
+              disabled={saving}
+              className="gap-1.5"
+            >
+              <X size={14} /> Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {check.archived_as_progress && check.archived_note && (
+        <p className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+          <Archive size={10} className="inline mr-1" />
+          Archived as: <span className="font-semibold">{check.archived_note}</span>
+        </p>
+      )}
+
+      <p className="text-[11px] text-muted-foreground mt-2">
+        Use the comment thread below to reply to the client.
+      </p>
 
       {check.item_id && (
         <div className="mt-4 pt-3 border-t border-border">

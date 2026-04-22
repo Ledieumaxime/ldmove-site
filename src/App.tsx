@@ -30,6 +30,7 @@ import AppProgramDetail from "./pages/app/ProgramDetail";
 import AppProfile from "./pages/app/Profile";
 import ClientInbox from "./pages/app/ClientInbox";
 import ClientArchived from "./pages/app/ClientArchived";
+import ClientArchive from "./pages/app/ClientArchive";
 import AdminPrograms from "./pages/app/admin/AdminPrograms";
 import AdminProgramNew from "./pages/app/admin/AdminProgramNew";
 import AdminProgramEdit from "./pages/app/admin/AdminProgramEdit";
@@ -87,6 +88,7 @@ const App = () => (
                 <Route path="profile" element={<AppProfile />} />
                 <Route path="inbox" element={<ClientInbox />} />
                 <Route path="archived" element={<ClientArchived />} />
+                <Route path="archive" element={<ClientArchive />} />
                 <Route path="checkout-success" element={<CheckoutSuccess />} />
                 <Route path="onboarding/intake" element={<OnboardingIntake />} />
                 <Route path="onboarding/assessment" element={<OnboardingAssessmentUpload />} />
