@@ -17,6 +17,7 @@ import MiddleSplitComingSoon from "./pages/MiddleSplitComingSoon";
 import NotFound from "./pages/NotFound";
 import LegalNoticePage from "./pages/LegalNotice";
 import PrivacyPage from "./pages/Privacy";
+import OnboardingAssessmentPage from "./pages/OnboardingAssessment";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -60,6 +61,7 @@ const App = () => (
               <Route path="/consultation" element={<ConsultationPage />} />
               <Route path="/legal" element={<LegalNoticePage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/onboarding-assessment" element={<OnboardingAssessmentPage />} />
 
               {/* Espace connecté */}
               <Route path="/app/login" element={<AppLogin />} />
