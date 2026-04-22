@@ -60,6 +60,7 @@ async function markRead(userId: string, itemId: string) {
 const ExerciseComments = ({ itemId }: { itemId: string }) => {
   const { user, profile } = useAuth();
   const [open, setOpen] = useState(false);
+  const [userToggled, setUserToggled] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(false);
@@ -103,6 +104,14 @@ const ExerciseComments = ({ itemId }: { itemId: string }) => {
       load();
     }
   }, [open]);
+
+  // Auto-open once we know there are existing comments, so the thread is
+  // visible in a single click. The user can still collapse manually.
+  useEffect(() => {
+    if (loaded && !userToggled && comments.length > 0) {
+      setOpen(true);
+    }
+  }, [loaded, comments.length, userToggled]);
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
@@ -148,7 +157,10 @@ const ExerciseComments = ({ itemId }: { itemId: string }) => {
     <div className="border-t border-border mt-2 pt-2">
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          setUserToggled(true);
+          setOpen(!open);
+        }}
         className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 relative"
       >
         <MessageCircle size={12} />
