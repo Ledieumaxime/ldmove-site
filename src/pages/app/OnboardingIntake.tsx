@@ -11,6 +11,7 @@ type Intake = {
   client_id: string;
   first_name: string | null;
   last_name: string | null;
+  gender: string | null;
   age: number | null;
   weight_kg: number | null;
   height_cm: number | null;
@@ -46,6 +47,7 @@ const empty = (cid: string): Intake => ({
   client_id: cid,
   first_name: "",
   last_name: "",
+  gender: "",
   age: null,
   weight_kg: null,
   height_cm: null,
@@ -135,6 +137,7 @@ const OnboardingIntake = () => {
     const missing: string[] = [];
     if (!required(form.first_name)) missing.push("First name");
     if (!required(form.last_name)) missing.push("Last name");
+    if (!required(form.gender)) missing.push("Gender");
     if (form.age == null || form.age <= 0) missing.push("Age");
     if (!required(form.days_per_week)) missing.push("Days per week");
     if (!required(form.session_length)) missing.push("Session length");
@@ -255,6 +258,13 @@ const OnboardingIntake = () => {
               />
             </Field>
           </TwoCols>
+          <RadioField
+            label="Gender"
+            required
+            value={form.gender}
+            onChange={(v) => update("gender", v)}
+            options={["Male", "Female", "Other / prefer not to say"]}
+          />
           <ThreeCols>
             <Field label="Age" required>
               <Input

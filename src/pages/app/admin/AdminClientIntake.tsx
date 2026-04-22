@@ -21,6 +21,7 @@ type Intake = {
   client_id: string;
   first_name: string | null;
   last_name: string | null;
+  gender: string | null;
   age: number | null;
   weight_kg: number | null;
   height_cm: number | null;
@@ -297,6 +298,7 @@ const AdminClientIntake = () => {
 
           <Section title="Basic info">
             <Row label="Full name" value={`${intake.first_name ?? ""} ${intake.last_name ?? ""}`} />
+            <Row label="Gender" value={intake.gender} />
             <Row label="Age" value={intake.age != null ? `${intake.age} yrs` : null} />
             <Row label="Weight" value={intake.weight_kg != null ? `${intake.weight_kg} kg` : null} />
             <Row label="Height" value={intake.height_cm != null ? `${intake.height_cm} cm` : null} />
