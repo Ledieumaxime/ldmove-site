@@ -90,16 +90,66 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    const existing = loadStoredSession();
-    if (!existing) {
-      setLoading(false);
-      return;
-    }
-    setSessionState(existing);
-    fetchProfile(existing.access_token, existing.user.id).then((p) => {
+    // 1. If Supabase has redirected us back with a magic-link / invite /
+    //    recovery token in the URL hash, turn it into a session before
+    //    falling back to any stored one.
+    const hashCallback = async (): Promise<boolean> => {
+      if (typeof window === "undefined") return false;
+      const hash = window.location.hash?.replace(/^#/, "");
+      if (!hash || !hash.includes("access_token=")) return false;
+      const params = new URLSearchParams(hash);
+      const access_token = params.get("access_token");
+      const refresh_token = params.get("refresh_token");
+      const expires_in = parseInt(params.get("expires_in") || "3600", 10);
+      if (!access_token || !refresh_token) return false;
+      try {
+        const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${access_token}`,
+          },
+        });
+        if (!userRes.ok) return false;
+        const u = await userRes.json();
+        const s: SessionLike = {
+          access_token,
+          refresh_token,
+          expires_at: Math.floor(Date.now() / 1000) + expires_in,
+          user: { id: u.id, email: u.email },
+        };
+        setSession(s);
+        // Clean the URL — drop the hash so a browser refresh doesn't
+        // try to re-use a single-use token.
+        window.history.replaceState(
+          null,
+          "",
+          window.location.pathname + window.location.search
+        );
+        const p = await fetchProfile(s.access_token, s.user.id);
+        setProfile(p);
+        return true;
+      } catch (e) {
+        console.error("[AUTH] hash callback failed", e);
+        return false;
+      }
+    };
+
+    (async () => {
+      const recovered = await hashCallback();
+      if (recovered) {
+        setLoading(false);
+        return;
+      }
+      const existing = loadStoredSession();
+      if (!existing) {
+        setLoading(false);
+        return;
+      }
+      setSessionState(existing);
+      const p = await fetchProfile(existing.access_token, existing.user.id);
       setProfile(p);
       setLoading(false);
-    });
+    })();
   }, []);
 
   const signUp: AuthContextValue["signUp"] = async (email, password, first_name, last_name) => {
