@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Dumbbell, MessageCircle, Archive, ArrowRight, AlertCircle, ClipboardList } from "lucide-react";
+import { Dumbbell, MessageCircle, Archive, ArrowRight, AlertCircle, ClipboardList, Video } from "lucide-react";
 import { sbGet } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { IntakeAnswers, visibleExercises } from "@/lib/assessment";
 
 type Program = {
   id: string;
@@ -42,6 +43,8 @@ const ClientDashboard = () => {
   const [reads, setReads] = useState<CommentRead[]>([]);
   const [checks, setChecks] = useState<FormCheck[]>([]);
   const [hasIntake, setHasIntake] = useState(true);
+  const [intakeAnswers, setIntakeAnswers] = useState<IntakeAnswers | null>(null);
+  const [assessmentCount, setAssessmentCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -59,16 +62,21 @@ const ClientDashboard = () => {
       sbGet<FormCheck[]>(
         `form_check_submissions?select=id,status,created_at&client_id=eq.${user.id}&order=created_at.desc&limit=10`
       ),
-      sbGet<Array<{ client_id: string }>>(
-        `client_intakes?select=client_id&client_id=eq.${user.id}&limit=1`
+      sbGet<IntakeAnswers[]>(
+        `client_intakes?select=max_pull_ups,max_dips,max_push_ups,deep_squat,handstand,muscle_up,planche,front_lever,lsit_vsit,hspu,hamstrings,splits,shoulder_mobility,squat_flat_heels,backbend&client_id=eq.${user.id}&limit=1`
+      ),
+      sbGet<Array<{ id: string }>>(
+        `assessment_videos?select=id&client_id=eq.${user.id}`
       ),
     ])
-      .then(([p, co, r, fc, intake]) => {
+      .then(([p, co, r, fc, intake, av]) => {
         setPrograms(p);
         setComments(co);
         setReads(r);
         setChecks(fc);
         setHasIntake(intake.length > 0);
+        setIntakeAnswers(intake[0] ?? null);
+        setAssessmentCount(av.length);
       })
       .finally(() => setLoading(false));
   }, [user]);
@@ -125,31 +133,33 @@ const ClientDashboard = () => {
         </h1>
       </div>
 
-      {/* Onboarding banner — shown until intake is filled */}
-      {!hasIntake && (
-        <Link
-          to="/app/onboarding/intake"
-          className="block bg-accent/10 border-2 border-accent/40 text-foreground rounded-2xl p-5 hover:bg-accent/15 transition"
-        >
-          <div className="flex items-start gap-4">
-            <div className="w-11 h-11 rounded-full bg-accent text-white flex items-center justify-center shrink-0">
-              <ClipboardList size={20} />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs uppercase tracking-wider font-semibold text-accent">
-                Start here
-              </p>
-              <h2 className="font-heading text-xl font-bold mt-0.5">
-                Complete your intake form
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                5 minutes to tell me where you are today — this is what I use to design your first program.
-              </p>
-            </div>
-            <ArrowRight size={20} className="text-accent shrink-0 mt-2" />
-          </div>
-        </Link>
-      )}
+      {/* Onboarding banner — guides the client through the two onboarding steps */}
+      {(() => {
+        if (!hasIntake) {
+          return (
+            <OnboardingBanner
+              to="/app/onboarding/intake"
+              icon={<ClipboardList size={20} />}
+              tag="Start here"
+              title="Complete your intake form"
+              desc="5 minutes to tell me where you are today — this is what I use to design your first program."
+            />
+          );
+        }
+        const expected = intakeAnswers ? visibleExercises(intakeAnswers).length : 0;
+        if (expected > 0 && assessmentCount < expected) {
+          return (
+            <OnboardingBanner
+              to="/app/onboarding/assessment"
+              icon={<Video size={20} />}
+              tag="Step 2"
+              title={`Upload your assessment videos (${assessmentCount}/${expected})`}
+              desc="Film the exercises I need to see — I'll use them to validate your level and build the right program."
+            />
+          );
+        }
+        return null;
+      })()}
 
       {/* Current program hero */}
       {currentProgram ? (
@@ -302,5 +312,36 @@ function formatRelative(dateStr: string, now: number): string {
   if (days < 7) return `${days}d`;
   return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
+
+const OnboardingBanner = ({
+  to,
+  icon,
+  tag,
+  title,
+  desc,
+}: {
+  to: string;
+  icon: React.ReactNode;
+  tag: string;
+  title: string;
+  desc: string;
+}) => (
+  <Link
+    to={to}
+    className="block bg-accent/10 border-2 border-accent/40 text-foreground rounded-2xl p-5 hover:bg-accent/15 transition"
+  >
+    <div className="flex items-start gap-4">
+      <div className="w-11 h-11 rounded-full bg-accent text-white flex items-center justify-center shrink-0">
+        {icon}
+      </div>
+      <div className="flex-1">
+        <p className="text-xs uppercase tracking-wider font-semibold text-accent">{tag}</p>
+        <h2 className="font-heading text-xl font-bold mt-0.5">{title}</h2>
+        <p className="text-sm text-muted-foreground mt-1">{desc}</p>
+      </div>
+      <ArrowRight size={20} className="text-accent shrink-0 mt-2" />
+    </div>
+  </Link>
+);
 
 export default ClientDashboard;
