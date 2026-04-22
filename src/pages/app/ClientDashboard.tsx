@@ -63,7 +63,7 @@ const ClientDashboard = () => {
         `form_check_submissions?select=id,status,created_at&client_id=eq.${user.id}&order=created_at.desc&limit=10`
       ),
       sbGet<IntakeAnswers[]>(
-        `client_intakes?select=max_pull_ups,max_dips,max_push_ups,deep_squat,handstand,muscle_up,planche,front_lever,lsit_vsit,hspu,hamstrings,splits,shoulder_mobility,squat_flat_heels,backbend&client_id=eq.${user.id}&limit=1`
+        `client_intakes?select=max_pull_ups,max_dips,max_push_ups,deep_squat,handstand,muscle_up,planche,front_lever,lsit_vsit,hspu,rope_climb,hamstrings,splits,shoulder_mobility,squat_flat_heels,backbend&client_id=eq.${user.id}&limit=1`
       ),
       sbGet<Array<{ id: string }>>(
         `assessment_videos?select=id&client_id=eq.${user.id}`

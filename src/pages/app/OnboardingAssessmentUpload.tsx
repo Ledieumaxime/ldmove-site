@@ -58,7 +58,7 @@ const OnboardingAssessmentUpload = () => {
     try {
       const [i, v] = await Promise.all([
         sbGet<IntakeAnswers[]>(
-          `client_intakes?client_id=eq.${user.id}&select=max_pull_ups,max_dips,max_push_ups,deep_squat,handstand,muscle_up,planche,front_lever,lsit_vsit,hspu,hamstrings,splits,shoulder_mobility,squat_flat_heels,backbend&limit=1`
+          `client_intakes?client_id=eq.${user.id}&select=max_pull_ups,max_dips,max_push_ups,deep_squat,handstand,muscle_up,planche,front_lever,lsit_vsit,hspu,rope_climb,hamstrings,splits,shoulder_mobility,squat_flat_heels,backbend&limit=1`
         ),
         sbGet<StoredVideo[]>(
           `assessment_videos?client_id=eq.${user.id}&select=id,exercise_number,video_path,uploaded_at&order=exercise_number.asc`
