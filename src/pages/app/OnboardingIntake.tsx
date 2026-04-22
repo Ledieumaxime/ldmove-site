@@ -203,16 +203,12 @@ const OnboardingIntake = () => {
         </div>
         <h1 className="font-heading text-3xl font-bold">Intake received</h1>
         <p className="font-body text-muted-foreground leading-relaxed">
-          Thanks for filling this out. Next step is to film your{" "}
-          <Link to="/onboarding-assessment" className="text-accent hover:underline">
-            assessment videos
-          </Link>{" "}
-          and send the links to Maxime — once he has both, he'll build your first
-          program.
+          Thanks for filling this out. Next step is to film and upload your
+          assessment videos — once Maxime has both, he'll build your first program.
         </p>
         <div className="pt-2 flex flex-wrap gap-2 justify-center">
           <Button asChild>
-            <Link to="/onboarding-assessment">See assessment videos</Link>
+            <Link to="/app/onboarding/assessment">Upload my assessment videos</Link>
           </Button>
           <Button variant="outline" asChild>
             <Link to="/app/home">Back to my space</Link>
