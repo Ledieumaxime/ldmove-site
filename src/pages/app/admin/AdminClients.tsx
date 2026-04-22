@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { Mail, UserPlus, Dumbbell, Calendar, Send, X } from "lucide-react";
+import { Mail, UserPlus, Dumbbell, Calendar, Send, X, ClipboardList, ClipboardCheck } from "lucide-react";
 import { sbGet, sbPost } from "@/integrations/supabase/api";
 import { notifyProgramPublished } from "@/integrations/supabase/notify";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +31,7 @@ type Program = {
 const AdminClients = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
+  const [intakeClientIds, setIntakeClientIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState<string | null>(null);
@@ -39,12 +40,14 @@ const AdminClients = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const [c, p] = await Promise.all([
+      const [c, p, intakes] = await Promise.all([
         sbGet<Client[]>("profiles?select=*&role=eq.client&order=created_at.desc"),
         sbGet<Program[]>("programs?select=*&order=created_at.desc"),
+        sbGet<Array<{ client_id: string }>>("client_intakes?select=client_id"),
       ]);
       setClients(c);
       setPrograms(p);
+      setIntakeClientIds(new Set(intakes.map((r) => r.client_id)));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -130,15 +133,37 @@ const AdminClients = () => {
                       </p>
                     </div>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-2"
-                    onClick={() => setAssignOpen(assignOpen === c.id ? null : c.id)}
-                  >
-                    <UserPlus size={14} />
-                    {assignOpen === c.id ? "Close" : "Assign a program"}
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-2"
+                      asChild
+                    >
+                      <Link to={`/app/admin/clients/${c.id}/intake`}>
+                        {intakeClientIds.has(c.id) ? (
+                          <>
+                            <ClipboardCheck size={14} className="text-green-600" />
+                            View intake
+                          </>
+                        ) : (
+                          <>
+                            <ClipboardList size={14} className="text-muted-foreground" />
+                            No intake yet
+                          </>
+                        )}
+                      </Link>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => setAssignOpen(assignOpen === c.id ? null : c.id)}
+                    >
+                      <UserPlus size={14} />
+                      {assignOpen === c.id ? "Close" : "Assign a program"}
+                    </Button>
+                  </div>
                 </div>
 
                 {progs.length > 0 && (

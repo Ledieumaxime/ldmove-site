@@ -35,6 +35,7 @@ import AdminProgramNew from "./pages/app/admin/AdminProgramNew";
 import AdminProgramEdit from "./pages/app/admin/AdminProgramEdit";
 import AdminClients from "./pages/app/admin/AdminClients";
 import AdminFormChecks from "./pages/app/admin/AdminFormChecks";
+import AdminClientIntake from "./pages/app/admin/AdminClientIntake";
 import CheckoutSuccess from "./pages/app/CheckoutSuccess";
 import OnboardingIntake from "./pages/app/OnboardingIntake";
 
@@ -115,6 +116,14 @@ const App = () => (
                   element={
                     <ProtectedRoute requireRole="coach">
                       <AdminClients />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="admin/clients/:id/intake"
+                  element={
+                    <ProtectedRoute requireRole="coach">
+                      <AdminClientIntake />
                     </ProtectedRoute>
                   }
                 />
