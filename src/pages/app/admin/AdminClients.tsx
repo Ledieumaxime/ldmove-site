@@ -1,8 +1,9 @@
 import { useEffect, useState, FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { Mail, UserPlus, Dumbbell, Calendar } from "lucide-react";
+import { Mail, UserPlus, Dumbbell, Calendar, Send, X } from "lucide-react";
 import { sbGet, sbPost } from "@/integrations/supabase/api";
 import { notifyProgramPublished } from "@/integrations/supabase/notify";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,6 +34,7 @@ const AdminClients = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState<string | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -68,12 +70,35 @@ const AdminClients = () => {
   return (
     <div className="space-y-6">
       <BackToDashboard />
-      <div>
-        <h1 className="font-heading text-3xl md:text-4xl font-bold">Admin · Clients</h1>
-        <p className="text-muted-foreground text-sm">
-          All registered client accounts. Assign a 1:1 program to any of them.
-        </p>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="font-heading text-3xl md:text-4xl font-bold">Admin · Clients</h1>
+          <p className="text-muted-foreground text-sm">
+            All registered client accounts. Invite a new one or assign a 1:1 program.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="default"
+          className="gap-2"
+          onClick={() => setInviteOpen(true)}
+        >
+          <Send size={14} /> Invite a client
+        </Button>
       </div>
+
+      {inviteOpen && (
+        <InviteForm
+          unassignedPrograms={programs.filter(
+            (p) => p.type === "custom" && p.assigned_client_id === null
+          )}
+          onClose={() => setInviteOpen(false)}
+          onDone={() => {
+            setInviteOpen(false);
+            load();
+          }}
+        />
+      )}
 
       {clients.length === 0 ? (
         <div className="bg-white rounded-2xl border border-border p-8 text-center">
@@ -265,6 +290,138 @@ const AssignForm = ({
         You'll add days and exercises in the program editor.
       </p>
     </form>
+  );
+};
+
+const InviteForm = ({
+  unassignedPrograms,
+  onClose,
+  onDone,
+}: {
+  unassignedPrograms: Program[];
+  onClose: () => void;
+  onDone: () => void;
+}) => {
+  const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [programId, setProgramId] = useState("");
+  const [sending, setSending] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setSending(true);
+    setErr(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("invite-client", {
+        body: {
+          email: email.trim(),
+          first_name: firstName.trim(),
+          program_id: programId || null,
+        },
+      });
+      if (error) throw new Error(error.message || "Invite failed");
+      if (data && (data as { error?: string }).error) {
+        throw new Error((data as { error: string }).error);
+      }
+      onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-2xl border border-border p-5">
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <h2 className="font-heading text-xl font-bold">Invite a new client</h2>
+          <p className="text-muted-foreground text-sm">
+            They'll receive an email with a one-click link to their space. No password to set.
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={onClose}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <X size={18} />
+        </button>
+      </div>
+
+      <form onSubmit={onSubmit} className="space-y-3">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-semibold mb-1 block">First name *</label>
+            <Input
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder="Alexandro"
+              required
+              maxLength={100}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold mb-1 block">Email *</label>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="client@example.com"
+              required
+              maxLength={255}
+            />
+          </div>
+        </div>
+
+        {unassignedPrograms.length > 0 && (
+          <div>
+            <label className="text-xs font-semibold mb-1 block">
+              Assign a program (optional)
+            </label>
+            <select
+              value={programId}
+              onChange={(e) => setProgramId(e.target.value)}
+              className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-sm"
+            >
+              <option value="">— None, just invite —</option>
+              {unassignedPrograms.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Only unassigned 1:1 programs are listed. You can always assign one later.
+            </p>
+          </div>
+        )}
+
+        {err && (
+          <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700">
+            {err}
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <Button type="submit" size="sm" disabled={sending} className="gap-1.5">
+            <Send size={14} />
+            {sending ? "Sending…" : "Send invite"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onClose}
+            disabled={sending}
+          >
+            Cancel
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 };
 
