@@ -6,6 +6,8 @@ import {
   Calendar,
   Save,
   Loader2,
+  CheckCircle2,
+  Wrench,
 } from "lucide-react";
 import { sbGet } from "@/integrations/supabase/api";
 import { Button } from "@/components/ui/button";
@@ -471,7 +473,7 @@ const FieldReviewRow = ({
               : "bg-white border-border hover:border-green-500"
           }`}
         >
-          ✅ Validated
+          <CheckCircle2 size={14} /> Validated
         </button>
         <button
           type="button"
@@ -486,7 +488,7 @@ const FieldReviewRow = ({
               : "bg-white border-border hover:border-amber-500"
           }`}
         >
-          ⚠️ Technique to work on
+          <Wrench size={14} /> Technique to work on
         </button>
       </div>
 
