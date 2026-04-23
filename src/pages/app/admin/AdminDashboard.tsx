@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Video, MessageCircle, Users, Dumbbell } from "lucide-react";
+import { Video, MessageCircle, Users, Dumbbell, Bell, ArrowRight } from "lucide-react";
 import { sbGet } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -49,6 +49,9 @@ const AdminDashboard = () => {
   const [clients, setClients] = useState<Profile[]>([]);
   const [checks, setChecks] = useState<FormCheck[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [pendingAssessmentClients, setPendingAssessmentClients] = useState<
+    { client_id: string; videoCount: number; firstName: string | null }[]
+  >([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -65,12 +68,36 @@ const AdminDashboard = () => {
       sbGet<Comment[]>(
         "exercise_comments?select=*,profiles(first_name,last_name)&order=created_at.desc&limit=200"
       ),
+      sbGet<Array<{ client_id: string }>>(
+        "assessment_videos?select=client_id"
+      ),
+      sbGet<Array<{ client_id: string }>>(
+        "client_level_assessments?select=client_id"
+      ),
     ])
-      .then(([p, c, f, co]) => {
+      .then(([p, c, f, co, videos, reviews]) => {
         setPrograms(p);
         setClients(c);
         setChecks(f);
         setComments(co);
+
+        // Count assessment videos per client and flag those with no
+        // coach validation rows yet as "pending review".
+        const counts = new Map<string, number>();
+        for (const v of videos) counts.set(v.client_id, (counts.get(v.client_id) ?? 0) + 1);
+        const reviewed = new Set(reviews.map((r) => r.client_id));
+        const pendingList: typeof pendingAssessmentClients = [];
+        for (const [clientId, videoCount] of counts) {
+          if (!reviewed.has(clientId)) {
+            const profile = c.find((x) => x.id === clientId);
+            pendingList.push({
+              client_id: clientId,
+              videoCount,
+              firstName: profile?.first_name ?? null,
+            });
+          }
+        }
+        setPendingAssessmentClients(pendingList);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -152,6 +179,46 @@ const AdminDashboard = () => {
           Hi {profile?.first_name ?? "Coach"}
         </h1>
       </div>
+
+      {/* Assessment review alert */}
+      {pendingAssessmentClients.length > 0 && (
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+              <Bell size={18} className="text-amber-700" />
+            </div>
+            <div>
+              <p className="font-heading font-bold">
+                {pendingAssessmentClients.length} assessment
+                {pendingAssessmentClients.length > 1 ? "s" : ""} waiting for your review
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {pendingAssessmentClients
+                  .slice(0, 3)
+                  .map((c) => `${c.firstName ?? "Client"} (${c.videoCount} video${c.videoCount > 1 ? "s" : ""})`)
+                  .join(" · ")}
+                {pendingAssessmentClients.length > 3 &&
+                  ` · +${pendingAssessmentClients.length - 3} more`}
+              </p>
+            </div>
+          </div>
+          {pendingAssessmentClients.length === 1 ? (
+            <Link
+              to={`/app/admin/clients/${pendingAssessmentClients[0].client_id}/intake`}
+              className="inline-flex items-center gap-1 text-sm font-semibold bg-amber-700 text-white rounded-full px-4 py-2 hover:bg-amber-800"
+            >
+              Review now <ArrowRight size={14} />
+            </Link>
+          ) : (
+            <Link
+              to="/app/admin/clients"
+              className="inline-flex items-center gap-1 text-sm font-semibold bg-amber-700 text-white rounded-full px-4 py-2 hover:bg-amber-800"
+            >
+              Open clients <ArrowRight size={14} />
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* Stats cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
