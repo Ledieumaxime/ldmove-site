@@ -9,6 +9,8 @@ import {
   CheckCircle2,
   Wrench,
   Lock,
+  Play,
+  ChevronDown,
 } from "lucide-react";
 import { sbGet, sbPatch, sbPost } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -355,7 +357,6 @@ const AdminClientIntake = () => {
           )}
 
           <Section title="Basic info">
-            <Row label="Full name" value={`${intake.first_name ?? ""} ${intake.last_name ?? ""}`} />
             <Row label="Gender" value={intake.gender} />
             <Row label="Age" value={intake.age != null ? `${intake.age} yrs` : null} />
             <Row label="Weight" value={intake.weight_kg != null ? `${intake.weight_kg} kg` : null} />
@@ -372,80 +373,6 @@ const AdminClientIntake = () => {
             <Row label="Sessions per week now" value={intake.sessions_per_week} />
           </Section>
 
-          <Section title="Goals">
-            <Row label="Main goal" value={intake.main_goal} />
-            <Row label="Specific skills to learn" value={intake.specific_skills?.join(", ")} />
-            <Row label="Timeframe for results" value={intake.timeframe} />
-            <Row label="Additional information" value={intake.additional_info} />
-          </Section>
-
-          {/* Coach review: declared + video + coach validation for each verifiable field */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div>
-                <h2 className="font-heading text-2xl font-bold">Coach review</h2>
-                <p className="text-sm text-muted-foreground">
-                  {intake.locked_at
-                    ? "This review is archived — client sees it in their space."
-                    : "Compare what the client declared with what the videos show. Fill Actual level and notes for each verifiable skill — these take priority when building programs."}
-                </p>
-              </div>
-              {!intake.locked_at && (
-                <Button
-                  onClick={saveAll}
-                  disabled={saving || dirty.size === 0}
-                  className="gap-2"
-                >
-                  {saving ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Save size={16} />
-                  )}
-                  {saving
-                    ? "Saving…"
-                    : dirty.size > 0
-                      ? `Save ${dirty.size} change${dirty.size > 1 ? "s" : ""}`
-                      : "Saved"}
-                </Button>
-              )}
-            </div>
-            {saveMsg && (
-              <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm text-green-800">
-                {saveMsg}
-              </div>
-            )}
-            {!intake.locked_at && (
-              <div className="bg-white border border-border rounded-xl p-4 flex items-start justify-between gap-3 flex-wrap">
-                <div className="text-sm">
-                  <p className="font-semibold mb-0.5">Ready to archive?</p>
-                  <p className="text-muted-foreground">
-                    Freeze this onboarding as the client's T0 snapshot. After
-                    locking, neither you nor the client can edit intake answers
-                    or assessment videos from the app.
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={lockOnboarding}
-                  disabled={locking || dirty.size > 0}
-                  className="gap-2"
-                  title={
-                    dirty.size > 0
-                      ? "Save your review changes first"
-                      : undefined
-                  }
-                >
-                  {locking ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Lock size={16} />
-                  )}
-                  {locking ? "Archiving…" : "Archive & lock onboarding"}
-                </Button>
-              </div>
-            )}
-          </div>
-
           {(["strength", "skills", "mobility"] as const).map((section) => {
             const fields = VERIFIABLE_FIELDS.filter(
               (f) =>
@@ -456,24 +383,77 @@ const AdminClientIntake = () => {
             if (!fields.length) return null;
             return (
               <Section key={section} title={sectionTitle(section)}>
-                <div className="divide-y divide-border -mt-1">
-                  {fields.map((f) => (
-                    <FieldReviewRow
-                      key={f.field}
-                      field={f.field}
-                      label={f.label}
-                      declared={intake[f.field] as string | null}
-                      options={INTAKE_OPTIONS[f.field] as readonly string[]}
-                      videoUrl={f.exerciseN ? signedUrls[f.exerciseN] : undefined}
-                      assessment={assessments[f.field]}
-                      onChange={(patch) => updateField(f.field, patch)}
-                      locked={!!intake.locked_at}
-                    />
-                  ))}
-                </div>
+                {fields.map((f) => (
+                  <FieldReviewRow
+                    key={f.field}
+                    field={f.field}
+                    label={f.label}
+                    declared={intake[f.field] as string | null}
+                    options={INTAKE_OPTIONS[f.field] as readonly string[]}
+                    videoUrl={f.exerciseN ? signedUrls[f.exerciseN] : undefined}
+                    assessment={assessments[f.field]}
+                    onChange={(patch) => updateField(f.field, patch)}
+                    locked={!!intake.locked_at}
+                  />
+                ))}
               </Section>
             );
           })}
+
+          <Section title="Goals">
+            <Row label="Main goal" value={intake.main_goal} />
+            <Row label="Specific skills to learn" value={intake.specific_skills?.join(", ")} />
+            <Row label="Timeframe for results" value={intake.timeframe} />
+            <Row label="Additional information" value={intake.additional_info} />
+          </Section>
+
+          {saveMsg && (
+            <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm text-green-800">
+              {saveMsg}
+            </div>
+          )}
+
+          {!intake.locked_at && (
+            <div className="sticky bottom-4 z-10 bg-white border border-border rounded-2xl shadow-lg p-4 space-y-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <p className="text-sm text-muted-foreground">
+                  {dirty.size > 0
+                    ? `${dirty.size} unsaved change${dirty.size > 1 ? "s" : ""}`
+                    : "All changes saved"}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={saveAll}
+                    disabled={saving || dirty.size === 0}
+                    className="gap-2"
+                  >
+                    {saving ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Save size={16} />
+                    )}
+                    {saving ? "Saving…" : "Save"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={lockOnboarding}
+                    disabled={locking || dirty.size > 0}
+                    className="gap-2"
+                    title={
+                      dirty.size > 0 ? "Save your review changes first" : undefined
+                    }
+                  >
+                    {locking ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Lock size={16} />
+                    )}
+                    {locking ? "Archiving…" : "Archive & lock"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -486,14 +466,14 @@ const sectionTitle = (s: "strength" | "skills" | "mobility") =>
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <section className="bg-white rounded-2xl border border-border overflow-hidden">
     <h2 className="font-heading text-lg font-bold px-5 pt-4">{title}</h2>
-    <div className="px-0 pb-0">{children}</div>
+    <div>{children}</div>
   </section>
 );
 
 const Row = ({ label, value }: { label: string; value: string | null | undefined }) => {
   const isEmpty = !value || value.trim() === "" || value.trim() === ",";
   return (
-    <div className="grid sm:grid-cols-3 gap-2 px-5 py-3 border-t border-border first:border-t-0">
+    <div className="grid sm:grid-cols-3 gap-2 px-5 py-3 border-t border-border first:border-t-0 first:mt-3">
       <dt className="text-xs font-semibold text-muted-foreground uppercase tracking-wide sm:col-span-1">
         {label}
       </dt>
@@ -530,96 +510,131 @@ const FieldReviewRow = ({
   const actual = assessment?.actual_value ?? "";
   const notes = assessment?.notes ?? "";
   const reviewed = assessment?.status ?? null;
+  const [videoOpen, setVideoOpen] = useState(false);
 
   return (
-    <div className="px-5 py-4 border-t border-border first:border-t-0 space-y-3">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div>
+    <div className="px-5 py-4 border-t border-border first:border-t-0 first:mt-3 space-y-3">
+      <div className="flex items-start justify-between gap-2 flex-wrap">
+        <div className="min-w-0">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
             {label}
           </p>
-          <p className="text-sm">
-            <span className="text-muted-foreground">Declared:</span>{" "}
-            <span className="font-semibold">{declared || "—"}</span>
-          </p>
+          <p className="text-sm mt-0.5 font-semibold">{declared || "—"}</p>
         </div>
+        {reviewed === "validated" && (
+          <div className="inline-flex items-center gap-1.5 text-xs font-semibold bg-green-100 text-green-800 rounded-full px-2.5 py-1 shrink-0">
+            <CheckCircle2 size={12} /> Validated
+          </div>
+        )}
+        {reviewed === "needs_work" && (
+          <div className="inline-flex items-center gap-1.5 text-xs font-semibold bg-amber-100 text-amber-800 rounded-full px-2.5 py-1 shrink-0">
+            <Wrench size={12} /> To work on
+          </div>
+        )}
       </div>
 
-      {videoUrl && (
-        <video src={videoUrl} controls className="w-full rounded-lg bg-black max-h-[280px]" />
+      {!locked && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => onChange({ status: "validated" })}
+            className={`text-xs px-3 py-1.5 rounded-full border transition-colors inline-flex items-center gap-1.5 ${
+              reviewed === "validated"
+                ? "bg-green-50 border-green-400 text-green-800 font-semibold"
+                : "bg-white border-border text-muted-foreground hover:border-green-500"
+            }`}
+          >
+            <CheckCircle2 size={12} /> Validated
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange({ status: "needs_work" })}
+            className={`text-xs px-3 py-1.5 rounded-full border transition-colors inline-flex items-center gap-1.5 ${
+              reviewed === "needs_work"
+                ? "bg-amber-50 border-amber-400 text-amber-800 font-semibold"
+                : "bg-white border-border text-muted-foreground hover:border-amber-500"
+            }`}
+          >
+            <Wrench size={12} /> To work on
+          </button>
+        </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={locked}
-          onClick={() => onChange({ status: "validated" })}
-          className={`text-sm px-4 py-2 rounded-full border transition-colors inline-flex items-center gap-1.5 ${
-            reviewed === "validated"
-              ? "bg-green-100 border-green-500 text-green-800 font-semibold"
-              : "bg-white border-border hover:border-green-500"
-          } ${locked ? "opacity-70 cursor-not-allowed hover:border-border" : ""}`}
-        >
-          <CheckCircle2 size={14} /> Validated
-        </button>
-        <button
-          type="button"
-          disabled={locked}
-          onClick={() => onChange({ status: "needs_work" })}
-          className={`text-sm px-4 py-2 rounded-full border transition-colors inline-flex items-center gap-1.5 ${
-            reviewed === "needs_work"
-              ? "bg-amber-100 border-amber-500 text-amber-800 font-semibold"
-              : "bg-white border-border hover:border-amber-500"
-          } ${locked ? "opacity-70 cursor-not-allowed hover:border-border" : ""}`}
-        >
-          <Wrench size={14} /> Technique to work on
-        </button>
-      </div>
+      {reviewed === "needs_work" && (
+        <div>
+          <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+            Actual level (if different from declared)
+          </label>
+          <select
+            value={actual}
+            disabled={locked}
+            onChange={(e) => onChange({ actual_value: e.target.value || null })}
+            className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-sm disabled:bg-muted disabled:cursor-not-allowed"
+          >
+            <option value="">— same as declared —</option>
+            {options.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {reviewed && (
         <div
-          className={`space-y-3 rounded-lg p-3 border ${
+          className={`rounded-lg p-3 border ${
             reviewed === "needs_work"
-              ? "bg-amber-50/40 border-amber-100"
-              : "bg-green-50/40 border-green-100"
+              ? "bg-amber-50/60 border-amber-100"
+              : "bg-green-50/60 border-green-100"
           }`}
         >
-          {reviewed === "needs_work" && (
-            <div>
-              <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                Actual level (if different from declared)
-              </label>
-              <select
-                value={actual}
-                disabled={locked}
-                onChange={(e) => onChange({ actual_value: e.target.value || null })}
-                className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-sm disabled:bg-muted disabled:cursor-not-allowed"
-              >
-                <option value="">— same as declared —</option>
-                {options.map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div>
-            <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-              Comment for the client
-            </label>
-            <Textarea
-              rows={2}
-              value={notes}
-              disabled={locked}
-              onChange={(e) => onChange({ notes: e.target.value })}
-              placeholder={
-                reviewed === "needs_work"
-                  ? "What the video shows, what the client still needs to work on…"
-                  : "Optional — encouragement, cue to keep in mind, next step…"
-              }
+          <label
+            className={`block text-[11px] font-semibold uppercase tracking-wide mb-1 ${
+              reviewed === "needs_work" ? "text-amber-900" : "text-green-900"
+            }`}
+          >
+            Coach note
+          </label>
+          <Textarea
+            rows={2}
+            value={notes}
+            disabled={locked}
+            onChange={(e) => onChange({ notes: e.target.value })}
+            placeholder={
+              reviewed === "needs_work"
+                ? "What the video shows, what the client still needs to work on…"
+                : "Optional — encouragement, cue to keep in mind, next step…"
+            }
+            className="bg-white"
+          />
+        </div>
+      )}
+
+      {videoUrl && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setVideoOpen((v) => !v)}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border border-border hover:border-accent/60 transition-colors"
+          >
+            {videoOpen ? (
+              <>
+                <ChevronDown size={12} /> Hide video
+              </>
+            ) : (
+              <>
+                <Play size={12} className="fill-current" /> Show video
+              </>
+            )}
+          </button>
+          {videoOpen && (
+            <video
+              src={videoUrl}
+              controls
+              className="w-full rounded-lg bg-black max-h-[320px] mt-3"
             />
-          </div>
+          )}
         </div>
       )}
     </div>

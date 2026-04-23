@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Archive,
+  Trophy,
   Loader2,
   Video as VideoIcon,
   ClipboardList,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { sbGet } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -80,6 +82,8 @@ const ClientArchive = () => {
   const [assessmentUrls, setAssessmentUrls] = useState<Record<string, string>>({});
   const [progressUrls, setProgressUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [assessmentOpen, setAssessmentOpen] = useState(false);
+  const [achievementsOpen, setAchievementsOpen] = useState(true);
 
   useEffect(() => {
     if (!user) return;
@@ -175,96 +179,123 @@ const ClientArchive = () => {
       </div>
 
       {hasProgress && (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Archive size={18} className="text-amber-700" />
-            <h2 className="font-heading text-xl font-bold">Progress milestones</h2>
+        <section className="bg-white border border-border rounded-2xl overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setAchievementsOpen((v) => !v)}
+            className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted/30 transition-colors"
+          >
+            <Trophy size={18} className="text-amber-700" />
+            <span className="font-heading text-xl font-bold flex-1 text-left">
+              Skill achievements
+            </span>
             <span className="text-xs bg-amber-100 text-amber-800 rounded-full px-2 py-0.5 font-semibold">
               {progress.length}
             </span>
-          </div>
-          <div className="space-y-3">
-            {progress.map((p) => (
-              <div key={p.id} className="bg-white border border-border rounded-xl p-4">
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <p className="font-heading font-bold text-sm">
-                    {p.archived_note ?? "Progress milestone"}
-                  </p>
-                  <span className="text-[11px] text-muted-foreground">
-                    {new Date(p.archived_at ?? p.created_at).toLocaleDateString("en-US", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </span>
+            {achievementsOpen ? (
+              <ChevronDown size={18} className="text-muted-foreground" />
+            ) : (
+              <ChevronRight size={18} className="text-muted-foreground" />
+            )}
+          </button>
+          {achievementsOpen && (
+            <div className="px-5 pb-5 space-y-3 border-t border-border pt-4">
+              {progress.map((p) => (
+                <div key={p.id} className="bg-muted/30 border border-border rounded-xl p-4">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <p className="font-heading font-bold text-sm">
+                      {p.archived_note ?? "Skill achievement"}
+                    </p>
+                    <span className="text-[11px] text-muted-foreground">
+                      {new Date(p.archived_at ?? p.created_at).toLocaleDateString("en-US", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
+                  {progressUrls[p.id] ? (
+                    <video
+                      src={progressUrls[p.id]}
+                      controls
+                      className="w-full rounded-lg bg-black max-h-[360px]"
+                    />
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic">Video unavailable.</p>
+                  )}
                 </div>
-                {progressUrls[p.id] ? (
-                  <video
-                    src={progressUrls[p.id]}
-                    controls
-                    className="w-full rounded-lg bg-black max-h-[360px]"
-                  />
-                ) : (
-                  <p className="text-xs text-muted-foreground italic">Video unavailable.</p>
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
       {hasAssessment && (
-        <section className="space-y-4">
-          <div className="flex items-center gap-2 flex-wrap">
+        <section className="bg-white border border-border rounded-2xl overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setAssessmentOpen((v) => !v)}
+            className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted/30 transition-colors"
+          >
             <ClipboardList size={18} className="text-sky-700" />
-            <h2 className="font-heading text-xl font-bold">Initial assessment</h2>
+            <span className="font-heading text-xl font-bold flex-1 text-left">
+              Initial assessment
+            </span>
             <span className="text-xs bg-sky-100 text-sky-800 rounded-full px-2 py-0.5 font-semibold">
               {assessments.length}
             </span>
-          </div>
-
-          {sections.map((s) => {
-            const list = assessmentBySection[s];
-            if (!list.length) return null;
-            return (
-              <div key={s} className="space-y-3">
-                <h3 className="font-body text-xs uppercase tracking-widest text-muted-foreground">
-                  {SECTION_LABEL[s]}
-                </h3>
-                <div className="space-y-3">
-                  {list.map(({ exercise, video }) => (
-                    <div
-                      key={video.id}
-                      className="bg-white border border-border rounded-xl p-4"
-                    >
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <p className="font-heading font-bold uppercase tracking-wide text-sm">
-                          <span className="text-accent mr-2">#{exercise.n}</span>
-                          {exercise.name}
-                        </p>
-                        <span className="text-[11px] text-muted-foreground shrink-0">
-                          {new Date(video.uploaded_at).toLocaleDateString("en-US", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </span>
-                      </div>
-                      {assessmentUrls[video.id] ? (
-                        <video
-                          src={assessmentUrls[video.id]}
-                          controls
-                          className="w-full rounded-lg bg-black max-h-[320px]"
-                        />
-                      ) : (
-                        <p className="text-xs text-muted-foreground italic">Video unavailable.</p>
-                      )}
+            {assessmentOpen ? (
+              <ChevronDown size={18} className="text-muted-foreground" />
+            ) : (
+              <ChevronRight size={18} className="text-muted-foreground" />
+            )}
+          </button>
+          {assessmentOpen && (
+            <div className="px-5 pb-5 space-y-5 border-t border-border pt-4">
+              {sections.map((s) => {
+                const list = assessmentBySection[s];
+                if (!list.length) return null;
+                return (
+                  <div key={s} className="space-y-3">
+                    <h3 className="font-body text-xs uppercase tracking-widest text-muted-foreground">
+                      {SECTION_LABEL[s]}
+                    </h3>
+                    <div className="space-y-3">
+                      {list.map(({ exercise, video }) => (
+                        <div
+                          key={video.id}
+                          className="bg-muted/30 border border-border rounded-xl p-4"
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <p className="font-heading font-bold uppercase tracking-wide text-sm">
+                              <span className="text-accent mr-2">#{exercise.n}</span>
+                              {exercise.name}
+                            </p>
+                            <span className="text-[11px] text-muted-foreground shrink-0">
+                              {new Date(video.uploaded_at).toLocaleDateString("en-US", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </span>
+                          </div>
+                          {assessmentUrls[video.id] ? (
+                            <video
+                              src={assessmentUrls[video.id]}
+                              controls
+                              className="w-full rounded-lg bg-black max-h-[320px]"
+                            />
+                          ) : (
+                            <p className="text-xs text-muted-foreground italic">Video unavailable.</p>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
       )}
     </div>
