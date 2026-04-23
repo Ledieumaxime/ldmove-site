@@ -233,12 +233,14 @@ const AdminClientIntake = () => {
           actual_value: null,
           notes: null,
         };
+        // Normalise empties back to null so the client's read-only view
+        // doesn't render stale boxes for whitespace-only overrides or notes.
         return {
           client_id: client.id,
           field_name: fn,
           status: a.status,
-          actual_value: a.actual_value,
-          notes: a.notes,
+          actual_value: a.actual_value && a.actual_value.trim() ? a.actual_value : null,
+          notes: a.notes && a.notes.trim() ? a.notes : null,
         };
       });
       const res = await fetch(
@@ -511,9 +513,17 @@ const FieldReviewRow = ({
   const notes = assessment?.notes ?? "";
   const reviewed = assessment?.status ?? null;
   const [videoOpen, setVideoOpen] = useState(false);
+  const [noteEditing, setNoteEditing] = useState(false);
+  const [levelEditing, setLevelEditing] = useState(false);
+
+  const hasNote = notes.trim() !== "";
+  const actualDiffers = actual !== "" && actual !== declared;
+  const showNoteBox = hasNote || noteEditing;
+  const showLevelControl = actualDiffers || levelEditing;
 
   return (
     <div className="px-5 py-4 border-t border-border first:border-t-0 first:mt-3 space-y-3">
+      {/* Header — matches the client SkillRow: label, declared answer, badge */}
       <div className="flex items-start justify-between gap-2 flex-wrap">
         <div className="min-w-0">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
@@ -533,8 +543,76 @@ const FieldReviewRow = ({
         )}
       </div>
 
+      {/* Actual level override — shown either because it's set or the coach opened it */}
+      {reviewed === "needs_work" && showLevelControl && (
+        <div>
+          <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+            Actual level (if different from declared)
+          </label>
+          <select
+            value={actual}
+            disabled={locked}
+            autoFocus={levelEditing && !actualDiffers}
+            onChange={(e) => onChange({ actual_value: e.target.value || null })}
+            className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-sm disabled:bg-muted disabled:cursor-not-allowed"
+          >
+            <option value="">— same as declared —</option>
+            {options.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Coach note box — only when there's content (matches client) or the coach opened it */}
+      {reviewed && showNoteBox && (
+        <div
+          className={`rounded-lg p-3 border ${
+            reviewed === "needs_work"
+              ? "bg-amber-50/60 border-amber-100"
+              : "bg-green-50/60 border-green-100"
+          }`}
+        >
+          <label
+            className={`block text-[11px] font-semibold uppercase tracking-wide mb-1 ${
+              reviewed === "needs_work" ? "text-amber-900" : "text-green-900"
+            }`}
+          >
+            Coach note
+          </label>
+          {locked ? (
+            <p
+              className={`text-xs whitespace-pre-wrap ${
+                reviewed === "needs_work" ? "text-amber-900" : "text-green-900"
+              }`}
+            >
+              {notes}
+            </p>
+          ) : (
+            <Textarea
+              rows={2}
+              value={notes}
+              autoFocus={noteEditing && !hasNote}
+              onChange={(e) => onChange({ notes: e.target.value })}
+              onBlur={() => {
+                if (!notes.trim()) setNoteEditing(false);
+              }}
+              placeholder={
+                reviewed === "needs_work"
+                  ? "What the video shows, what the client still needs to work on…"
+                  : "Optional — encouragement, cue to keep in mind, next step…"
+              }
+              className="bg-white"
+            />
+          )}
+        </div>
+      )}
+
+      {/* Action bar — only when unlocked. Status toggles + optional add-note / override-level + video toggle */}
       {!locked && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
           <button
             type="button"
             onClick={() => onChange({ status: "validated" })}
@@ -557,60 +635,29 @@ const FieldReviewRow = ({
           >
             <Wrench size={12} /> To work on
           </button>
+
+          {reviewed && !showNoteBox && (
+            <button
+              type="button"
+              onClick={() => setNoteEditing(true)}
+              className="text-xs px-3 py-1.5 rounded-full border border-dashed border-border text-muted-foreground hover:border-accent/60 hover:text-foreground transition-colors"
+            >
+              + Add note
+            </button>
+          )}
+          {reviewed === "needs_work" && !showLevelControl && (
+            <button
+              type="button"
+              onClick={() => setLevelEditing(true)}
+              className="text-xs px-3 py-1.5 rounded-full border border-dashed border-border text-muted-foreground hover:border-accent/60 hover:text-foreground transition-colors"
+            >
+              + Override level
+            </button>
+          )}
         </div>
       )}
 
-      {reviewed === "needs_work" && (
-        <div>
-          <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-            Actual level (if different from declared)
-          </label>
-          <select
-            value={actual}
-            disabled={locked}
-            onChange={(e) => onChange({ actual_value: e.target.value || null })}
-            className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-sm disabled:bg-muted disabled:cursor-not-allowed"
-          >
-            <option value="">— same as declared —</option>
-            {options.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {reviewed && (
-        <div
-          className={`rounded-lg p-3 border ${
-            reviewed === "needs_work"
-              ? "bg-amber-50/60 border-amber-100"
-              : "bg-green-50/60 border-green-100"
-          }`}
-        >
-          <label
-            className={`block text-[11px] font-semibold uppercase tracking-wide mb-1 ${
-              reviewed === "needs_work" ? "text-amber-900" : "text-green-900"
-            }`}
-          >
-            Coach note
-          </label>
-          <Textarea
-            rows={2}
-            value={notes}
-            disabled={locked}
-            onChange={(e) => onChange({ notes: e.target.value })}
-            placeholder={
-              reviewed === "needs_work"
-                ? "What the video shows, what the client still needs to work on…"
-                : "Optional — encouragement, cue to keep in mind, next step…"
-            }
-            className="bg-white"
-          />
-        </div>
-      )}
-
+      {/* Video toggle — identical to client */}
       {videoUrl && (
         <div>
           <button
