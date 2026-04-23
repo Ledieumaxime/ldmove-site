@@ -163,8 +163,8 @@ const ClientArchive = () => {
           My progress videos
         </h1>
         <p className="font-body text-muted-foreground leading-relaxed mt-2">
-          Your initial assessment videos plus every progress milestone your coach
-          archives. Come back any time to see how far you've come.
+          Every video you've shared with Maxime, in one place — from your first
+          assessment to your latest progress.
         </p>
       </div>
 
