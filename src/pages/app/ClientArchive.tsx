@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import {
   Trophy,
   Loader2,
-  Video as VideoIcon,
   ClipboardList,
   ChevronDown,
   ChevronRight,
@@ -131,24 +130,6 @@ const ClientArchive = () => {
   const hasAssessment = assessments.length > 0;
   const hasProgress = progress.length > 0;
 
-  if (!hasAssessment && !hasProgress) {
-    return (
-      <div className="max-w-xl mx-auto bg-white border border-border rounded-2xl p-8 text-center space-y-3">
-        <div className="w-12 h-12 mx-auto rounded-full bg-muted flex items-center justify-center">
-          <VideoIcon className="text-muted-foreground" size={22} />
-        </div>
-        <h1 className="font-heading text-2xl font-bold">Your archive is empty</h1>
-        <p className="text-sm text-muted-foreground">
-          Your assessment videos will appear here once you send them. Later, every
-          progress video your coach archives will land here too.
-        </p>
-        <Button asChild>
-          <Link to="/app/onboarding/assessment">Go to assessment</Link>
-        </Button>
-      </div>
-    );
-  }
-
   // Group assessment videos by section for readability
   const byExercise = new Map<number, AssessmentVideo>(
     assessments.map((v) => [v.exercise_number, v])
@@ -178,29 +159,29 @@ const ClientArchive = () => {
         </p>
       </div>
 
-      {hasProgress && (
-        <section className="bg-white border border-border rounded-2xl overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setAchievementsOpen((v) => !v)}
-            className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted/30 transition-colors"
-          >
-            <Trophy size={18} className="text-amber-700" />
-            <span className="font-heading text-xl font-bold flex-1 text-left">
-              Skill achievements
-            </span>
-            <span className="text-xs bg-amber-100 text-amber-800 rounded-full px-2 py-0.5 font-semibold">
-              {progress.length}
-            </span>
-            {achievementsOpen ? (
-              <ChevronDown size={18} className="text-muted-foreground" />
-            ) : (
-              <ChevronRight size={18} className="text-muted-foreground" />
-            )}
-          </button>
-          {achievementsOpen && (
-            <div className="px-5 pb-5 space-y-3 border-t border-border pt-4">
-              {progress.map((p) => (
+      <section className="bg-white border border-border rounded-2xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setAchievementsOpen((v) => !v)}
+          className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted/30 transition-colors"
+        >
+          <Trophy size={18} className="text-amber-700" />
+          <span className="font-heading text-xl font-bold flex-1 text-left">
+            Skill achievements
+          </span>
+          <span className="text-xs bg-amber-100 text-amber-800 rounded-full px-2 py-0.5 font-semibold">
+            {progress.length}
+          </span>
+          {achievementsOpen ? (
+            <ChevronDown size={18} className="text-muted-foreground" />
+          ) : (
+            <ChevronRight size={18} className="text-muted-foreground" />
+          )}
+        </button>
+        {achievementsOpen && (
+          <div className="px-5 pb-5 space-y-3 border-t border-border pt-4">
+            {hasProgress ? (
+              progress.map((p) => (
                 <div key={p.id} className="bg-muted/30 border border-border rounded-xl p-4">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <p className="font-heading font-bold text-sm">
@@ -224,35 +205,40 @@ const ClientArchive = () => {
                     <p className="text-xs text-muted-foreground italic">Video unavailable.</p>
                   )}
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      {hasAssessment && (
-        <section className="bg-white border border-border rounded-2xl overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setAssessmentOpen((v) => !v)}
-            className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted/30 transition-colors"
-          >
-            <ClipboardList size={18} className="text-sky-700" />
-            <span className="font-heading text-xl font-bold flex-1 text-left">
-              Initial assessment
-            </span>
-            <span className="text-xs bg-sky-100 text-sky-800 rounded-full px-2 py-0.5 font-semibold">
-              {assessments.length}
-            </span>
-            {assessmentOpen ? (
-              <ChevronDown size={18} className="text-muted-foreground" />
+              ))
             ) : (
-              <ChevronRight size={18} className="text-muted-foreground" />
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                No achievements yet. Every time Maxime sees a clean rep on one of
+                your form-check videos, he archives it here as a milestone.
+              </p>
             )}
-          </button>
-          {assessmentOpen && (
-            <div className="px-5 pb-5 space-y-5 border-t border-border pt-4">
-              {sections.map((s) => {
+          </div>
+        )}
+      </section>
+
+      <section className="bg-white border border-border rounded-2xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setAssessmentOpen((v) => !v)}
+          className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted/30 transition-colors"
+        >
+          <ClipboardList size={18} className="text-sky-700" />
+          <span className="font-heading text-xl font-bold flex-1 text-left">
+            Initial assessment
+          </span>
+          <span className="text-xs bg-sky-100 text-sky-800 rounded-full px-2 py-0.5 font-semibold">
+            {assessments.length}
+          </span>
+          {assessmentOpen ? (
+            <ChevronDown size={18} className="text-muted-foreground" />
+          ) : (
+            <ChevronRight size={18} className="text-muted-foreground" />
+          )}
+        </button>
+        {assessmentOpen && (
+          <div className="px-5 pb-5 space-y-5 border-t border-border pt-4">
+            {hasAssessment ? (
+              sections.map((s) => {
                 const list = assessmentBySection[s];
                 if (!list.length) return null;
                 return (
@@ -293,11 +279,20 @@ const ClientArchive = () => {
                     </div>
                   </div>
                 );
-              })}
-            </div>
-          )}
-        </section>
-      )}
+              })
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  You haven't sent your assessment videos yet.
+                </p>
+                <Button asChild size="sm">
+                  <Link to="/app/onboarding/assessment">Go to assessment</Link>
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
     </div>
   );
 };
