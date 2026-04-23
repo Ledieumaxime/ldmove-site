@@ -10,12 +10,7 @@ import {
 import { sbGet } from "@/integrations/supabase/api";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  INTAKE_OPTIONS,
-  VERIFIABLE_FIELDS,
-  STATUS_LABELS,
-  AssessmentStatus,
-} from "@/lib/intakeOptions";
+import { INTAKE_OPTIONS, VERIFIABLE_FIELDS } from "@/lib/intakeOptions";
 
 type Intake = {
   client_id: string;
@@ -75,7 +70,6 @@ type AssessmentVideo = {
 type LevelAssessment = {
   field_name: string;
   actual_value: string | null;
-  status: AssessmentStatus | null;
   notes: string | null;
 };
 
@@ -119,7 +113,7 @@ const AdminClientIntake = () => {
             `assessment_videos?client_id=eq.${id}&select=id,exercise_number,video_path`
           ),
           sbGet<LevelAssessment[]>(
-            `client_level_assessments?client_id=eq.${id}&select=field_name,actual_value,status,notes`
+            `client_level_assessments?client_id=eq.${id}&select=field_name,actual_value,notes`
           ),
         ]);
         setClient(c[0] ?? null);
@@ -174,7 +168,6 @@ const AdminClientIntake = () => {
       const current = prev[fieldName] ?? {
         field_name: fieldName,
         actual_value: null,
-        status: null,
         notes: null,
       };
       return { ...prev, [fieldName]: { ...current, ...patch, field_name: fieldName } };
@@ -193,14 +186,12 @@ const AdminClientIntake = () => {
         const a = assessments[fn] ?? {
           field_name: fn,
           actual_value: null,
-          status: null,
           notes: null,
         };
         return {
           client_id: client.id,
           field_name: fn,
           actual_value: a.actual_value,
-          status: a.status,
           notes: a.notes,
         };
       });
@@ -332,7 +323,7 @@ const AdminClientIntake = () => {
                 <h2 className="font-heading text-2xl font-bold">Coach review</h2>
                 <p className="text-sm text-muted-foreground">
                   Compare what the client declared with what the videos show. Fill
-                  Actual / Status / Notes for each verifiable skill — these take
+                  Actual level and notes for each verifiable skill — these take
                   priority when building programs.
                 </p>
               </div>
@@ -433,7 +424,6 @@ const FieldReviewRow = ({
   onChange: (patch: Partial<LevelAssessment>) => void;
 }) => {
   const actual = assessment?.actual_value ?? "";
-  const status = assessment?.status ?? "";
   const notes = assessment?.notes ?? "";
 
   return (
@@ -459,49 +449,22 @@ const FieldReviewRow = ({
         <video src={videoUrl} controls className="w-full rounded-lg bg-black max-h-[280px]" />
       )}
 
-      <div className="grid md:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-            Actual level
-          </label>
-          <select
-            value={actual}
-            onChange={(e) => onChange({ actual_value: e.target.value || null })}
-            className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-sm"
-          >
-            <option value="">— same as declared —</option>
-            {options.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-            Status
-          </label>
-          <div className="flex flex-wrap gap-1.5">
-            {(Object.keys(STATUS_LABELS) as AssessmentStatus[]).map((s) => {
-              const active = status === s;
-              const meta = STATUS_LABELS[s];
-              return (
-                <button
-                  type="button"
-                  key={s}
-                  onClick={() => onChange({ status: active ? null : s })}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                    active
-                      ? "bg-accent text-white border-accent"
-                      : "bg-white border-border hover:border-accent/50"
-                  }`}
-                >
-                  {meta.emoji} {meta.short}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+      <div>
+        <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+          Actual level
+        </label>
+        <select
+          value={actual}
+          onChange={(e) => onChange({ actual_value: e.target.value || null })}
+          className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-sm"
+        >
+          <option value="">— same as declared —</option>
+          {options.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div>
