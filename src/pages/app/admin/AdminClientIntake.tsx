@@ -73,8 +73,11 @@ type AssessmentVideo = {
   video_path: string;
 };
 
+type AssessmentStatus = "validated" | "needs_work";
+
 type LevelAssessment = {
   field_name: string;
+  status: AssessmentStatus | null;
   actual_value: string | null;
   notes: string | null;
 };
@@ -121,7 +124,7 @@ const AdminClientIntake = () => {
             `assessment_videos?client_id=eq.${id}&select=id,exercise_number,video_path`
           ),
           sbGet<LevelAssessment[]>(
-            `client_level_assessments?client_id=eq.${id}&select=field_name,actual_value,notes`
+            `client_level_assessments?client_id=eq.${id}&select=field_name,status,actual_value,notes`
           ),
         ]);
         setClient(c[0] ?? null);
@@ -175,6 +178,7 @@ const AdminClientIntake = () => {
     setAssessments((prev) => {
       const current = prev[fieldName] ?? {
         field_name: fieldName,
+        status: null,
         actual_value: null,
         notes: null,
       };
@@ -215,12 +219,14 @@ const AdminClientIntake = () => {
       const rows = [...dirty].map((fn) => {
         const a = assessments[fn] ?? {
           field_name: fn,
+          status: null,
           actual_value: null,
           notes: null,
         };
         return {
           client_id: client.id,
           field_name: fn,
+          status: a.status,
           actual_value: a.actual_value,
           notes: a.notes,
         };
@@ -515,17 +521,7 @@ const FieldReviewRow = ({
 }) => {
   const actual = assessment?.actual_value ?? "";
   const notes = assessment?.notes ?? "";
-
-  // Derive review state from what's saved:
-  // - a row exists with actual null AND notes null => validated as-is
-  // - a row exists with actual OR notes set       => needs work
-  // - no row yet                                  => not reviewed
-  const reviewed =
-    assessment && (assessment.actual_value !== null || assessment.notes !== null)
-      ? "needs_work"
-      : assessment
-        ? "validated"
-        : null;
+  const reviewed = assessment?.status ?? null;
 
   return (
     <div className="px-5 py-4 border-t border-border first:border-t-0 space-y-3">
@@ -549,7 +545,7 @@ const FieldReviewRow = ({
         <button
           type="button"
           disabled={locked}
-          onClick={() => onChange({ actual_value: null, notes: null })}
+          onClick={() => onChange({ status: "validated" })}
           className={`text-sm px-4 py-2 rounded-full border transition-colors inline-flex items-center gap-1.5 ${
             reviewed === "validated"
               ? "bg-green-100 border-green-500 text-green-800 font-semibold"
@@ -561,11 +557,7 @@ const FieldReviewRow = ({
         <button
           type="button"
           disabled={locked}
-          onClick={() =>
-            // Mark as needs_work by ensuring at least one field (notes)
-            // is set to an empty string so the row persists.
-            onChange({ notes: notes || "" })
-          }
+          onClick={() => onChange({ status: "needs_work" })}
           className={`text-sm px-4 py-2 rounded-full border transition-colors inline-flex items-center gap-1.5 ${
             reviewed === "needs_work"
               ? "bg-amber-100 border-amber-500 text-amber-800 font-semibold"
@@ -576,36 +568,48 @@ const FieldReviewRow = ({
         </button>
       </div>
 
-      {reviewed === "needs_work" && (
-        <div className="space-y-3 bg-amber-50/40 rounded-lg p-3 border border-amber-100">
+      {reviewed && (
+        <div
+          className={`space-y-3 rounded-lg p-3 border ${
+            reviewed === "needs_work"
+              ? "bg-amber-50/40 border-amber-100"
+              : "bg-green-50/40 border-green-100"
+          }`}
+        >
+          {reviewed === "needs_work" && (
+            <div>
+              <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                Actual level (if different from declared)
+              </label>
+              <select
+                value={actual}
+                disabled={locked}
+                onChange={(e) => onChange({ actual_value: e.target.value || null })}
+                className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-sm disabled:bg-muted disabled:cursor-not-allowed"
+              >
+                <option value="">— same as declared —</option>
+                {options.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-              Actual level (if different from declared)
-            </label>
-            <select
-              value={actual}
-              disabled={locked}
-              onChange={(e) => onChange({ actual_value: e.target.value || null })}
-              className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-sm disabled:bg-muted disabled:cursor-not-allowed"
-            >
-              <option value="">— same as declared —</option>
-              {options.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-              Coach notes
+              Comment for the client
             </label>
             <Textarea
               rows={2}
               value={notes}
               disabled={locked}
               onChange={(e) => onChange({ notes: e.target.value })}
-              placeholder="What the video shows, what the client still needs to work on…"
+              placeholder={
+                reviewed === "needs_work"
+                  ? "What the video shows, what the client still needs to work on…"
+                  : "Optional — encouragement, cue to keep in mind, next step…"
+              }
             />
           </div>
         </div>

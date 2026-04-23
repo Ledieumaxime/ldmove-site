@@ -64,8 +64,11 @@ type AssessmentVideo = {
   video_path: string;
 };
 
+type AssessmentStatus = "validated" | "needs_work";
+
 type LevelAssessment = {
   field_name: string;
+  status: AssessmentStatus | null;
   actual_value: string | null;
   notes: string | null;
 };
@@ -122,7 +125,7 @@ const ClientIntakeView = () => {
             `assessment_videos?client_id=eq.${user.id}&select=exercise_number,video_path`
           ),
           sbGet<LevelAssessment[]>(
-            `client_level_assessments?client_id=eq.${user.id}&select=field_name,actual_value,notes`
+            `client_level_assessments?client_id=eq.${user.id}&select=field_name,status,actual_value,notes`
           ),
         ]);
         setIntake(i[0] ?? null);
@@ -298,11 +301,7 @@ const SkillRow = ({
   isOpen: boolean;
   onToggleVideo: () => void;
 }) => {
-  const reviewState: "validated" | "needs_work" | null = review
-    ? review.actual_value !== null || review.notes !== null
-      ? "needs_work"
-      : "validated"
-    : null;
+  const reviewState = review?.status ?? null;
   const hasNote = !!(review?.notes && review.notes.trim() !== "");
   const actualDiffers = !!(
     review?.actual_value && review.actual_value !== declared
@@ -339,9 +338,27 @@ const SkillRow = ({
       )}
 
       {hasNote && (
-        <div className="bg-amber-50/60 border border-amber-100 rounded-lg p-3 text-xs leading-relaxed">
-          <p className="font-semibold text-amber-900 mb-0.5">Coach note</p>
-          <p className="text-amber-900 whitespace-pre-wrap">{review?.notes}</p>
+        <div
+          className={`border rounded-lg p-3 text-xs leading-relaxed ${
+            reviewState === "needs_work"
+              ? "bg-amber-50/60 border-amber-100"
+              : "bg-green-50/60 border-green-100"
+          }`}
+        >
+          <p
+            className={`font-semibold mb-0.5 ${
+              reviewState === "needs_work" ? "text-amber-900" : "text-green-900"
+            }`}
+          >
+            Coach note
+          </p>
+          <p
+            className={`whitespace-pre-wrap ${
+              reviewState === "needs_work" ? "text-amber-900" : "text-green-900"
+            }`}
+          >
+            {review?.notes}
+          </p>
         </div>
       )}
 
