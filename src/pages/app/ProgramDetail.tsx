@@ -127,7 +127,7 @@ const ProgramDetail = () => {
       // Redirect to Stripe Checkout
       window.location.href = data.url;
     } catch (err) {
-      alert("Erreur : " + String(err));
+      alert("Error: " + String(err));
       setUnlocking(false);
     }
   };

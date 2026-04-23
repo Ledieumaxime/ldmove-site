@@ -40,7 +40,7 @@ const AdminPrograms = () => {
     return p.type === filter && !p.is_archived;
   });
 
-  if (loading) return <div className="text-muted-foreground">Chargement…</div>;
+  if (loading) return <div className="text-muted-foreground">Loading…</div>;
   if (error)
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
