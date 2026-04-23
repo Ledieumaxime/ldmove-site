@@ -1,7 +1,14 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, Mail, User as UserIcon, Shield } from "lucide-react";
+import {
+  LogOut,
+  Mail,
+  User as UserIcon,
+  Shield,
+  ClipboardList,
+  ChevronRight,
+} from "lucide-react";
 
 const Profile = () => {
   const { profile, user, signOut } = useAuth();
@@ -48,6 +55,26 @@ const Profile = () => {
           </div>
         </div>
       </div>
+
+      {profile?.role === "client" && (
+        <Link
+          to="/app/intake"
+          className="flex items-center justify-between bg-white border border-border rounded-2xl p-5 hover:border-accent/60 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-sky-100 flex items-center justify-center text-sky-700">
+              <ClipboardList size={18} />
+            </div>
+            <div>
+              <p className="font-heading font-bold">View my intake</p>
+              <p className="text-xs text-muted-foreground">
+                Your answers, coach feedback, and assessment videos.
+              </p>
+            </div>
+          </div>
+          <ChevronRight size={18} className="text-muted-foreground" />
+        </Link>
+      )}
 
       <div>
         <Button variant="outline" className="gap-2" onClick={handleSignOut}>

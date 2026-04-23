@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
-import { CheckCircle2, Send, Loader2, Lock } from "lucide-react";
-import { Link } from "react-router-dom";
+import { CheckCircle2, Send, Loader2 } from "lucide-react";
+import { Link, Navigate } from "react-router-dom";
 import { sbGet, sbPost, sbPatch } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -206,33 +206,7 @@ const OnboardingIntake = () => {
   }
 
   if (form.locked_at) {
-    return (
-      <div className="max-w-2xl mx-auto bg-white border border-border rounded-2xl p-8 text-center space-y-4">
-        <div className="w-16 h-16 mx-auto rounded-full bg-slate-100 flex items-center justify-center">
-          <Lock className="text-slate-700" size={30} />
-        </div>
-        <h1 className="font-heading text-3xl font-bold">Onboarding archived</h1>
-        <p className="font-body text-muted-foreground leading-relaxed">
-          Your intake and assessment videos were reviewed and archived by your
-          coach on{" "}
-          {new Date(form.locked_at).toLocaleDateString("en-US", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          })}
-          . This is your level at T0 — your starting point. Your answers are
-          now locked.
-        </p>
-        <div className="pt-2 flex flex-wrap gap-2 justify-center">
-          <Button asChild>
-            <Link to="/app/archive">See my archive & coach review</Link>
-          </Button>
-          <Button variant="outline" asChild>
-            <Link to="/app/home">Back to my space</Link>
-          </Button>
-        </div>
-      </div>
-    );
+    return <Navigate to="/app/intake" replace />;
   }
 
   if (submitted) {

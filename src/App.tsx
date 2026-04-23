@@ -40,6 +40,7 @@ import AdminClientIntake from "./pages/app/admin/AdminClientIntake";
 import CheckoutSuccess from "./pages/app/CheckoutSuccess";
 import OnboardingIntake from "./pages/app/OnboardingIntake";
 import OnboardingAssessmentUpload from "./pages/app/OnboardingAssessmentUpload";
+import ClientIntakeView from "./pages/app/ClientIntakeView";
 import SetPassword from "./pages/app/SetPassword";
 
 const queryClient = new QueryClient();
@@ -92,6 +93,7 @@ const App = () => (
                 <Route path="checkout-success" element={<CheckoutSuccess />} />
                 <Route path="onboarding/intake" element={<OnboardingIntake />} />
                 <Route path="onboarding/assessment" element={<OnboardingAssessmentUpload />} />
+                <Route path="intake" element={<ClientIntakeView />} />
 
                 {/* Admin (coach) */}
                 <Route
