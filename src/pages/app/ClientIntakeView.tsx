@@ -5,15 +5,12 @@ import {
   ClipboardList,
   Calendar,
   Loader2,
-  CheckCircle2,
-  Wrench,
-  Play,
-  ChevronDown,
 } from "lucide-react";
 import { sbGet } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { VERIFIABLE_FIELDS } from "@/lib/intakeOptions";
+import IntakeSkillRow from "@/components/IntakeSkillRow";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -238,13 +235,13 @@ const ClientIntakeView = () => {
           }
         >
           {verifiableBySection[section].map((f) => (
-            <SkillRow
+            <IntakeSkillRow
               key={f.field}
               label={f.label}
               declared={(intake as unknown as Record<string, string | null>)[f.field] ?? null}
               review={reviewByField[f.field]}
               videoUrl={f.exerciseN ? videoByExN[f.exerciseN] : undefined}
-              isOpen={openVideos.has(f.field)}
+              videoOpen={openVideos.has(f.field)}
               onToggleVideo={() => toggleVideo(f.field)}
             />
           ))}
@@ -282,112 +279,6 @@ const Row = ({ label, value }: { label: string; value: string | null | undefined
       >
         {isEmpty ? "—" : value}
       </dd>
-    </div>
-  );
-};
-
-const SkillRow = ({
-  label,
-  declared,
-  review,
-  videoUrl,
-  isOpen,
-  onToggleVideo,
-}: {
-  label: string;
-  declared: string | null;
-  review?: LevelAssessment;
-  videoUrl?: string;
-  isOpen: boolean;
-  onToggleVideo: () => void;
-}) => {
-  const reviewState = review?.status ?? null;
-  const hasNote = !!(review?.notes && review.notes.trim() !== "");
-  const actualDiffers = !!(
-    review?.actual_value && review.actual_value !== declared
-  );
-
-  return (
-    <div className="px-5 py-4 border-t border-border first:border-t-0 first:mt-3 space-y-3">
-      <div className="flex items-start justify-between gap-2 flex-wrap">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-            {label}
-          </p>
-          <p className="text-sm mt-0.5">
-            <span className="font-semibold">{declared || "—"}</span>
-          </p>
-        </div>
-        {reviewState === "validated" && (
-          <div className="inline-flex items-center gap-1.5 text-xs font-semibold bg-green-100 text-green-800 rounded-full px-2.5 py-1 shrink-0">
-            <CheckCircle2 size={12} /> Validated
-          </div>
-        )}
-        {reviewState === "needs_work" && (
-          <div className="inline-flex items-center gap-1.5 text-xs font-semibold bg-amber-100 text-amber-800 rounded-full px-2.5 py-1 shrink-0">
-            <Wrench size={12} /> To work on
-          </div>
-        )}
-      </div>
-
-      {actualDiffers && (
-        <p className="text-xs">
-          <span className="text-muted-foreground font-semibold">Actual level:</span>{" "}
-          <span className="font-semibold">{review?.actual_value}</span>
-        </p>
-      )}
-
-      {hasNote && (
-        <div
-          className={`border rounded-lg p-3 text-xs leading-relaxed ${
-            reviewState === "needs_work"
-              ? "bg-amber-50/60 border-amber-100"
-              : "bg-green-50/60 border-green-100"
-          }`}
-        >
-          <p
-            className={`font-semibold mb-0.5 ${
-              reviewState === "needs_work" ? "text-amber-900" : "text-green-900"
-            }`}
-          >
-            Coach note
-          </p>
-          <p
-            className={`whitespace-pre-wrap ${
-              reviewState === "needs_work" ? "text-amber-900" : "text-green-900"
-            }`}
-          >
-            {review?.notes}
-          </p>
-        </div>
-      )}
-
-      {videoUrl && (
-        <div>
-          <button
-            type="button"
-            onClick={onToggleVideo}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border border-border hover:border-accent/60 transition-colors"
-          >
-            {isOpen ? (
-              <>
-                <ChevronDown size={12} /> Hide video
-              </>
-            ) : (
-              <>
-                <Play size={12} className="fill-current" /> Show video
-              </>
-            )}
-          </button>
-          {isOpen && (
-            <video
-              src={videoUrl}
-              controls
-              className="w-full rounded-lg bg-black max-h-[320px] mt-3"
-            />
-          )}
-        </div>
-      )}
     </div>
   );
 };

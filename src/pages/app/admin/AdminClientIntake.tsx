@@ -9,14 +9,13 @@ import {
   CheckCircle2,
   Wrench,
   Lock,
-  Play,
-  ChevronDown,
 } from "lucide-react";
 import { sbGet, sbPatch, sbPost } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { INTAKE_OPTIONS, VERIFIABLE_FIELDS } from "@/lib/intakeOptions";
+import IntakeSkillRow from "@/components/IntakeSkillRow";
 
 type Intake = {
   client_id: string;
@@ -386,7 +385,7 @@ const AdminClientIntake = () => {
             return (
               <Section key={section} title={sectionTitle(section)}>
                 {fields.map((f) => (
-                  <FieldReviewRow
+                  <CoachSkillRow
                     key={f.field}
                     field={f.field}
                     label={f.label}
@@ -490,8 +489,11 @@ const Row = ({ label, value }: { label: string; value: string | null | undefined
   );
 };
 
-const FieldReviewRow = ({
-  field,
+/**
+ * Coach-side row: renders the shared IntakeSkillRow (identical to the client's
+ * view) and appends edit controls below when the intake isn't locked.
+ */
+const CoachSkillRow = ({
   label,
   declared,
   options,
@@ -513,178 +515,109 @@ const FieldReviewRow = ({
   const notes = assessment?.notes ?? "";
   const reviewed = assessment?.status ?? null;
   const [videoOpen, setVideoOpen] = useState(false);
-  const [noteEditing, setNoteEditing] = useState(false);
-  const [levelEditing, setLevelEditing] = useState(false);
-
-  const hasNote = notes.trim() !== "";
-  const actualDiffers = actual !== "" && actual !== declared;
-  const showNoteBox = hasNote || noteEditing;
-  const showLevelControl = actualDiffers || levelEditing;
+  const [editing, setEditing] = useState(false);
 
   return (
-    <div className="px-5 py-4 border-t border-border first:border-t-0 first:mt-3 space-y-3">
-      {/* Header — matches the client SkillRow: label, declared answer, badge */}
-      <div className="flex items-start justify-between gap-2 flex-wrap">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-            {label}
-          </p>
-          <p className="text-sm mt-0.5 font-semibold">{declared || "—"}</p>
-        </div>
-        {reviewed === "validated" && (
-          <div className="inline-flex items-center gap-1.5 text-xs font-semibold bg-green-100 text-green-800 rounded-full px-2.5 py-1 shrink-0">
-            <CheckCircle2 size={12} /> Validated
-          </div>
-        )}
-        {reviewed === "needs_work" && (
-          <div className="inline-flex items-center gap-1.5 text-xs font-semibold bg-amber-100 text-amber-800 rounded-full px-2.5 py-1 shrink-0">
-            <Wrench size={12} /> To work on
-          </div>
-        )}
-      </div>
-
-      {/* Actual level override — shown either because it's set or the coach opened it */}
-      {reviewed === "needs_work" && showLevelControl && (
-        <div>
-          <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-            Actual level (if different from declared)
-          </label>
-          <select
-            value={actual}
-            disabled={locked}
-            autoFocus={levelEditing && !actualDiffers}
-            onChange={(e) => onChange({ actual_value: e.target.value || null })}
-            className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-sm disabled:bg-muted disabled:cursor-not-allowed"
-          >
-            <option value="">— same as declared —</option>
-            {options.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* Coach note box — only when there's content (matches client) or the coach opened it */}
-      {reviewed && showNoteBox && (
-        <div
-          className={`rounded-lg p-3 border ${
-            reviewed === "needs_work"
-              ? "bg-amber-50/60 border-amber-100"
-              : "bg-green-50/60 border-green-100"
-          }`}
-        >
-          <label
-            className={`block text-[11px] font-semibold uppercase tracking-wide mb-1 ${
-              reviewed === "needs_work" ? "text-amber-900" : "text-green-900"
-            }`}
-          >
-            Coach note
-          </label>
-          {locked ? (
-            <p
-              className={`text-xs whitespace-pre-wrap ${
-                reviewed === "needs_work" ? "text-amber-900" : "text-green-900"
-              }`}
-            >
-              {notes}
-            </p>
-          ) : (
-            <Textarea
-              rows={2}
-              value={notes}
-              autoFocus={noteEditing && !hasNote}
-              onChange={(e) => onChange({ notes: e.target.value })}
-              onBlur={() => {
-                if (!notes.trim()) setNoteEditing(false);
-              }}
-              placeholder={
-                reviewed === "needs_work"
-                  ? "What the video shows, what the client still needs to work on…"
-                  : "Optional — encouragement, cue to keep in mind, next step…"
-              }
-              className="bg-white"
-            />
-          )}
-        </div>
-      )}
-
-      {/* Action bar — only when unlocked. Status toggles + optional add-note / override-level + video toggle */}
+    <IntakeSkillRow
+      label={label}
+      declared={declared}
+      review={{
+        status: reviewed,
+        actual_value: actual.trim() ? actual : null,
+        notes: notes.trim() ? notes : null,
+      }}
+      videoUrl={videoUrl}
+      videoOpen={videoOpen}
+      onToggleVideo={() => setVideoOpen((v) => !v)}
+    >
       {!locked && (
-        <div className="flex flex-wrap gap-2 items-center">
-          <button
-            type="button"
-            onClick={() => onChange({ status: "validated" })}
-            className={`text-xs px-3 py-1.5 rounded-full border transition-colors inline-flex items-center gap-1.5 ${
-              reviewed === "validated"
-                ? "bg-green-50 border-green-400 text-green-800 font-semibold"
-                : "bg-white border-border text-muted-foreground hover:border-green-500"
-            }`}
-          >
-            <CheckCircle2 size={12} /> Validated
-          </button>
-          <button
-            type="button"
-            onClick={() => onChange({ status: "needs_work" })}
-            className={`text-xs px-3 py-1.5 rounded-full border transition-colors inline-flex items-center gap-1.5 ${
-              reviewed === "needs_work"
-                ? "bg-amber-50 border-amber-400 text-amber-800 font-semibold"
-                : "bg-white border-border text-muted-foreground hover:border-amber-500"
-            }`}
-          >
-            <Wrench size={12} /> To work on
-          </button>
+        <div className="space-y-3">
+          {!editing ? (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="text-xs px-3 py-1.5 rounded-full border border-dashed border-border text-muted-foreground hover:border-accent/60 hover:text-foreground transition-colors"
+            >
+              {reviewed ? "Edit review" : "Review this skill"}
+            </button>
+          ) : (
+            <div className="bg-muted/30 border border-border rounded-lg p-3 space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => onChange({ status: "validated" })}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors inline-flex items-center gap-1.5 ${
+                    reviewed === "validated"
+                      ? "bg-green-50 border-green-400 text-green-800 font-semibold"
+                      : "bg-white border-border text-muted-foreground hover:border-green-500"
+                  }`}
+                >
+                  <CheckCircle2 size={12} /> Validated
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChange({ status: "needs_work" })}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors inline-flex items-center gap-1.5 ${
+                    reviewed === "needs_work"
+                      ? "bg-amber-50 border-amber-400 text-amber-800 font-semibold"
+                      : "bg-white border-border text-muted-foreground hover:border-amber-500"
+                  }`}
+                >
+                  <Wrench size={12} /> To work on
+                </button>
+              </div>
 
-          {reviewed && !showNoteBox && (
-            <button
-              type="button"
-              onClick={() => setNoteEditing(true)}
-              className="text-xs px-3 py-1.5 rounded-full border border-dashed border-border text-muted-foreground hover:border-accent/60 hover:text-foreground transition-colors"
-            >
-              + Add note
-            </button>
-          )}
-          {reviewed === "needs_work" && !showLevelControl && (
-            <button
-              type="button"
-              onClick={() => setLevelEditing(true)}
-              className="text-xs px-3 py-1.5 rounded-full border border-dashed border-border text-muted-foreground hover:border-accent/60 hover:text-foreground transition-colors"
-            >
-              + Override level
-            </button>
+              {reviewed === "needs_work" && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                    Actual level (if different from declared)
+                  </label>
+                  <select
+                    value={actual}
+                    onChange={(e) => onChange({ actual_value: e.target.value || null })}
+                    className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-sm"
+                  >
+                    <option value="">— same as declared —</option>
+                    {options.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {reviewed && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                    Coach note
+                  </label>
+                  <Textarea
+                    rows={2}
+                    value={notes}
+                    onChange={(e) => onChange({ notes: e.target.value })}
+                    placeholder={
+                      reviewed === "needs_work"
+                        ? "What the video shows, what the client still needs to work on…"
+                        : "Optional — encouragement, cue to keep in mind, next step…"
+                    }
+                    className="bg-white"
+                  />
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Done
+              </button>
+            </div>
           )}
         </div>
       )}
-
-      {/* Video toggle — identical to client */}
-      {videoUrl && (
-        <div>
-          <button
-            type="button"
-            onClick={() => setVideoOpen((v) => !v)}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border border-border hover:border-accent/60 transition-colors"
-          >
-            {videoOpen ? (
-              <>
-                <ChevronDown size={12} /> Hide video
-              </>
-            ) : (
-              <>
-                <Play size={12} className="fill-current" /> Show video
-              </>
-            )}
-          </button>
-          {videoOpen && (
-            <video
-              src={videoUrl}
-              controls
-              className="w-full rounded-lg bg-black max-h-[320px] mt-3"
-            />
-          )}
-        </div>
-      )}
-    </div>
+    </IntakeSkillRow>
   );
 };
 
