@@ -10,7 +10,7 @@ import {
   Wrench,
   Lock,
 } from "lucide-react";
-import { sbGet, sbPatch } from "@/integrations/supabase/api";
+import { sbGet, sbPatch, sbPost } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -203,6 +203,14 @@ const AdminClientIntake = () => {
         { locked_at: now, locked_by: profile.id }
       );
       if (rows[0]) setIntake(rows[0]);
+      // Notify the client that their intake has been validated.
+      await sbPost("notifications", {
+        user_id: intake.client_id,
+        type: "intake_validated",
+        title: "Your intake has been validated",
+        body: "Maxime reviewed your intake and assessment videos. See his feedback in your profile.",
+        link_url: "/app/intake",
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

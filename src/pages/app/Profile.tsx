@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { sbGet } from "@/integrations/supabase/api";
 import { Button } from "@/components/ui/button";
 import {
   LogOut,
@@ -13,6 +15,16 @@ import {
 const Profile = () => {
   const { profile, user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [intakeLocked, setIntakeLocked] = useState(false);
+
+  useEffect(() => {
+    if (!user || profile?.role !== "client") return;
+    sbGet<{ locked_at: string | null }[]>(
+      `client_intakes?client_id=eq.${user.id}&select=locked_at&limit=1`
+    )
+      .then((rows) => setIntakeLocked(!!rows[0]?.locked_at))
+      .catch(() => {});
+  }, [user, profile?.role]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -56,7 +68,7 @@ const Profile = () => {
         </div>
       </div>
 
-      {profile?.role === "client" && (
+      {profile?.role === "client" && intakeLocked && (
         <Link
           to="/app/intake"
           className="flex items-center justify-between bg-white border border-border rounded-2xl p-5 hover:border-accent/60 transition-colors"

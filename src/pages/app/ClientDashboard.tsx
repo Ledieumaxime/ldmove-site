@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { Dumbbell, MessageCircle, Archive, ArrowRight, AlertCircle, ClipboardList, Video } from "lucide-react";
-import { sbGet } from "@/integrations/supabase/api";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  Dumbbell,
+  MessageCircle,
+  Archive,
+  ArrowRight,
+  AlertCircle,
+  ClipboardList,
+  Video,
+  Bell,
+} from "lucide-react";
+import { sbGet, sbPatch } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { IntakeAnswers, visibleExercises } from "@/lib/assessment";
 
@@ -36,8 +45,19 @@ type FormCheck = {
   created_at: string;
 };
 
+type Notification = {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  link_url: string | null;
+  read: boolean;
+  created_at: string;
+};
+
 const ClientDashboard = () => {
   const { profile, user } = useAuth();
+  const navigate = useNavigate();
   const [programs, setPrograms] = useState<Program[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [reads, setReads] = useState<CommentRead[]>([]);
@@ -46,6 +66,7 @@ const ClientDashboard = () => {
   const [intakeAnswers, setIntakeAnswers] = useState<IntakeAnswers | null>(null);
   const [onboardingLocked, setOnboardingLocked] = useState(false);
   const [assessmentCount, setAssessmentCount] = useState(0);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -69,8 +90,11 @@ const ClientDashboard = () => {
       sbGet<Array<{ id: string }>>(
         `assessment_videos?select=id&client_id=eq.${user.id}`
       ),
+      sbGet<Notification[]>(
+        `notifications?user_id=eq.${user.id}&read=eq.false&select=id,type,title,body,link_url,read,created_at&order=created_at.desc`
+      ),
     ])
-      .then(([p, co, r, fc, intake, av]) => {
+      .then(([p, co, r, fc, intake, av, notifs]) => {
         setPrograms(p);
         setComments(co);
         setReads(r);
@@ -79,9 +103,20 @@ const ClientDashboard = () => {
         setIntakeAnswers(intake[0] ?? null);
         setOnboardingLocked(!!intake[0]?.locked_at);
         setAssessmentCount(av.length);
+        setNotifications(notifs);
       })
       .finally(() => setLoading(false));
   }, [user]);
+
+  const dismissAndGo = async (n: Notification) => {
+    setNotifications((prev) => prev.filter((x) => x.id !== n.id));
+    try {
+      await sbPatch(`notifications?id=eq.${n.id}`, { read: true });
+    } catch {
+      // If marking-read fails we still proceed with navigation.
+    }
+    if (n.link_url) navigate(n.link_url);
+  };
 
   if (loading) return <div className="text-muted-foreground">Loading…</div>;
 
@@ -134,6 +169,33 @@ const ClientDashboard = () => {
           Hi {profile?.first_name ?? ""}
         </h1>
       </div>
+
+      {notifications.length > 0 && (
+        <div className="space-y-2">
+          {notifications.map((n) => (
+            <button
+              key={n.id}
+              type="button"
+              onClick={() => dismissAndGo(n)}
+              className="w-full text-left bg-accent/10 border border-accent/30 rounded-xl p-4 flex items-start gap-3 hover:bg-accent/15 transition-colors"
+            >
+              <div className="w-9 h-9 rounded-full bg-accent text-white flex items-center justify-center shrink-0">
+                <Bell size={16} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-heading font-bold text-sm">{n.title}</p>
+                {n.body && (
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                    {n.body}
+                  </p>
+                )}
+              </div>
+              <ArrowRight size={16} className="text-accent mt-1 shrink-0" />
+            </button>
+          ))}
+        </div>
+      )}
+
 
       {/* Onboarding banner — guides the client through the two onboarding steps */}
       {(() => {
