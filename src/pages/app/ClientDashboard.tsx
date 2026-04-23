@@ -44,6 +44,7 @@ const ClientDashboard = () => {
   const [checks, setChecks] = useState<FormCheck[]>([]);
   const [hasIntake, setHasIntake] = useState(true);
   const [intakeAnswers, setIntakeAnswers] = useState<IntakeAnswers | null>(null);
+  const [onboardingLocked, setOnboardingLocked] = useState(false);
   const [assessmentCount, setAssessmentCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -62,8 +63,8 @@ const ClientDashboard = () => {
       sbGet<FormCheck[]>(
         `form_check_submissions?select=id,status,created_at&client_id=eq.${user.id}&order=created_at.desc&limit=10`
       ),
-      sbGet<IntakeAnswers[]>(
-        `client_intakes?select=max_pull_ups,max_dips,max_push_ups,deep_squat,handstand,muscle_up,planche,front_lever,lsit_vsit,hspu,rope_climb,hamstrings,splits,shoulder_mobility,squat_flat_heels,backbend&client_id=eq.${user.id}&limit=1`
+      sbGet<(IntakeAnswers & { locked_at: string | null })[]>(
+        `client_intakes?select=max_pull_ups,max_dips,max_push_ups,deep_squat,handstand,muscle_up,planche,front_lever,lsit_vsit,hspu,rope_climb,hamstrings,splits,shoulder_mobility,squat_flat_heels,backbend,locked_at&client_id=eq.${user.id}&limit=1`
       ),
       sbGet<Array<{ id: string }>>(
         `assessment_videos?select=id&client_id=eq.${user.id}`
@@ -76,6 +77,7 @@ const ClientDashboard = () => {
         setChecks(fc);
         setHasIntake(intake.length > 0);
         setIntakeAnswers(intake[0] ?? null);
+        setOnboardingLocked(!!intake[0]?.locked_at);
         setAssessmentCount(av.length);
       })
       .finally(() => setLoading(false));
@@ -135,6 +137,7 @@ const ClientDashboard = () => {
 
       {/* Onboarding banner — guides the client through the two onboarding steps */}
       {(() => {
+        if (onboardingLocked) return null;
         if (!hasIntake) {
           return (
             <OnboardingBanner

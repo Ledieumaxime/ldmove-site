@@ -8,6 +8,7 @@ import {
   Play,
   RefreshCw,
   AlertCircle,
+  Lock,
 } from "lucide-react";
 import { sbGet, sbPost } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -46,6 +47,7 @@ const getToken = (): string | null => {
 const OnboardingAssessmentUpload = () => {
   const { user } = useAuth();
   const [intake, setIntake] = useState<IntakeAnswers | null>(null);
+  const [lockedAt, setLockedAt] = useState<string | null>(null);
   const [videos, setVideos] = useState<StoredVideo[]>([]);
   const [signedUrls, setSignedUrls] = useState<Record<number, string>>({});
   const [loaded, setLoaded] = useState(false);
@@ -57,14 +59,15 @@ const OnboardingAssessmentUpload = () => {
     if (!user) return;
     try {
       const [i, v] = await Promise.all([
-        sbGet<IntakeAnswers[]>(
-          `client_intakes?client_id=eq.${user.id}&select=max_pull_ups,max_dips,max_push_ups,deep_squat,handstand,muscle_up,planche,front_lever,lsit_vsit,hspu,rope_climb,hamstrings,splits,shoulder_mobility,squat_flat_heels,backbend&limit=1`
+        sbGet<(IntakeAnswers & { locked_at: string | null })[]>(
+          `client_intakes?client_id=eq.${user.id}&select=max_pull_ups,max_dips,max_push_ups,deep_squat,handstand,muscle_up,planche,front_lever,lsit_vsit,hspu,rope_climb,hamstrings,splits,shoulder_mobility,squat_flat_heels,backbend,locked_at&limit=1`
         ),
         sbGet<StoredVideo[]>(
           `assessment_videos?client_id=eq.${user.id}&select=id,exercise_number,video_path,uploaded_at&order=exercise_number.asc`
         ),
       ]);
       setIntake(i[0] ?? null);
+      setLockedAt(i[0]?.locked_at ?? null);
       setVideos(v);
       // Sign every existing path so we can show previews
       const sigs: Record<number, string> = {};
@@ -211,6 +214,37 @@ const OnboardingAssessmentUpload = () => {
         <Button asChild>
           <Link to="/app/onboarding/intake">Go to intake</Link>
         </Button>
+      </div>
+    );
+  }
+
+  if (lockedAt) {
+    return (
+      <div className="max-w-xl mx-auto bg-white border border-border rounded-2xl p-8 text-center space-y-4">
+        <div className="w-16 h-16 mx-auto rounded-full bg-slate-100 flex items-center justify-center">
+          <Lock className="text-slate-700" size={30} />
+        </div>
+        <h1 className="font-heading text-2xl md:text-3xl font-bold">
+          Assessment archived
+        </h1>
+        <p className="font-body text-muted-foreground leading-relaxed">
+          Your videos were reviewed and archived by your coach on{" "}
+          {new Date(lockedAt).toLocaleDateString("en-US", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })}
+          . This is your starting point — videos are now locked to preserve the
+          T0 snapshot.
+        </p>
+        <div className="pt-2 flex flex-wrap gap-2 justify-center">
+          <Button asChild>
+            <Link to="/app/archive">See my archive & coach review</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to="/app/home">Back to my space</Link>
+          </Button>
+        </div>
       </div>
     );
   }

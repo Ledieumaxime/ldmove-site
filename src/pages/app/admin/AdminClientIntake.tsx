@@ -8,8 +8,10 @@ import {
   Loader2,
   CheckCircle2,
   Wrench,
+  Lock,
 } from "lucide-react";
-import { sbGet } from "@/integrations/supabase/api";
+import { sbGet, sbPatch } from "@/integrations/supabase/api";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { INTAKE_OPTIONS, VERIFIABLE_FIELDS } from "@/lib/intakeOptions";
@@ -54,6 +56,8 @@ type Intake = {
   additional_info: string | null;
   submitted_at: string;
   updated_at: string;
+  locked_at: string | null;
+  locked_by: string | null;
 };
 
 type Client = {
@@ -91,6 +95,7 @@ const getToken = (): string | null => {
 
 const AdminClientIntake = () => {
   const { id } = useParams<{ id: string }>();
+  const { profile } = useAuth();
   const [intake, setIntake] = useState<Intake | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [videos, setVideos] = useState<AssessmentVideo[]>([]);
@@ -99,6 +104,7 @@ const AdminClientIntake = () => {
   const [dirty, setDirty] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [locking, setLocking] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -176,6 +182,28 @@ const AdminClientIntake = () => {
     });
     setDirty((prev) => new Set(prev).add(fieldName));
     setSaveMsg(null);
+  };
+
+  const lockOnboarding = async () => {
+    if (!intake || !profile || intake.locked_at) return;
+    const confirmed = window.confirm(
+      "Archive & lock this onboarding?\n\nThe client will no longer be able to edit their intake answers or upload / replace assessment videos. Their level at T0 is frozen. This can only be reversed from Supabase."
+    );
+    if (!confirmed) return;
+    setLocking(true);
+    setError(null);
+    try {
+      const now = new Date().toISOString();
+      const rows = await sbPatch<Intake[]>(
+        `client_intakes?client_id=eq.${intake.client_id}`,
+        { locked_at: now, locked_by: profile.id }
+      );
+      if (rows[0]) setIntake(rows[0]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLocking(false);
+    }
   };
 
   const saveAll = async () => {
@@ -282,7 +310,7 @@ const AdminClientIntake = () => {
               month: "short",
               year: "numeric",
             })}
-            {intake.updated_at !== intake.submitted_at && (
+            {intake.updated_at !== intake.submitted_at && !intake.locked_at && (
               <span>
                 {" "}· updated{" "}
                 {new Date(intake.updated_at).toLocaleDateString("en-US", {
@@ -292,6 +320,25 @@ const AdminClientIntake = () => {
               </span>
             )}
           </div>
+
+          {intake.locked_at && (
+            <div className="bg-slate-100 border border-slate-300 rounded-lg px-4 py-3 flex items-start gap-3">
+              <Lock size={16} className="text-slate-700 mt-0.5 shrink-0" />
+              <div className="text-sm text-slate-800">
+                <p className="font-semibold">Onboarding archived</p>
+                <p className="text-slate-600">
+                  Locked on{" "}
+                  {new Date(intake.locked_at).toLocaleDateString("en-US", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                  . Intake answers and assessment videos are frozen — the client
+                  can no longer edit them.
+                </p>
+              </div>
+            </div>
+          )}
 
           <Section title="Basic info">
             <Row label="Full name" value={`${intake.first_name ?? ""} ${intake.last_name ?? ""}`} />
@@ -324,31 +371,63 @@ const AdminClientIntake = () => {
               <div>
                 <h2 className="font-heading text-2xl font-bold">Coach review</h2>
                 <p className="text-sm text-muted-foreground">
-                  Compare what the client declared with what the videos show. Fill
-                  Actual level and notes for each verifiable skill — these take
-                  priority when building programs.
+                  {intake.locked_at
+                    ? "This review is archived — client sees it in their space."
+                    : "Compare what the client declared with what the videos show. Fill Actual level and notes for each verifiable skill — these take priority when building programs."}
                 </p>
               </div>
-              <Button
-                onClick={saveAll}
-                disabled={saving || dirty.size === 0}
-                className="gap-2"
-              >
-                {saving ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Save size={16} />
-                )}
-                {saving
-                  ? "Saving…"
-                  : dirty.size > 0
-                    ? `Save ${dirty.size} change${dirty.size > 1 ? "s" : ""}`
-                    : "Saved"}
-              </Button>
+              {!intake.locked_at && (
+                <Button
+                  onClick={saveAll}
+                  disabled={saving || dirty.size === 0}
+                  className="gap-2"
+                >
+                  {saving ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Save size={16} />
+                  )}
+                  {saving
+                    ? "Saving…"
+                    : dirty.size > 0
+                      ? `Save ${dirty.size} change${dirty.size > 1 ? "s" : ""}`
+                      : "Saved"}
+                </Button>
+              )}
             </div>
             {saveMsg && (
               <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm text-green-800">
                 {saveMsg}
+              </div>
+            )}
+            {!intake.locked_at && (
+              <div className="bg-white border border-border rounded-xl p-4 flex items-start justify-between gap-3 flex-wrap">
+                <div className="text-sm">
+                  <p className="font-semibold mb-0.5">Ready to archive?</p>
+                  <p className="text-muted-foreground">
+                    Freeze this onboarding as the client's T0 snapshot. After
+                    locking, neither you nor the client can edit intake answers
+                    or assessment videos from the app.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={lockOnboarding}
+                  disabled={locking || dirty.size > 0}
+                  className="gap-2"
+                  title={
+                    dirty.size > 0
+                      ? "Save your review changes first"
+                      : undefined
+                  }
+                >
+                  {locking ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Lock size={16} />
+                  )}
+                  {locking ? "Archiving…" : "Archive & lock onboarding"}
+                </Button>
               </div>
             )}
           </div>
@@ -374,6 +453,7 @@ const AdminClientIntake = () => {
                       videoUrl={f.exerciseN ? signedUrls[f.exerciseN] : undefined}
                       assessment={assessments[f.field]}
                       onChange={(patch) => updateField(f.field, patch)}
+                      locked={!!intake.locked_at}
                     />
                   ))}
                 </div>
@@ -422,6 +502,7 @@ const FieldReviewRow = ({
   videoUrl,
   assessment,
   onChange,
+  locked = false,
 }: {
   field: string;
   label: string;
@@ -430,6 +511,7 @@ const FieldReviewRow = ({
   videoUrl?: string;
   assessment?: LevelAssessment;
   onChange: (patch: Partial<LevelAssessment>) => void;
+  locked?: boolean;
 }) => {
   const actual = assessment?.actual_value ?? "";
   const notes = assessment?.notes ?? "";
@@ -466,17 +548,19 @@ const FieldReviewRow = ({
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
+          disabled={locked}
           onClick={() => onChange({ actual_value: null, notes: null })}
           className={`text-sm px-4 py-2 rounded-full border transition-colors inline-flex items-center gap-1.5 ${
             reviewed === "validated"
               ? "bg-green-100 border-green-500 text-green-800 font-semibold"
               : "bg-white border-border hover:border-green-500"
-          }`}
+          } ${locked ? "opacity-70 cursor-not-allowed hover:border-border" : ""}`}
         >
           <CheckCircle2 size={14} /> Validated
         </button>
         <button
           type="button"
+          disabled={locked}
           onClick={() =>
             // Mark as needs_work by ensuring at least one field (notes)
             // is set to an empty string so the row persists.
@@ -486,7 +570,7 @@ const FieldReviewRow = ({
             reviewed === "needs_work"
               ? "bg-amber-100 border-amber-500 text-amber-800 font-semibold"
               : "bg-white border-border hover:border-amber-500"
-          }`}
+          } ${locked ? "opacity-70 cursor-not-allowed hover:border-border" : ""}`}
         >
           <Wrench size={14} /> Technique to work on
         </button>
@@ -500,8 +584,9 @@ const FieldReviewRow = ({
             </label>
             <select
               value={actual}
+              disabled={locked}
               onChange={(e) => onChange({ actual_value: e.target.value || null })}
-              className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-sm"
+              className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-sm disabled:bg-muted disabled:cursor-not-allowed"
             >
               <option value="">— same as declared —</option>
               {options.map((o) => (
@@ -518,6 +603,7 @@ const FieldReviewRow = ({
             <Textarea
               rows={2}
               value={notes}
+              disabled={locked}
               onChange={(e) => onChange({ notes: e.target.value })}
               placeholder="What the video shows, what the client still needs to work on…"
             />

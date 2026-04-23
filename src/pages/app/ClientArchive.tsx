@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Archive, Loader2, Video as VideoIcon, ClipboardList } from "lucide-react";
+import {
+  Archive,
+  Loader2,
+  Video as VideoIcon,
+  ClipboardList,
+  CheckCircle2,
+  Wrench,
+  Lock,
+} from "lucide-react";
 import { sbGet } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -10,6 +18,7 @@ import {
   AssessmentSection,
   SECTION_LABEL,
 } from "@/lib/assessment";
+import { VERIFIABLE_FIELDS } from "@/lib/intakeOptions";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -29,6 +38,19 @@ type ProgressVideo = {
   archived_note: string | null;
   archived_at: string | null;
   created_at: string;
+};
+
+type LevelAssessment = {
+  field_name: string;
+  actual_value: string | null;
+  notes: string | null;
+};
+
+// Intake columns we need for showing what the client declared on verifiable skills.
+const INTAKE_DECLARED_COLS = VERIFIABLE_FIELDS.map((f) => f.field).join(",");
+
+type IntakeDeclared = Partial<Record<string, string | null>> & {
+  locked_at: string | null;
 };
 
 const getToken = (): string | null => {
@@ -74,22 +96,34 @@ const ClientArchive = () => {
   const [progress, setProgress] = useState<ProgressVideo[]>([]);
   const [assessmentUrls, setAssessmentUrls] = useState<Record<string, string>>({});
   const [progressUrls, setProgressUrls] = useState<Record<string, string>>({});
+  const [intakeDeclared, setIntakeDeclared] = useState<IntakeDeclared | null>(null);
+  const [reviewByField, setReviewByField] = useState<Record<string, LevelAssessment>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
     (async () => {
       try {
-        const [av, fc] = await Promise.all([
+        const [av, fc, intake, reviews] = await Promise.all([
           sbGet<AssessmentVideo[]>(
             `assessment_videos?client_id=eq.${user.id}&select=id,exercise_number,exercise_name,video_path,uploaded_at&order=exercise_number.asc`
           ),
           sbGet<ProgressVideo[]>(
             `form_check_submissions?client_id=eq.${user.id}&archived_as_progress=eq.true&select=id,video_url,archived_note,archived_at,created_at&order=archived_at.desc`
           ),
+          sbGet<IntakeDeclared[]>(
+            `client_intakes?client_id=eq.${user.id}&select=${INTAKE_DECLARED_COLS},locked_at&limit=1`
+          ),
+          sbGet<LevelAssessment[]>(
+            `client_level_assessments?client_id=eq.${user.id}&select=field_name,actual_value,notes`
+          ),
         ]);
         setAssessments(av);
         setProgress(fc);
+        setIntakeDeclared(intake[0] ?? null);
+        setReviewByField(
+          Object.fromEntries(reviews.map((r) => [r.field_name, r]))
+        );
 
         const aSigs: Record<string, string> = {};
         for (const v of av) {
@@ -153,6 +187,13 @@ const ClientArchive = () => {
     if (vid) assessmentBySection[ex.section].push({ exercise: ex, video: vid });
   }
 
+  // Map exerciseN → verifiable field so we can show declared level + coach review
+  const fieldByExerciseN = new Map<number, (typeof VERIFIABLE_FIELDS)[number]>();
+  for (const f of VERIFIABLE_FIELDS) {
+    if (f.exerciseN != null) fieldByExerciseN.set(f.exerciseN, f);
+  }
+  const lockedAt = intakeDeclared?.locked_at ?? null;
+
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       <div>
@@ -210,13 +251,34 @@ const ClientArchive = () => {
 
       {hasAssessment && (
         <section className="space-y-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <ClipboardList size={18} className="text-sky-700" />
             <h2 className="font-heading text-xl font-bold">Initial assessment</h2>
             <span className="text-xs bg-sky-100 text-sky-800 rounded-full px-2 py-0.5 font-semibold">
               {assessments.length}
             </span>
           </div>
+
+          {lockedAt && (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start gap-3">
+              <Lock size={16} className="text-slate-700 mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <p className="font-semibold text-slate-900">
+                  Reviewed by Maxime on{" "}
+                  {new Date(lockedAt).toLocaleDateString("en-US", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </p>
+                <p className="text-slate-600 mt-0.5">
+                  This is your T0 snapshot. What's validated below is what I'm
+                  working from — the rest is what we're going to build on.
+                </p>
+              </div>
+            </div>
+          )}
+
           {sections.map((s) => {
             const list = assessmentBySection[s];
             if (!list.length) return null;
@@ -226,35 +288,88 @@ const ClientArchive = () => {
                   {SECTION_LABEL[s]}
                 </h3>
                 <div className="space-y-3">
-                  {list.map(({ exercise, video }) => (
-                    <div
-                      key={video.id}
-                      className="bg-white border border-border rounded-xl p-4"
-                    >
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <p className="font-heading font-bold uppercase tracking-wide text-sm">
-                          <span className="text-accent mr-2">#{exercise.n}</span>
-                          {exercise.name}
-                        </p>
-                        <span className="text-[11px] text-muted-foreground">
-                          {new Date(video.uploaded_at).toLocaleDateString("en-US", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </span>
+                  {list.map(({ exercise, video }) => {
+                    const vf = fieldByExerciseN.get(exercise.n);
+                    const declared =
+                      vf && intakeDeclared
+                        ? (intakeDeclared[vf.field] as string | null | undefined) ?? null
+                        : null;
+                    const review = vf ? reviewByField[vf.field] : undefined;
+                    const reviewState: "validated" | "needs_work" | null = review
+                      ? review.actual_value !== null || review.notes !== null
+                        ? "needs_work"
+                        : "validated"
+                      : null;
+                    return (
+                      <div
+                        key={video.id}
+                        className="bg-white border border-border rounded-xl p-4"
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <p className="font-heading font-bold uppercase tracking-wide text-sm">
+                            <span className="text-accent mr-2">#{exercise.n}</span>
+                            {exercise.name}
+                          </p>
+                          <span className="text-[11px] text-muted-foreground shrink-0">
+                            {new Date(video.uploaded_at).toLocaleDateString("en-US", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </span>
+                        </div>
+
+                        {declared && (
+                          <p className="text-xs text-muted-foreground mb-2">
+                            <span className="font-semibold">You declared:</span>{" "}
+                            {declared}
+                          </p>
+                        )}
+
+                        {assessmentUrls[video.id] ? (
+                          <video
+                            src={assessmentUrls[video.id]}
+                            controls
+                            className="w-full rounded-lg bg-black max-h-[320px]"
+                          />
+                        ) : (
+                          <p className="text-xs text-muted-foreground italic">Video unavailable.</p>
+                        )}
+
+                        {reviewState && (
+                          <div className="mt-3 space-y-2">
+                            {reviewState === "validated" ? (
+                              <div className="inline-flex items-center gap-1.5 text-xs font-semibold bg-green-100 text-green-800 rounded-full px-2.5 py-1">
+                                <CheckCircle2 size={12} /> Validated by Maxime
+                              </div>
+                            ) : (
+                              <div className="inline-flex items-center gap-1.5 text-xs font-semibold bg-amber-100 text-amber-800 rounded-full px-2.5 py-1">
+                                <Wrench size={12} /> Technique to work on
+                              </div>
+                            )}
+                            {review?.actual_value && review.actual_value !== declared && (
+                              <p className="text-xs">
+                                <span className="text-muted-foreground font-semibold">
+                                  Actual level:
+                                </span>{" "}
+                                <span className="font-semibold">{review.actual_value}</span>
+                              </p>
+                            )}
+                            {review?.notes && review.notes.trim() !== "" && (
+                              <div className="bg-amber-50/60 border border-amber-100 rounded-lg p-3 text-xs leading-relaxed">
+                                <p className="font-semibold text-amber-900 mb-0.5">
+                                  Coach note
+                                </p>
+                                <p className="text-amber-900 whitespace-pre-wrap">
+                                  {review.notes}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      {assessmentUrls[video.id] ? (
-                        <video
-                          src={assessmentUrls[video.id]}
-                          controls
-                          className="w-full rounded-lg bg-black max-h-[320px]"
-                        />
-                      ) : (
-                        <p className="text-xs text-muted-foreground italic">Video unavailable.</p>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             );
