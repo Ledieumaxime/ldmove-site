@@ -350,7 +350,7 @@ const AdminClientIntake = () => {
                     month: "short",
                     year: "numeric",
                   })}
-                  . Intake answers and assessment videos are frozen — the client
+                  . Intake answers and assessment videos are frozen. The client
                   can no longer edit them.
                 </p>
               </div>
@@ -577,7 +577,7 @@ const CoachSkillRow = ({
                     onChange={(e) => onChange({ actual_value: e.target.value || null })}
                     className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-sm"
                   >
-                    <option value="">— same as declared —</option>
+                    <option value="">Same as declared</option>
                     {options.map((o) => (
                       <option key={o} value={o}>
                         {o}
@@ -599,7 +599,7 @@ const CoachSkillRow = ({
                     placeholder={
                       reviewed === "needs_work"
                         ? "What the video shows, what the client still needs to work on…"
-                        : "Optional — encouragement, cue to keep in mind, next step…"
+                        : "Optional. Encouragement, cue to keep in mind, next step…"
                     }
                     className="bg-white"
                   />

@@ -234,7 +234,7 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
               )}
               {c.status === "reviewed" && (
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  Your coach reviewed it — check the comments below for the reply.
+                  Your coach reviewed it. Check the comments below for the reply.
                 </p>
               )}
             </div>

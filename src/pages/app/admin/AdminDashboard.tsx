@@ -262,7 +262,7 @@ const AdminDashboard = () => {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {e.status === "overdue"
-                        ? `⚠ Overdue by ${Math.abs(e.daysLeft)} day${Math.abs(e.daysLeft) > 1 ? "s" : ""} — time to renew`
+                        ? `⚠ Overdue by ${Math.abs(e.daysLeft)} day${Math.abs(e.daysLeft) > 1 ? "s" : ""}, time to renew`
                         : `${e.daysLeft} day${e.daysLeft > 1 ? "s" : ""} left · ${e.program.duration_weeks ?? "—"} weeks total`}
                     </p>
                   </div>

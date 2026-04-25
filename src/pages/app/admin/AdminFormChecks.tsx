@@ -459,7 +459,7 @@ const CheckCard = ({
             className="gap-2 text-amber-700 border-amber-200 bg-amber-50"
           >
             <Archive size={14} />
-            Archived — remove
+            Archived (remove)
           </Button>
         ) : (
           !archiveFormOpen && (
@@ -485,7 +485,7 @@ const CheckCard = ({
           <Input
             value={archiveNote}
             onChange={(e) => setArchiveNote(e.target.value)}
-            placeholder="e.g. Handstand — first 5 sec freestanding hold"
+            placeholder="e.g. Handstand: first 5 sec freestanding hold"
             maxLength={200}
           />
           <div className="flex gap-2">

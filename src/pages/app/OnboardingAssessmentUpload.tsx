@@ -207,7 +207,7 @@ const OnboardingAssessmentUpload = () => {
           Fill your intake first
         </h1>
         <p className="text-muted-foreground">
-          Your assessment videos are tailored to your declared level — complete
+          Your assessment videos are tailored to your declared level. Complete
           the intake form first so I only ask you to film what's relevant.
         </p>
         <Button asChild>
@@ -240,7 +240,7 @@ const OnboardingAssessmentUpload = () => {
           Your assessment videos
         </h1>
         <p className="font-body text-muted-foreground mt-2 leading-relaxed">
-          Film the exercises below. Take your time — these become the starting
+          Film the exercises below. Take your time. These become the starting
           point your program is built on and stay saved in your space for
           reference.
         </p>

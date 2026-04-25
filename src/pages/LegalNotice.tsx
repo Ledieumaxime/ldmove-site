@@ -27,10 +27,10 @@ const LegalNoticePage = () => {
                 Based in Bali, Indonesia. For any inquiry, please reach out via
                 email at{" "}
                 <a
-                  href="mailto:ld_move@icloud.com"
+                  href="mailto:coach@ldmove.com"
                   className="text-accent hover:underline"
                 >
-                  ld_move@icloud.com
+                  coach@ldmove.com
                 </a>
                 .
               </p>
@@ -49,7 +49,7 @@ const LegalNoticePage = () => {
               </h2>
               <p>
                 The website is hosted by <strong>Vercel Inc.</strong>, 340 S
-                Lemon Ave #4133, Walnut, CA 91789, USA —{" "}
+                Lemon Ave #4133, Walnut, CA 91789, USA.{" "}
                 <a
                   href="https://vercel.com"
                   target="_blank"
@@ -62,7 +62,7 @@ const LegalNoticePage = () => {
               </p>
               <p className="mt-2">
                 User accounts, programs and uploaded form-check videos are
-                stored with <strong>Supabase</strong> (EU region — Ireland).
+                stored with <strong>Supabase</strong> (EU region, Ireland).
                 Transactional emails are delivered through{" "}
                 <strong>Resend</strong>. Online payments, when active, are
                 processed by <strong>Stripe</strong>. The domain name{" "}

@@ -11,10 +11,10 @@ const REQUIRED: Exercise[] = [
   { n: 4, name: "Bodyweight squat", desc: "10 slow reps, side angle, heels stay on the floor." },
   { n: 5, name: "Hanging dead hang", desc: "Hold as long as possible. Say the time out loud or show a timer." },
   { n: 6, name: "Deep squat hold", desc: "Hold 30 seconds, heels on floor, film from front + side." },
-  { n: 7, name: "Shoulder wall test", desc: "Stand with your back against a wall. Raise both arms until they touch the wall above your head — without arching your lower back. Film from the front." },
+  { n: 7, name: "Shoulder wall test", desc: "Stand with your back against a wall. Raise both arms until they touch the wall above your head, without arching your lower back. Film from the front." },
   { n: 8, name: "Pike stretch", desc: "Standing, legs straight, reach down towards the floor. Side angle. Say out loud how far from the floor your hands are." },
-  { n: 9, name: "Front split — left leg", desc: "Best attempt, side angle." },
-  { n: 10, name: "Front split — right leg", desc: "Best attempt, side angle." },
+  { n: 9, name: "Front split (left leg)", desc: "Best attempt, side angle." },
+  { n: 10, name: "Front split (right leg)", desc: "Best attempt, side angle." },
   { n: 11, name: "Side split", desc: "Best attempt, front angle." },
   { n: 12, name: "Pancake (seated, legs wide)", desc: "Sit on floor with legs wide, lean forward with chest towards the floor. Film from the front." },
 ];
@@ -84,7 +84,7 @@ const OnboardingAssessmentPage = () => {
             (Google Drive, YouTube unlisted, or iCloud).
           </p>
           <p className="font-body text-muted-foreground leading-relaxed">
-            Read carefully — some exercises are required for everyone, others
+            Read carefully. Some exercises are required for everyone, others
             only if you can already do them.
           </p>
         </div>
@@ -98,7 +98,7 @@ const OnboardingAssessmentPage = () => {
             </div>
             <div>
               <p className="text-xs font-semibold text-green-700 uppercase tracking-widest">
-                Required — everyone
+                Required for everyone
               </p>
               <h2 className="font-heading text-2xl font-bold">Film these 12 exercises</h2>
             </div>
@@ -115,7 +115,7 @@ const OnboardingAssessmentPage = () => {
             </div>
             <div>
               <p className="text-xs font-semibold text-amber-700 uppercase tracking-widest">
-                Optional — only if you can do it
+                Optional, only if you can do it
               </p>
               <h2 className="font-heading text-2xl font-bold">
                 Skip anything you can't do yet
@@ -161,7 +161,7 @@ const OnboardingAssessmentPage = () => {
               Use a side angle for most exercises unless specified otherwise.
             </li>
             <li className="bg-card border border-border rounded-xl p-4">
-              One video per exercise is fine — no need to do multiple takes.
+              One video per exercise is fine. No need to do multiple takes.
             </li>
             <li className="bg-card border border-border rounded-xl p-4">
               You can group all your videos in a single Google Drive folder and send
@@ -186,13 +186,13 @@ const OnboardingAssessmentPage = () => {
           </div>
           <div className="space-y-4 font-body text-muted-foreground leading-relaxed">
             <p>
-              Take your time with this — there's no rush. These videos are your
+              Take your time with this. There's no rush. These videos are your
               starting point. I'll use them to build a program that's made exactly
               for where you are right now.
             </p>
             <p>
               Every 3 programs (roughly every 3 months), we'll do a short check-in
-              assessment. Not the full list — just the exercises that matter most
+              assessment. Not the full list, just the exercises that matter most
               for your goals at that point.
             </p>
             <p>

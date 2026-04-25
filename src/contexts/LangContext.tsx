@@ -19,7 +19,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "nav.applyCoaching": { fr: "Postuler au coaching", en: "Apply for coaching" },
 
   // Footer
-  "footer.desc": { fr: "Handstand, mobilité et calisthenics pour adultes occupés. Coaching en ligne depuis Bali.", en: "Handstand, mobility and calisthenics for busy adults. Online coaching from Bali." },
+  "footer.desc": { fr: "Handstand, mobilité et calisthenics pour adultes occupés. Coaching en ligne depuis Bali.", en: "Handstand, mobility, and calisthenics coaching for busy adults. Online from Bali." },
   "footer.nav": { fr: "Navigation", en: "Navigation" },
   "footer.follow": { fr: "Suivre LD Move", en: "Follow LD Move" },
   "footer.rights": { fr: "Tous droits réservés.", en: "All rights reserved." },
@@ -30,7 +30,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "home.hero.title": { fr: "Handstand, Mobilité et Calisthenics pour adultes occupés", en: "Handstand, Mobility and Calisthenics for Busy Adults" },
   "home.hero.subtitle": { fr: "Deviens plus fort, plus mobile et apprends à tenir sur les mains grâce à un coaching en ligne structuré et fun, même si tu pars de zéro.", en: "Get stronger, more mobile, and learn to hold a handstand with structured and fun online coaching, even if you're starting from scratch." },
   "home.hero.cta1": { fr: "Postuler au coaching 1:1", en: "Apply for 1:1 Coaching" },
-  "home.hero.cta2": { fr: "Découvrir les programmes", en: "Discover Programs" },
+  "home.hero.cta2": { fr: "Découvrir les programmes", en: "Browse Programs" },
 
   // Homepage Pour qui
   "home.who.tag": { fr: "Pour qui ?", en: "Who is it for?" },
@@ -62,7 +62,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "home.how.tag": { fr: "Comment ça marche ?", en: "How It Works" },
   "home.how.title": { fr: "3 étapes simples", en: "3 Simple Steps" },
   "home.how.s1.title": { fr: "Partage tes objectifs", en: "Share Your Goals" },
-  "home.how.s1.desc": { fr: "Remplis un questionnaire rapide pour que je comprenne ton niveau, tes contraintes et tes envies.", en: "Fill out a quick questionnaire so I can understand your level, constraints, and goals." },
+  "home.how.s1.desc": { fr: "Remplis un questionnaire rapide pour que je comprenne ton niveau, tes contraintes et tes envies.", en: "Fill out a quick questionnaire so I can understand your level, goals, and any limitations." },
   "home.how.s2.title": { fr: "On crée ton plan", en: "We Build Your Plan" },
   "home.how.s2.desc": { fr: "Je définis un programme adapté à ton niveau, ton temps disponible et ton matériel.", en: "I design a program tailored to your level, available time, and equipment." },
   "home.how.s3.title": { fr: "Tu progresses", en: "You Progress" },
@@ -103,13 +103,13 @@ const translations: Record<string, Record<Lang, string>> = {
   "coaching.included.tag": { fr: "Tout est inclus", en: "Everything's Included" },
   "coaching.included": { fr: "Ce qui est inclus dans le coaching 1:1", en: "What's Included in 1:1 Coaching" },
   "coaching.inc1.title": { fr: "Analyse de départ", en: "Starting Analysis" },
-  "coaching.inc1": { fr: "Questionnaire détaillé + vidéo d'évaluation pour comprendre ton niveau, tes objectifs et tes contraintes.", en: "Detailed questionnaire + evaluation video to understand your level, goals, and constraints." },
+  "coaching.inc1": { fr: "Questionnaire détaillé + vidéo d'évaluation pour comprendre ton niveau, tes objectifs et tes contraintes.", en: "Detailed questionnaire + evaluation video to understand your level, goals, and limitations." },
   "coaching.inc2.title": { fr: "Programme 100% personnalisé", en: "100% Custom Program" },
   "coaching.inc2": { fr: "3 à 5 séances par semaine, adaptées à ton niveau, ton temps disponible et ton matériel.", en: "3 to 5 sessions per week, tailored to your level, available time, and equipment." },
   "coaching.inc3.title": { fr: "Feedback vidéo chaque semaine", en: "Weekly Video Feedback" },
-  "coaching.inc3": { fr: "Tu m'envoies tes vidéos, je te renvoie corrections détaillées, conseils et ajustements.", en: "You send me your videos, I send back detailed corrections, tips, and adjustments." },
+  "coaching.inc3": { fr: "Tu m'envoies tes vidéos, je te renvoie corrections détaillées, conseils et ajustements.", en: "Send me your videos weekly. I'll send back detailed feedback and adjustments to keep you progressing." },
   "coaching.inc4.title": { fr: "Ajustement du plan chaque semaine", en: "Weekly Plan Adjustments" },
-  "coaching.inc4": { fr: "Ton programme évolue en fonction de ta progression, de tes contraintes et de tes éventuelles douleurs.", en: "Your program evolves based on your progress, constraints, and any pain you may have." },
+  "coaching.inc4": { fr: "Ton programme évolue en fonction de ta progression, de tes contraintes et de tes éventuelles douleurs.", en: "Your program evolves based on your progress, limitations, and any pain you may have." },
   "coaching.inc5.title": { fr: "Support par messages", en: "Message Support" },
   "coaching.inc5": { fr: "Pose tes questions à tout moment par WhatsApp. Je te réponds rapidement.", en: "Ask your questions anytime via WhatsApp. I reply quickly." },
 
@@ -174,12 +174,12 @@ const translations: Record<string, Record<Lang, string>> = {
 
   // Programs - How it works
   "prog.how.tag": { fr: "Comment ça marche", en: "How It Works" },
-  "prog.how.title": { fr: "Comment fonctionnent les programmes", en: "How the programs work" },
+  "prog.how.title": { fr: "Comment fonctionnent les programmes", en: "How Programs Work" },
   "prog.how.s1.title": { fr: "Choisis ton focus", en: "Choose your focus" },
   "prog.how.s1.desc": { fr: "Handstand, hanches, colonne… Choisis le programme qui correspond à ton objectif principal.", en: "Handstand, hips, spine… Pick the program that matches your main goal." },
   "prog.how.s2.title": { fr: "Accède à la plateforme", en: "Access the platform" },
   "prog.how.s2.desc": { fr: "Des vidéos claires, des tableaux semaine par semaine et des instructions simples pour chaque séance.", en: "Get clear videos, week-by-week tables, and simple instructions for each session." },
-  "prog.how.s3.title": { fr: "Entraîne-toi à ton rythme", en: "Train at your own pace" },
+  "prog.how.s3.title": { fr: "Entraîne-toi à ton rythme", en: "Train on your timeline" },
   "prog.how.s3.desc": { fr: "Suis les progressions 2 à 4 fois par semaine, à la maison ou en salle.", en: "Follow the progressions 2–4 times per week, at home or at the gym." },
 
   "prog.p1.title": { fr: "Programme Signature Handstand", en: "Signature Handstand Program" },
@@ -277,7 +277,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "contact.confidential": { fr: "Tes informations restent strictement confidentielles et ne seront jamais partagées.", en: "Your information remains strictly confidential and will never be shared." },
   "contact.submit": { fr: "Envoyer mon message", en: "Send My Message" },
   "contact.success": { fr: "Merci ! Ton message a bien été envoyé. Je te réponds sous 24–48h.", en: "Thanks! Your message has been sent. I'll get back to you within 24–48h." },
-  "contact.error": { fr: "Une erreur est survenue. Réessaie plus tard ou contacte-moi directement à ld_move@icloud.com.", en: "Something went wrong. Please try again later or contact me directly at ld_move@icloud.com." },
+  "contact.error": { fr: "Une erreur est survenue. Réessaie plus tard ou contacte-moi directement à coach@ldmove.com.", en: "Something went wrong. Please try again later or contact me directly at coach@ldmove.com." },
   "contact.error.missing": { fr: "Merci de remplir tous les champs obligatoires (marqués d'un *).", en: "Please fill in all required fields (marked with *)." },
   "contact.error.email": { fr: "L'adresse email saisie n'est pas valide. Vérifie qu'elle est au bon format (exemple : prenom@domaine.com).", en: "The email address entered is not valid. Please check the format (example: name@domain.com)." },
 
@@ -315,12 +315,12 @@ const translations: Record<string, Record<Lang, string>> = {
   "apply.duration.6m": { fr: "6 mois", en: "6 months" },
   "apply.duration.unsure": { fr: "Pas encore sûr(e)", en: "Not sure yet" },
   "apply.message": { fr: "Message (optionnel)", en: "Message (optional)" },
-  "apply.message.ph": { fr: "Dis-moi un peu plus sur toi, tes objectifs ou tes contraintes…", en: "Tell me a bit more about yourself, your goals, or any constraints…" },
+  "apply.message.ph": { fr: "Dis-moi un peu plus sur toi, tes objectifs ou tes contraintes…", en: "Tell me a bit more about yourself, your goals, or any limitations…" },
   "apply.reassurance": { fr: "Ce n'est pas un engagement définitif. On échange d'abord pour s'assurer que le coaching est adapté à tes besoins.", en: "This isn't a final commitment. We'll chat first to make sure coaching is the right fit for your needs." },
   "apply.submit": { fr: "Envoyer ma candidature", en: "Submit My Application" },
   "apply.confidential": { fr: "Tes informations restent strictement confidentielles et ne seront jamais partagées.", en: "Your information remains strictly confidential and will never be shared." },
   "apply.success": { fr: "Merci ! Ta candidature a bien été envoyée. Je te recontacte sous 48h.", en: "Thanks! Your application has been sent. I'll get back to you within 48h." },
-  "apply.error": { fr: "Une erreur est survenue. Réessaie plus tard ou contacte-moi directement à ld_move@icloud.com.", en: "Something went wrong. Please try again later or contact me directly at ld_move@icloud.com." },
+  "apply.error": { fr: "Une erreur est survenue. Réessaie plus tard ou contacte-moi directement à coach@ldmove.com.", en: "Something went wrong. Please try again later or contact me directly at coach@ldmove.com." },
   "apply.error.missing": { fr: "Merci de remplir tous les champs obligatoires (marqués d'un *).", en: "Please fill in all required fields (marked with *)." },
   "apply.error.email": { fr: "L'adresse email saisie n'est pas valide. Vérifie qu'elle est au bon format (exemple : prenom@domaine.com).", en: "The email address entered is not valid. Please check the format (example: name@domain.com)." },
 
@@ -520,7 +520,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "home2.hero.tag": { fr: "LD Move. Coaching mouvement", en: "LD Move. Movement Coaching" },
   "home2.hero.title": { fr: "Construis un corps fort, mobile et sans douleur.", en: "Build a body that's strong, mobile and pain‑free." },
   "home2.hero.subtitle": { fr: "Grâce au handstand, à la mobilité et au renforcement au poids du corps, on fait bouger et se sentir mieux ton corps.", en: "Through handstands, mobility and bodyweight training, we make your body move better and feel better." },
-  "home2.hero.cta": { fr: "Découvrir les programmes", en: "Discover Programs" },
+  "home2.hero.cta": { fr: "Découvrir les programmes", en: "Browse Programs" },
   "home2.hero.cta2": { fr: "Coaching 1:1", en: "1:1 Coaching" },
 
   // Pour qui
@@ -544,10 +544,10 @@ const translations: Record<string, Record<Lang, string>> = {
   // Ce que je propose
   "home2.offer.tag": { fr: "Ce que je propose", en: "What I Offer" },
   "home2.offer.title": { fr: "Trois façons de travailler avec moi", en: "Three Ways to Work With Me" },
-  "home2.offer.desc": { fr: "Un accompagnement personnalisé, des programmes structurés ou une consultation ponctuelle, à toi de choisir.", en: "Personalised coaching, structured programs, or a one-off consultation, you choose." },
+  "home2.offer.desc": { fr: "Un accompagnement personnalisé, des programmes structurés ou une consultation ponctuelle, à toi de choisir.", en: "1:1 coaching, structured programs, or a single consultation." },
 
   "home2.offer.consult.title": { fr: "Consultation", en: "Consultation" },
-  "home2.offer.consult.desc": { fr: "Un appel de 30 minutes pour analyser ta pratique, répondre à tes questions et te donner des pistes concrètes pour progresser.", en: "A 30-minute call to review your practice, answer your questions, and give you actionable steps to progress." },
+  "home2.offer.consult.desc": { fr: "Un appel de 30 minutes pour analyser ta pratique, répondre à tes questions et te donner des pistes concrètes pour progresser.", en: "A 30-minute call to review your practice, answer your questions, and give you clear next steps." },
   "home2.offer.consult.cta": { fr: "Réserver", en: "Book" },
 
   "home2.offer.coaching.title": { fr: "Coaching 1:1", en: "1:1 Coaching" },
@@ -555,7 +555,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "home2.offer.coaching.cta": { fr: "En savoir plus", en: "Learn More" },
 
   "home2.offer.programs.title": { fr: "Programmes", en: "Programs" },
-  "home2.offer.programs.desc": { fr: "Des programmes sur plusieurs semaines pour le handstand, la flexibilité (middle split) et la mobilité de la colonne. Vidéos guidées, progressions claires, à faire à ton rythme.", en: "Multi-week programs for handstand, flexibility (middle split) and spine mobility. Guided videos, clear progressions, at your own pace." },
+  "home2.offer.programs.desc": { fr: "Des programmes sur plusieurs semaines pour le handstand, la flexibilité (middle split) et la mobilité de la colonne. Vidéos guidées, progressions claires, à faire à ton rythme.", en: "Multi-week programs for handstand, flexibility, and spine mobility. Guided videos, clear progressions. Work at your own rhythm." },
   "home2.offer.programs.cta": { fr: "Voir les programmes", en: "View Programs" },
 
   // Ma philosophie
@@ -569,7 +569,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "home2.philo.a3.title": { fr: "Progression réaliste", en: "Realistic Progression" },
   "home2.philo.a3.desc": { fr: "Des programmes pensés pour des adultes avec un emploi du temps chargé. Pas besoin d'être un athlète pro pour progresser.", en: "Programs designed for adults with busy schedules. You don't need to be a pro athlete to make progress." },
   "home2.philo.a4.title": { fr: "Approche ludique", en: "Playful Approach" },
-  "home2.philo.a4.desc": { fr: "Handstand, mouvement ou skills. L'entraînement devrait ressembler à un jeu auquel on a envie de jouer plutôt qu'une tâche à accomplir.", en: "Handstand, movement or skill. Training should feel like a game you get to play than a task you have to do." },
+  "home2.philo.a4.desc": { fr: "Handstand, mouvement ou skills. L'entraînement devrait ressembler à un jeu auquel on a envie de jouer plutôt qu'une tâche à accomplir.", en: "Handstand, movement, or skill. Training should feel like a game, not a chore." },
 
   // Comment ça marche
   "home2.step.tag": { fr: "Comment ça marche ?", en: "How It Works" },
@@ -586,7 +586,7 @@ const translations: Record<string, Record<Lang, string>> = {
   // À propos (mini)
   "home2.about.tag": { fr: "À propos", en: "About" },
   "home2.about.title": { fr: "Maxime, LD Move", en: "Maxime, LD Move" },
-  "home2.about.p1": { fr: "Je suis coach de mouvement, spécialisé en handstand, mobilité et calisthenics. Mon parcours mêle la force au poids du corps, le yoga et des années de pratique du handstand. Aujourd'hui, j'aide les adultes « sédentaires actifs » à retrouver un corps dans lequel ils se sentent bien, forts et libres.", en: "I'm a movement coach specializing in handstand, mobility, and calisthenics. My background combines bodyweight strength, yoga, and years of handstand practice. Today, I help 'active sedentary' adults build a body they feel strong, comfortable, and free in." },
+  "home2.about.p1": { fr: "Je suis coach de mouvement, spécialisé en handstand, mobilité et calisthenics. Mon parcours mêle la force au poids du corps, le yoga et des années de pratique du handstand. Aujourd'hui, j'aide les adultes « sédentaires actifs » à retrouver un corps dans lequel ils se sentent bien, forts et libres.", en: "I'm a movement coach specializing in handstand, mobility, and calisthenics. My background combines bodyweight strength, yoga, and years of handstand practice. Today, I help desk-bound adults build a body they feel strong and free in." },
   "home2.about.p2": { fr: "Mon approche est simple : des programmes structurés, des retours honnêtes, et une passion sincère pour aider les gens à découvrir ce que leur corps est vraiment capable de faire.", en: "My approach is simple: structured programs, honest feedback, and a genuine passion for helping people discover what their body is truly capable of." },
   "home2.about.cta": { fr: "En savoir plus sur moi", en: "Learn More About Me" },
 
@@ -603,7 +603,7 @@ const translations: Record<string, Record<Lang, string>> = {
   // CTA final
   "home2.cta.title": { fr: "Prêt à reprendre le contrôle de ton corps ?", en: "Ready to Take Back Control of Your Body?" },
   "home2.cta.desc": { fr: "Bouge plus librement, deviens plus fort et apprends des skills qui changent ta façon de vivre dans ton corps.", en: "Move more freely, get stronger, and learn skills that change the way you live in your body." },
-  "home2.cta.btn": { fr: "Découvrir les programmes", en: "Discover Programs" },
+  "home2.cta.btn": { fr: "Découvrir les programmes", en: "Browse Programs" },
 
   // Homepage 1:1 Coaching Section
   "home2.coaching.tag": { fr: "Coaching 1:1", en: "1:1 Coaching" },
@@ -611,7 +611,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "home2.coaching.intro": { fr: "Si tu veux un accompagnement plus personnalisé que les programmes en autonomie, tu peux travailler avec moi en coaching 1:1. On adapte le plan à ton niveau, ton emploi du temps et tes objectifs (handstand, mobilité, force au poids du corps).", en: "If you want more personalized support than self-paced programs, you can work with me 1:1. We'll adapt the plan to your level, schedule and goals (handstands, mobility, bodyweight strength)." },
 
   "home2.coaching.c1.title": { fr: "Coaching 1 mois", en: "1-Month Coaching" },
-  "home2.coaching.c1.ideal": { fr: "Idéal pour : tester le coaching, débloquer un point précis (poignets, kick-up, douleur spécifique…).", en: "Best for: testing coaching, unlocking one specific issue (wrists, kick-up, a specific pain, etc.)." },
+  "home2.coaching.c1.ideal": { fr: "Idéal pour : tester le coaching, débloquer un point précis (poignets, kick-up, douleur spécifique…).", en: "Best for: trying coaching, fixing one specific issue (wrists, kick-up, pain, etc.)." },
   "home2.coaching.c1.i1": { fr: "1 appel de départ (bilan + objectifs)", en: "1 initial call (assessment + goals)" },
   "home2.coaching.c1.i2": { fr: "Programme personnalisé sur 4 semaines", en: "Personalized 4-week plan" },
   "home2.coaching.c1.i3": { fr: "1 check-in par semaine (vidéo/texte)", en: "1 weekly check-in (video/text)" },

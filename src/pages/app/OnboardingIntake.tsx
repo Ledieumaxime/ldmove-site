@@ -218,7 +218,7 @@ const OnboardingIntake = () => {
         <h1 className="font-heading text-3xl font-bold">Intake received</h1>
         <p className="font-body text-muted-foreground leading-relaxed">
           Thanks for filling this out. Next step is to film and upload your
-          assessment videos — once Maxime has both, he'll build your first program.
+          assessment videos. Once Maxime has both, he'll build your first program.
         </p>
         <div className="pt-2 flex flex-wrap gap-2 justify-center">
           <Button asChild>
@@ -242,7 +242,7 @@ const OnboardingIntake = () => {
       </h1>
       <p className="font-body text-muted-foreground leading-relaxed mb-8">
         A few questions to understand where you are today. Take 5 minutes, be
-        honest — this is what I'll use to design your first program.
+        honest. This is what I'll use to design your first program.
       </p>
 
       {existing && (
@@ -324,7 +324,7 @@ const OnboardingIntake = () => {
               rows={2}
               value={form.injuries ?? ""}
               onChange={(e) => update("injuries", e.target.value)}
-              placeholder="Anything I should know — shoulder, back, knees…"
+              placeholder="Anything I should know: shoulder, back, knees…"
             />
           </Field>
           <RadioField
@@ -507,7 +507,7 @@ const OnboardingIntake = () => {
         {/* Section 5 */}
         <Section title="Mobility">
           <RadioField
-            label="Pike stretch — standing toe touch"
+            label="Pike stretch (standing toe touch)"
             desc="Stand with legs straight, bend forward. How close are your hands to the floor?"
             required
             value={form.hamstrings}
@@ -520,14 +520,14 @@ const OnboardingIntake = () => {
             ]}
           />
           <RadioField
-            label="Front split — left leg forward"
+            label="Front split (left leg forward)"
             required
             value={form.front_split_left}
             onChange={(v) => update("front_split_left", v)}
             options={["Never tried", "In progress", "Full"]}
           />
           <RadioField
-            label="Front split — right leg forward"
+            label="Front split (right leg forward)"
             required
             value={form.front_split_right}
             onChange={(v) => update("front_split_right", v)}
@@ -541,8 +541,8 @@ const OnboardingIntake = () => {
             options={["Never tried", "In progress", "Full"]}
           />
           <RadioField
-            label="Shoulder wall test — arms overhead"
-            desc="Stand with your back flat against a wall. Raise both arms straight above your head and try to touch the wall — without arching your lower back."
+            label="Shoulder wall test (arms overhead)"
+            desc="Stand with your back flat against a wall. Raise both arms straight above your head and try to touch the wall, without arching your lower back."
             required
             value={form.shoulder_mobility}
             onChange={(v) => update("shoulder_mobility", v)}

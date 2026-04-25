@@ -64,7 +64,7 @@ const ClientArchived = () => {
                   <Play className="text-muted-foreground" size={18} />
                 </div>
                 <span className="text-xs font-semibold px-2 py-1 rounded-full bg-gray-100 text-gray-700">
-                  Archived — free
+                  Archived (free)
                 </span>
               </div>
               <h3 className="font-heading text-lg font-bold mb-1">{p.title}</h3>

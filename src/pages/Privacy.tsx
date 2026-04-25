@@ -20,10 +20,10 @@ const PrivacyPage = () => {
                 collects, why, where it is stored and what rights you have over
                 it. If you have any question, email{" "}
                 <a
-                  href="mailto:ld_move@icloud.com"
+                  href="mailto:coach@ldmove.com"
                   className="text-accent hover:underline"
                 >
-                  ld_move@icloud.com
+                  coach@ldmove.com
                 </a>{" "}
                 at any time.
               </p>
@@ -105,19 +105,19 @@ const PrivacyPage = () => {
               <ul className="list-disc pl-6 space-y-2">
                 <li>
                   <strong>Supabase</strong> (database, authentication and
-                  video storage) — EU region, Ireland (eu-west-1).
+                  video storage). EU region, Ireland (eu-west-1).
                 </li>
                 <li>
-                  <strong>Resend</strong> (transactional emails) — EU region.
+                  <strong>Resend</strong> (transactional emails). EU region.
                 </li>
                 <li>
-                  <strong>Stripe</strong> (payments, when active) — processes
+                  <strong>Stripe</strong> (payments, when active). Processes
                   payments under its own privacy policy and never exposes your
                   card details to us.
                 </li>
                 <li>
-                  <strong>Vercel</strong> (website hosting and server logs) —
-                  global edge network.
+                  <strong>Vercel</strong> (website hosting and server logs).
+                  Global edge network.
                 </li>
               </ul>
             </section>
@@ -172,10 +172,10 @@ const PrivacyPage = () => {
               <p className="mt-3">
                 To exercise any of these rights, simply email{" "}
                 <a
-                  href="mailto:ld_move@icloud.com"
+                  href="mailto:coach@ldmove.com"
                   className="text-accent hover:underline"
                 >
-                  ld_move@icloud.com
+                  coach@ldmove.com
                 </a>
                 . We aim to respond within 30 days.
               </p>

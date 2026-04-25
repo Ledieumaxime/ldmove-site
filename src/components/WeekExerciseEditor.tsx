@@ -234,7 +234,7 @@ const WeekExerciseEditor = ({ weekId }: { weekId: string }) => {
 
               <div>
                 <label className="text-[10px] font-semibold text-muted-foreground uppercase">
-                  Group (optional — e.g. SUPERSET 1, DROP SET)
+                  Group (optional, e.g. SUPERSET 1, DROP SET)
                 </label>
                 <Input
                   value={item.group_name ?? ""}

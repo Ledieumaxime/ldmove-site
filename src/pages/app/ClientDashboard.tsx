@@ -207,7 +207,7 @@ const ClientDashboard = () => {
               icon={<ClipboardList size={20} />}
               tag="Start here"
               title="Complete your intake form"
-              desc="5 minutes to tell me where you are today — this is what I use to design your first program."
+              desc="5 minutes to tell me where you are today. This is what I use to design your first program."
             />
           );
         }
@@ -219,7 +219,7 @@ const ClientDashboard = () => {
               icon={<Video size={20} />}
               tag="Step 2"
               title={`Upload your assessment videos (${assessmentCount}/${expected})`}
-              desc="Film the exercises I need to see — I'll use them to validate your level and build the right program."
+              desc="Film the exercises I need to see. I'll use them to validate your level and build the right program."
             />
           );
         }
@@ -293,7 +293,7 @@ const ClientDashboard = () => {
           <div className="text-sm">
             <p className="font-semibold text-amber-900">
               {isOverdue
-                ? "Your program has ended — time to check in with your coach"
+                ? "Your program has ended. Time to check in with your coach"
                 : `Your program ends in ${daysLeft} day${daysLeft > 1 ? "s" : ""}`}
             </p>
             <p className="text-amber-800 mt-0.5">

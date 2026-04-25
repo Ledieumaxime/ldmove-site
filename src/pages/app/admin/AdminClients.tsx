@@ -134,7 +134,7 @@ const AdminClients = () => {
       {clients.length === 0 ? (
         <div className="bg-white rounded-2xl border border-border p-8 text-center">
           <p className="text-muted-foreground">
-            No clients yet. Share your site — signups will show up here.
+            No clients yet. Share your site, signups will show up here.
           </p>
         </div>
       ) : (
@@ -252,7 +252,7 @@ const AssignForm = ({
   client: Client;
   onDone: () => void;
 }) => {
-  const [title, setTitle] = useState(`1:1 Program — ${client.first_name ?? ""}`);
+  const [title, setTitle] = useState(`1:1 Program for ${client.first_name ?? ""}`);
   const [description, setDescription] = useState("");
   const [priceEur, setPriceEur] = useState(120);
   const [billingType, setBillingType] = useState<"one_time" | "subscription">("subscription");
@@ -477,7 +477,7 @@ const InviteForm = ({
               onChange={(e) => setProgramId(e.target.value)}
               className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-sm"
             >
-              <option value="">— None, just invite —</option>
+              <option value="">None, just invite</option>
               {unassignedPrograms.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.title}

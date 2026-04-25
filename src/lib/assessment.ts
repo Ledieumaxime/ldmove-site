@@ -71,12 +71,12 @@ export const ASSESSMENT_EXERCISES: AssessmentExercise[] = [
   { n: 5, name: "Hanging dead hang", desc: "Hold as long as possible. Say the time out loud or show a timer.", section: "required" },
   { n: 6, name: "Deep squat hold", desc: "Hold 30 seconds, heels on floor, film from front + side.", section: "required",
     verifies: "deep_squat" },
-  { n: 7, name: "Shoulder wall test", desc: "Stand with your back against a wall. Raise both arms until they touch the wall above your head — without arching your lower back. Film from the front.", section: "required",
+  { n: 7, name: "Shoulder wall test", desc: "Stand with your back against a wall. Raise both arms until they touch the wall above your head, without arching your lower back. Film from the front.", section: "required",
     verifies: "shoulder_mobility" },
   { n: 8, name: "Pike stretch", desc: "Standing, legs straight, reach down towards the floor. Side angle. Say out loud how far from the floor your hands are.", section: "required",
     verifies: "hamstrings" },
-  { n: 9, name: "Front split — left leg forward", desc: "Best attempt, side angle.", section: "required" },
-  { n: 10, name: "Front split — right leg forward", desc: "Best attempt, side angle.", section: "required" },
+  { n: 9, name: "Front split (left leg forward)", desc: "Best attempt, side angle.", section: "required" },
+  { n: 10, name: "Front split (right leg forward)", desc: "Best attempt, side angle.", section: "required" },
   { n: 11, name: "Middle split", desc: "Best attempt, front angle.", section: "required" },
   { n: 12, name: "Pancake (seated, legs wide)", desc: "Sit on floor with legs wide, lean forward with chest towards the floor. Film from the front.", section: "required" },
 
@@ -133,7 +133,7 @@ export const visibleExercises = (
   ASSESSMENT_EXERCISES.filter((e) => !e.gate || e.gate(intake));
 
 export const SECTION_LABEL: Record<AssessmentSection, string> = {
-  required: "Required — everyone",
+  required: "Required for everyone",
   strength: "Strength skills",
   gymnastics: "Gymnastics skills",
   mobility: "Mobility",

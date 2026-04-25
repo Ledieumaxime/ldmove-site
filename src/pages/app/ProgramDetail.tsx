@@ -205,9 +205,9 @@ const ProgramDetail = () => {
           <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
             <CheckCircle2 size={16} />
             {isCoach
-              ? "Coach view — you see everything."
+              ? "Coach view. You see everything."
               : isArchived
-              ? "Archived program — free access."
+              ? "Archived program, free access."
               : "Access unlocked."}
           </div>
           {weeks.length === 0 ? (

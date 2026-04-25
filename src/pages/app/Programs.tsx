@@ -111,7 +111,7 @@ const ProgramCard = ({
   const unlocked = openAccess || isPaid;
   const Icon = unlocked ? CheckCircle2 : Lock;
   const badge = openAccess
-    ? { label: "Archived — free", cls: "bg-gray-100 text-gray-700" }
+    ? { label: "Archived (free)", cls: "bg-gray-100 text-gray-700" }
     : unlocked
     ? { label: "Unlocked", cls: "bg-green-100 text-green-700" }
     : { label: `${program.price_eur}€`, cls: "bg-accent/10 text-accent" };
