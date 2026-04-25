@@ -69,7 +69,7 @@ Deno.serve(async (req: Request) => {
       programUrl,
       loginUrl: `${siteUrl}/app/login`,
     });
-    const text = `Hey ${firstName},\n\nYour new program "${program.title}" is live.\n\nOpen it: ${programUrl}\n\n— Maxime, LD Move`;
+    const text = `Hey ${firstName},\n\nYour new program "${program.title}" is live.\n\nOpen it: ${programUrl}\n\nTalk soon,\nMaxime, LD Move`;
 
     // Send via Resend
     const sendRes = await fetch("https://api.resend.com/emails", {
@@ -132,7 +132,7 @@ function renderEmail(v: {
         <tr><td style="padding:40px 32px 0 32px;">
           <p style="margin:0 0 8px 0;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#e07830;font-weight:600;">LD Move</p>
           <h1 style="margin:0 0 16px 0;font-family:Georgia,serif;font-size:28px;line-height:1.3;color:#3a3530;">
-            Hey ${escapeHtml(v.firstName)}, your new program is live 🎯
+            Hey ${escapeHtml(v.firstName)}, your new program is live
           </h1>
           <p style="margin:0 0 12px 0;font-size:16px;line-height:1.6;color:#5a4a3a;">
             I just published <strong>${escapeHtml(v.programTitle)}</strong> for you.
@@ -148,8 +148,8 @@ function renderEmail(v: {
         <tr><td style="padding:32px;border-top:1px solid #ede8e0;margin-top:24px;">
           <p style="margin:0;font-size:13px;color:#8a7e72;line-height:1.5;">
             Training well this week?<br/>
-            Reply to this email — it goes straight to me.<br/><br/>
-            — Maxime
+            Reply to this email. It goes straight to me.<br/><br/>
+            Maxime
           </p>
         </td></tr>
       </table>

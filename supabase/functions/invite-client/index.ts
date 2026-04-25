@@ -170,8 +170,8 @@ LD Move`;
     <div style="background:#f9fafb;border-radius:12px;padding:20px;margin:24px 0;">
       <p style="font-size:13px;font-weight:600;color:#111827;margin:0 0 10px;">Once you're in, two quick things to complete:</p>
       <ol style="font-size:14px;line-height:1.7;color:#374151;padding-left:18px;margin:0;">
-        <li><strong>Fill the intake form</strong> — about 5 minutes, helps me understand where you are.</li>
-        <li><strong>Film and send your assessment videos</strong> — the instructions are on the site.</li>
+        <li><strong>Fill the intake form</strong> (about 5 minutes), to help me understand where you are.</li>
+        <li><strong>Film and send your assessment videos</strong>. The instructions are on the site.</li>
       </ol>
       <p style="font-size:13px;color:#6b7280;margin:12px 0 0;">You'll see both as a banner right after you create your password.</p>
     </div>
@@ -190,7 +190,7 @@ LD Move`;
         body: JSON.stringify({
           from: "LD Move <coach@ldmove.com>",
           to: [email],
-          reply_to: "ld_move@icloud.com",
+          reply_to: "coach@ldmove.com",
           subject,
           text,
           html,

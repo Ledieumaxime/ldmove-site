@@ -101,7 +101,7 @@ Received at: ${new Date().toISOString()}`;
           },
           body: JSON.stringify({
             from: FROM_ADDRESS,
-            to: ["ld_move@icloud.com"],
+            to: ["coach@ldmove.com"],
             reply_to: email,
             subject: `${subjectPrefix} from ${first_name} ${last_name}`,
             text: emailBody.trim(),
@@ -114,11 +114,11 @@ Received at: ${new Date().toISOString()}`;
 
         // 2. Auto-confirmation to the prospect so they know the message went through
         const confirmationSubject = isCoachingApp
-          ? "Thanks for your application — LD Move"
-          : "Thanks for your message — LD Move";
+          ? "Thanks for your application, LD Move"
+          : "Thanks for your message, LD Move";
         const confirmationBody = `Hi ${first_name},
 
-Thanks for reaching out to LD Move — I've received your ${isCoachingApp ? "coaching application" : "message"} and will get back to you within 48 hours.
+Thanks for reaching out to LD Move. I've received your ${isCoachingApp ? "coaching application" : "message"} and will get back to you within 48 hours.
 
 If anything urgent comes up in the meantime, you can reply to this email directly.
 
@@ -135,7 +135,7 @@ LD Move`;
           body: JSON.stringify({
             from: FROM_ADDRESS,
             to: [email],
-            reply_to: "ld_move@icloud.com",
+            reply_to: "coach@ldmove.com",
             subject: confirmationSubject,
             text: confirmationBody,
           }),
