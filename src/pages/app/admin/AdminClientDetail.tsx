@@ -228,8 +228,13 @@ const AdminClientDetail = () => {
       sbGet<Array<{ id: string; week_id: string; order_index: number }>>(
         `program_items?select=id,week_id,order_index&limit=50000`
       ),
+      // 5000 keeps every realistic case covered: 5k rows ≈ 100+
+      // sessions worth of detailed sets × exercises. The old 500 cap
+      // was right at the boundary for a client doing ~9 sessions and
+      // could silently drop the oldest sets, which then leaks into
+      // the recent-training and per-session breakdowns.
       sbGet<LogRow[]>(
-        `workout_logs?select=id,program_item_id,session_run_id,session_date,set_number,reps_done,weight_kg,completed_at,program_items(id,custom_name,sets,reps,rest_seconds,notes,video_url,group_name,week_id,order_index,program_weeks(title,week_number,program_id))&client_id=eq.${clientId}&order=completed_at.desc.nullslast,set_number.asc&limit=500`
+        `workout_logs?select=id,program_item_id,session_run_id,session_date,set_number,reps_done,weight_kg,completed_at,program_items(id,custom_name,sets,reps,rest_seconds,notes,video_url,group_name,week_id,order_index,program_weeks(title,week_number,program_id))&client_id=eq.${clientId}&order=completed_at.desc.nullslast,set_number.asc&limit=5000`
       ),
     ])
       .then(([cl, p, i, f, co, w, it, lg]) => {
@@ -767,6 +772,17 @@ const AdminClientDetail = () => {
                 <span className="text-xs text-muted-foreground">
                   {recentSessions.length} session
                   {recentSessions.length !== 1 ? "s" : ""} completed
+                  {currentProgram && (
+                    <>
+                      {" · "}
+                      {
+                        recentSessions.filter(
+                          (s) => s.programId === currentProgram.id
+                        ).length
+                      }{" "}
+                      on current block
+                    </>
+                  )}
                 </span>
               )}
             </div>
@@ -796,11 +812,35 @@ const AdminClientDetail = () => {
                         className="w-full text-left p-3 flex items-center gap-3 hover:bg-muted/70 transition-colors"
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm">
-                            {s.weekTitle?.trim()
-                              ? s.weekTitle.trim()
-                              : `Session ${s.weekNumber}`}
-                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-semibold text-sm">
+                              {s.weekTitle?.trim()
+                                ? s.weekTitle.trim()
+                                : `Session ${s.weekNumber}`}
+                            </p>
+                            {(() => {
+                              const sessionProgram = programs.find(
+                                (p) => p.id === s.programId
+                              );
+                              if (!sessionProgram) return null;
+                              const isCurrent =
+                                currentProgram?.id === s.programId;
+                              return (
+                                <span
+                                  className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${
+                                    isCurrent
+                                      ? "bg-accent/10 text-accent"
+                                      : "bg-muted text-muted-foreground"
+                                  }`}
+                                >
+                                  {sessionProgram.title}
+                                  {!isCurrent && sessionProgram.is_archived
+                                    ? " · archived"
+                                    : ""}
+                                </span>
+                              );
+                            })()}
+                          </div>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {formatDate(s.completedAt)} ·{" "}
                             {formatRelative(s.completedAt, now)} ·{" "}
