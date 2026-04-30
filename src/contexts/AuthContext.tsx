@@ -56,7 +56,13 @@ const saveSession = (s: SessionLike | null) => {
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [session, setSessionState] = useState<SessionLike | null>(null);
+  // Read the stored session synchronously on first render so consumers
+  // (e.g. the public Navbar) don't flash "Login" before the effect
+  // below hydrates state. Expired tokens are filtered out by
+  // loadStoredSession and treated as no session.
+  const [session, setSessionState] = useState<SessionLike | null>(() =>
+    loadStoredSession()
+  );
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
