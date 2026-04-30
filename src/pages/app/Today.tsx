@@ -20,6 +20,7 @@ import {
   listProgramDays,
   nextDay,
 } from "@/lib/workoutDay";
+import { sectionStyle } from "@/lib/programSections";
 
 type Program = {
   id: string;
@@ -237,6 +238,7 @@ const Today = () => {
       )}
 
       {sections.map((sec, sIdx) => {
+        const style = sectionStyle(sec.section);
         // Build blocks within the section: solo items vs supersets
         // (consecutive items sharing the same group_name).
         type Block =
@@ -262,9 +264,11 @@ const Today = () => {
 
         return (
           <section key={sIdx} className="space-y-3">
-            <p className="inline-block text-xs font-bold uppercase tracking-widest bg-muted text-foreground rounded-md px-3 py-1.5">
+            <div
+              className={`inline-block text-sm md:text-base font-bold uppercase tracking-widest px-4 py-2 rounded-lg shadow-sm ${style.badge}`}
+            >
               {sec.section}
-            </p>
+            </div>
             <div className="space-y-2.5">
               {blocks.map((b, bIdx) => {
                 if (b.type === "solo") {
@@ -273,6 +277,7 @@ const Today = () => {
                       key={b.item.id}
                       item={b.item}
                       canComment
+                      accent={style.border}
                       loggerClientId={user?.id ?? null}
                       loggerReadOnly={justCompletedToday}
                     />
@@ -289,10 +294,12 @@ const Today = () => {
                 return (
                   <div
                     key={`g-${bIdx}`}
-                    className="rounded-xl p-3 border-2 border-accent/30 bg-accent/5"
+                    className={`rounded-xl p-3 ${style.groupBox}`}
                   >
                     <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                      <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest bg-accent/15 text-accent rounded px-2 py-1">
+                      <span
+                        className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded ${style.groupBadge}`}
+                      >
                         <Link2 size={11} /> {b.name}
                       </span>
                       <div className="flex items-center gap-3 text-xs font-semibold">
@@ -314,7 +321,9 @@ const Today = () => {
                     <div className="space-y-2">
                       {b.items.map((it, i) => (
                         <div key={it.id} className="relative pl-7">
-                          <span className="absolute left-0 top-2 w-5 h-5 rounded-full bg-accent text-white text-[10px] font-bold flex items-center justify-center">
+                          <span
+                            className={`absolute left-0 top-2 w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center ${style.groupBullet}`}
+                          >
                             {i + 1}
                           </span>
                           <ProgramItemCard

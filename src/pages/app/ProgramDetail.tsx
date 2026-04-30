@@ -5,6 +5,7 @@ import { sbGet, sbPost } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import ProgramItemCard from "@/components/ProgramItemCard";
+import { sectionStyle } from "@/lib/programSections";
 
 type Program = {
   id: string;
@@ -356,33 +357,5 @@ const ProgramDetail = () => {
     </div>
   );
 };
-
-// Color code per section type — blue (warmup) or red (everything else)
-function sectionStyle(section: string): {
-  badge: string;
-  border: string;
-  groupBox: string;
-  groupBadge: string;
-  groupBullet: string;
-} {
-  const isWarmup = section.toUpperCase().includes("WARM");
-  if (isWarmup) {
-    return {
-      badge: "bg-sky-100 text-sky-800",
-      border: "border-2 !border-sky-500",
-      groupBox: "border-2 border-sky-500 bg-sky-50/60",
-      groupBadge: "bg-sky-200 text-sky-900",
-      groupBullet: "bg-sky-500",
-    };
-  }
-  return {
-    badge: "bg-red-100 text-red-800",
-    border: "border-2 !border-red-500",
-    groupBox: "border-2 border-red-500 bg-red-50/60",
-    groupBadge: "bg-red-200 text-red-900",
-    groupBullet: "bg-red-500",
-  };
-}
-
 
 export default ProgramDetail;
