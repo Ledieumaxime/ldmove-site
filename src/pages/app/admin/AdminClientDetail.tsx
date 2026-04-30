@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
+  Archive,
   ArrowLeft,
   CheckCircle2,
   ClipboardList,
   Edit2,
-  Eye,
   History as HistoryIcon,
+  Loader2,
   MessageCircle,
   PlusCircle,
   Video,
   ArrowRight,
   Send,
 } from "lucide-react";
-import { sbGet } from "@/integrations/supabase/api";
+import { sbGet, sbPatch } from "@/integrations/supabase/api";
 import {
   CompletedLog,
   countCompletedSessions,
@@ -176,6 +177,7 @@ const AdminClientDetail = () => {
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [archiving, setArchiving] = useState(false);
 
   useEffect(() => {
     if (!clientId) return;
@@ -329,6 +331,36 @@ const AdminClientDetail = () => {
       sessionsPerLoop,
     };
   }, [currentProgram, weeks, items, logs, now]);
+
+  /** Flip the active block to archived. Lightweight confirm via the
+   *  browser dialog — proper inline UX is queued for later. After the
+   *  PATCH we refresh the local programs list so the panel re-renders
+   *  in its "no active block" state. */
+  const archiveCurrentBlock = async () => {
+    if (!currentProgram) return;
+    if (
+      !confirm(
+        `Archive "${currentProgram.title}"? The client will see "no active program" until you assign a new block.`
+      )
+    )
+      return;
+    setArchiving(true);
+    setError(null);
+    try {
+      await sbPatch(`programs?id=eq.${currentProgram.id}`, {
+        is_archived: true,
+      });
+      setPrograms((prev) =>
+        prev.map((p) =>
+          p.id === currentProgram.id ? { ...p, is_archived: true } : p
+        )
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setArchiving(false);
+    }
+  };
 
   const pendingChecks = useMemo(
     () => checks.filter((c) => c.status === "pending"),
@@ -649,6 +681,19 @@ const AdminClientDetail = () => {
                 >
                   View full program
                 </Link>
+                <button
+                  type="button"
+                  onClick={archiveCurrentBlock}
+                  disabled={archiving}
+                  className="inline-flex items-center gap-1.5 text-white/60 font-semibold rounded-full px-3 py-2 text-sm hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {archiving ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Archive size={14} />
+                  )}
+                  {archiving ? "Archiving…" : "Archive"}
+                </button>
               </div>
             </section>
           ) : (

@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { LangProvider } from "@/contexts/LangContext";
 import Index from "./pages/Index";
 import CoachingPage from "./pages/Coaching";
@@ -31,7 +31,6 @@ import AppProfile from "./pages/app/Profile";
 import ClientInbox from "./pages/app/ClientInbox";
 import ClientArchived from "./pages/app/ClientArchived";
 import ClientArchive from "./pages/app/ClientArchive";
-import AdminPrograms from "./pages/app/admin/AdminPrograms";
 import AdminProgramNew from "./pages/app/admin/AdminProgramNew";
 import AdminProgramEdit from "./pages/app/admin/AdminProgramEdit";
 import AdminClients from "./pages/app/admin/AdminClients";
@@ -101,13 +100,11 @@ const App = () => (
                 <Route path="history" element={<History />} />
 
                 {/* Admin (coach) */}
+                {/* Old programs library page is gone; coach manages
+                    programs from each client's detail page now. */}
                 <Route
                   path="admin/programs"
-                  element={
-                    <ProtectedRoute requireRole="coach">
-                      <AdminPrograms />
-                    </ProtectedRoute>
-                  }
+                  element={<Navigate to="/app/home" replace />}
                 />
                 <Route
                   path="admin/programs/new"

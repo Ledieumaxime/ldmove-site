@@ -6,6 +6,7 @@ import {
   Bell,
   ArrowRight,
   PlusCircle,
+  Inbox,
 } from "lucide-react";
 import { sbGet } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -474,13 +475,21 @@ const AdminDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-sm text-muted-foreground uppercase tracking-wider">
-          Coach Dashboard
-        </p>
-        <h1 className="font-heading text-3xl md:text-4xl font-bold">
-          Hi {profile?.first_name ?? "Coach"}
-        </h1>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-sm text-muted-foreground uppercase tracking-wider">
+            Coach Dashboard
+          </p>
+          <h1 className="font-heading text-3xl md:text-4xl font-bold">
+            Hi {profile?.first_name ?? "Coach"}
+          </h1>
+        </div>
+        <Link
+          to="/app/admin/form-checks"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold border border-border rounded-full px-3 py-2 hover:bg-muted/50 transition"
+        >
+          <Inbox size={14} /> Inbox
+        </Link>
       </div>
 
       {/* ============ ACTION BANNERS ============ */}

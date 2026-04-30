@@ -67,7 +67,7 @@ const AdminProgramNew = () => {
   return (
     <div className="space-y-6 max-w-2xl">
       <Link
-        to="/app/admin/programs"
+        to="/app/home"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft size={16} /> Back
@@ -228,7 +228,7 @@ const AdminProgramNew = () => {
           <Button type="submit" disabled={saving}>
             {saving ? "Creating…" : "Create & continue"}
           </Button>
-          <Link to="/app/admin/programs">
+          <Link to="/app/home">
             <Button type="button" variant="outline">
               Cancel
             </Button>

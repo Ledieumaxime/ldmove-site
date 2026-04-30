@@ -203,7 +203,13 @@ const AdminProgramEdit = () => {
     if (!confirm(`Permanently delete "${program.title}"?`)) return;
     try {
       await sbDelete(`programs?id=eq.${program.id}`);
-      navigate("/app/admin/programs");
+      // Custom blocks belong to a client — go back to that client's
+      // page. Catalogue programs (no assignee) → dashboard.
+      navigate(
+        program.assigned_client_id
+          ? `/app/admin/clients/${program.assigned_client_id}`
+          : "/app/home"
+      );
     } catch (err) {
       setError(String(err));
     }
@@ -222,7 +228,11 @@ const AdminProgramEdit = () => {
     <div className="space-y-6 max-w-3xl">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <Link
-          to="/app/admin/programs"
+          to={
+            program.assigned_client_id
+              ? `/app/admin/clients/${program.assigned_client_id}`
+              : "/app/home"
+          }
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft size={16} /> Back
