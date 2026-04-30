@@ -23,6 +23,7 @@ export type ProgramWeekLite = {
 
 export type CompletedLog = {
   program_item_id: string;
+  session_date: string;
   completed_at: string | null;
 };
 
@@ -72,52 +73,38 @@ export function isDayCompleted(
   );
 }
 
-/** Pick which session the client should see today.
- *
- *  The block (a program of N sessions) is meant to loop: once the client
- *  finishes session N, they restart at session 1 until the coach
- *  assigns a new block. So this function is *not* a "first uncompleted"
- *  check — it cycles.
- *
- *  Logic:
- *  - No completion ever → session 1
- *  - Most recent completion happened today → stay on it (so the client
- *    sees the celebratory banner for their just-finished session)
- *  - Most recent completion was before today → advance to the next
- *    session in week order, wrapping back to 1 after the last one
- */
-export function nextDay(
+/** Count distinct completed sessions for this set of days, where a
+ *  session is identified by (weekId, session_date). */
+export function countCompletedSessions(
   days: WorkoutDay[],
-  logs: CompletedLog[],
-  todayISODate: string
-): WorkoutDay | null {
-  if (days.length === 0) return null;
-
-  // Find the most recently completed session.
-  let lastCompleted: WorkoutDay | null = null;
-  let lastCompletedAt: string | null = null;
+  logs: CompletedLog[]
+): number {
+  const itemIdToWeekId = new Map<string, string>();
+  for (const day of days) {
+    for (const item of day.items) itemIdToWeekId.set(item.id, day.weekId);
+  }
+  const seen = new Set<string>();
   for (const log of logs) {
     if (!log.completed_at) continue;
-    if (lastCompletedAt && log.completed_at <= lastCompletedAt) continue;
-    const day = days.find((d) =>
-      d.items.some((i) => i.id === log.program_item_id)
-    );
-    if (!day) continue;
-    lastCompleted = day;
-    lastCompletedAt = log.completed_at;
+    const weekId = itemIdToWeekId.get(log.program_item_id);
+    if (!weekId) continue;
+    seen.add(`${weekId}|${log.session_date}`);
   }
+  return seen.size;
+}
 
-  if (!lastCompleted || !lastCompletedAt) return days[0];
-
-  // If the last completion was TODAY, the client is still on that session
-  // (they just finished it, show them the celebration).
-  if (lastCompletedAt.startsWith(todayISODate)) return lastCompleted;
-
-  // Otherwise advance, wrapping back to the first session after the last.
-  const lastIdx = days.findIndex((d) => d.weekId === lastCompleted!.weekId);
-  if (lastIdx === -1) return days[0];
-  const nextIdx = (lastIdx + 1) % days.length;
-  return days[nextIdx];
+/** The session the client should see next. Pure counting, no date logic:
+ *  given T total completions, return days[T mod N]. After session N
+ *  the loop wraps back to session 1, but the *display* number keeps
+ *  climbing (Session 16 = loop 6 day 1) so the client sees their
+ *  cumulative count. */
+export function nextDay(
+  days: WorkoutDay[],
+  logs: CompletedLog[]
+): WorkoutDay | null {
+  if (days.length === 0) return null;
+  const completed = countCompletedSessions(days, logs);
+  return days[completed % days.length] ?? null;
 }
 
 /** Human-readable label for a session, used in headers. */

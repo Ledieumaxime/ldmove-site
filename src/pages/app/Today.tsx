@@ -16,6 +16,7 @@ import {
   CompletedLog,
   ProgramWeekLite,
   WorkoutDay,
+  countCompletedSessions,
   dayDisplayLabel,
   listProgramDays,
   nextDay,
@@ -49,6 +50,16 @@ const Today = () => {
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** When the client just finished a session in this page load, we keep
+   *  the celebration view (locked tracker + green banner + Continue
+   *  button) instead of jumping straight to the next session. The pin
+   *  is the (weekId, session_date) tuple of the completed session.
+   *  Cleared when the client clicks "Continue to next session" or
+   *  navigates fresh. */
+  const [celebrated, setCelebrated] = useState<{
+    weekId: string;
+    sessionDate: string;
+  } | null>(null);
 
   const loadAll = async () => {
     if (!user) return;
@@ -82,7 +93,7 @@ const Today = () => {
             )
           : Promise.resolve([] as ProgramItem[]),
         sbGet<CompletedLog[]>(
-          `workout_logs?select=program_item_id,completed_at` +
+          `workout_logs?select=program_item_id,session_date,completed_at` +
             `&client_id=eq.${user.id}` +
             `&completed_at=not.is.null`
         ),
@@ -107,21 +118,31 @@ const Today = () => {
     [weeks, items]
   );
   const today = useMemo(() => todayISO(), []);
-  const todaysWorkout = useMemo(
-    () => nextDay(days, logs, today),
-    [days, logs, today]
+
+  // Total sessions completed across all loops (sequential count).
+  const totalCompleted = useMemo(
+    () => countCompletedSessions(days, logs),
+    [days, logs]
   );
 
-  // Did the client already complete today's session today?
-  const justCompletedToday = useMemo(() => {
-    if (!todaysWorkout) return false;
-    return logs.some(
-      (l) =>
-        l.completed_at != null &&
-        l.completed_at.startsWith(today) &&
-        todaysWorkout.items.some((i) => i.id === l.program_item_id)
-    );
-  }, [todaysWorkout, logs, today]);
+  // The session to display: either the just-completed one (celebration) or
+  // the one ranked totalCompleted+1 in sequence.
+  const todaysWorkout: WorkoutDay | null = useMemo(() => {
+    if (celebrated) {
+      return days.find((d) => d.weekId === celebrated.weekId) ?? null;
+    }
+    return nextDay(days, logs);
+  }, [celebrated, days, logs]);
+
+  // Sequential session number for display ("Session 1", "Session 16", etc.).
+  // While celebrating: it's totalCompleted (the one just done).
+  // While doing a fresh session: totalCompleted + 1.
+  const displaySessionNumber = celebrated
+    ? totalCompleted
+    : totalCompleted + 1;
+
+  // Logger should be locked when we're in the celebration view.
+  const justCompletedToday = celebrated != null;
 
   const completeWorkout = async () => {
     if (!todaysWorkout || !user) return;
@@ -129,7 +150,6 @@ const Today = () => {
     setError(null);
     try {
       const itemIds = todaysWorkout.items.map((i) => i.id);
-      // Only stamp rows that were actually logged today.
       const inList = `(${itemIds.join(",")})`;
       await sbPatch(
         `workout_logs?client_id=eq.${user.id}` +
@@ -138,12 +158,20 @@ const Today = () => {
           `&completed_at=is.null`,
         { completed_at: new Date().toISOString() }
       );
+      // Stay on the just-completed session for the celebration view.
+      setCelebrated({ weekId: todaysWorkout.weekId, sessionDate: today });
       await loadAll();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setCompleting(false);
     }
+  };
+
+  const continueToNext = () => {
+    setCelebrated(null);
+    // Scroll back to top so the client lands on the new session header.
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   if (loading) {
@@ -205,35 +233,39 @@ const Today = () => {
   }
 
   const totalDays = days.length;
-  const dayIndex =
-    days.findIndex((d) => d.weekId === todaysWorkout.weekId) + 1;
 
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
         <p className="text-xs font-semibold text-accent uppercase tracking-widest mb-1">
-          Today's workout
+          {celebrated ? "Just finished" : "Today's workout"}
         </p>
         <h1 className="font-heading text-3xl md:text-4xl font-bold mb-1">
-          {dayDisplayLabel(todaysWorkout)}
+          Session {displaySessionNumber}
         </h1>
         <p className="text-sm text-muted-foreground">
-          {program.title} · day {dayIndex} of {totalDays}
+          {program.title} · {dayDisplayLabel(todaysWorkout)}
         </p>
       </div>
 
-      {justCompletedToday && (
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-5 flex items-start gap-3">
-          <CheckCircle2 size={22} className="text-green-700 mt-0.5 shrink-0" />
-          <div className="text-sm">
-            <p className="font-semibold text-green-900">
-              Workout complete. Great session.
-            </p>
-            <p className="text-green-800 mt-0.5">
-              Your coach can see your reps and weights. Come back tomorrow for
-              the next day.
-            </p>
+      {celebrated && (
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-5 flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 size={22} className="text-green-700 mt-0.5 shrink-0" />
+            <div className="text-sm">
+              <p className="font-semibold text-green-900">
+                Session {displaySessionNumber} complete. Great work.
+              </p>
+              <p className="text-green-800 mt-0.5">
+                Your numbers are saved. Move on to Session{" "}
+                {displaySessionNumber + 1} when you're ready.
+              </p>
+            </div>
           </div>
+          <Button onClick={continueToNext} className="gap-2">
+            Continue to Session {displaySessionNumber + 1}
+            <ArrowRight size={16} />
+          </Button>
         </div>
       )}
 
@@ -346,12 +378,12 @@ const Today = () => {
         );
       })}
 
-      {!justCompletedToday && (
+      {!celebrated && (
         <div className="sticky bottom-4 z-10 bg-white border border-border rounded-2xl shadow-lg p-4 flex items-center justify-between gap-3 flex-wrap">
           <div className="text-sm">
-            <p className="font-semibold">Done with today's session?</p>
+            <p className="font-semibold">Done with this session?</p>
             <p className="text-muted-foreground text-xs">
-              Mark it complete to lock your numbers and unlock tomorrow's day.
+              Mark it complete to lock your numbers and unlock the next one.
             </p>
           </div>
           <Button
@@ -371,7 +403,7 @@ const Today = () => {
 
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>
-          Block loops: session {dayIndex} of {totalDays}
+          {totalCompleted} workout{totalCompleted !== 1 ? "s" : ""} done · block has {totalDays} session{totalDays !== 1 ? "s" : ""} per loop
         </span>
         <Link
           to={`/app/programs/${program.slug}`}

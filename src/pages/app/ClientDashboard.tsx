@@ -317,16 +317,23 @@ const ClientDashboard = () => {
           </div>
           <p className="text-xs opacity-70 mb-4">
             {expectedTotal > 0 ? (
-              <>
-                {totalSessionsCompleted}/{expectedTotal} workouts done ·{" "}
-                {workoutsBehind > 1
-                  ? `behind by ${workoutsBehind} workouts`
-                  : workoutsBehind === 1
-                    ? "behind by 1 workout"
-                    : workoutsBehind <= -1
-                      ? `${Math.abs(workoutsBehind)} ahead of schedule`
-                      : "on track"}
-              </>
+              totalSessionsCompleted >= expectedTotal ? (
+                <>
+                  Block complete · {totalSessionsCompleted} workouts done ·
+                  new program coming soon
+                </>
+              ) : (
+                <>
+                  {totalSessionsCompleted}/{expectedTotal} workouts done ·{" "}
+                  {workoutsBehind > 1
+                    ? `behind by ${workoutsBehind} workouts`
+                    : workoutsBehind === 1
+                      ? "behind by 1 workout"
+                      : workoutsBehind <= -1
+                        ? `${Math.abs(workoutsBehind)} ahead of schedule`
+                        : "on track"}
+                </>
+              )
             ) : (
               "No sessions in this block yet"
             )}
