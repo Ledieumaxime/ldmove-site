@@ -75,7 +75,12 @@ export type TrackingConfig = {
 };
 
 /** Derive how the workout logger should render this item from its
- *  prescription. Heuristic only — no DB column yet. */
+ *  prescription. The logger always shows a single numeric input per
+ *  set; the unit label adapts to what the coach prescribed.
+ *  Weight is never tracked client-side: if the coach prescribes a
+ *  load, the client just respects it (it's part of the prescription,
+ *  not a metric to progress on).
+ */
 export function detectTracking(item: ProgramItem): TrackingConfig {
   const section = getSection(item.custom_name);
   if (NO_LOG_SECTIONS.has(section)) {
@@ -84,7 +89,19 @@ export function detectTracking(item: ProgramItem): TrackingConfig {
 
   const reps = (item.reps ?? "").toLowerCase().trim();
 
-  // Time-based holds: "30s", "30 sec", "30 seconds", "1 min", "1m"
+  // Max-effort holds: "max hold", "max sec", "max seconds".
+  // Coach intent: log the duration the client managed.
+  if (/^max\s*(hold|sec|second)/i.test(reps)) {
+    return { mode: "time", unitLabel: "sec", showWeight: false };
+  }
+
+  // Free-form rep targets: "max reps", "max", "AMRAP".
+  // Coach intent: do as many clean reps as possible, log the count.
+  if (/^(amrap|max(\s*rep)?$|max\s*rep)/i.test(reps)) {
+    return { mode: "reps", unitLabel: "reps", showWeight: false };
+  }
+
+  // Numeric time holds: "30s", "30 sec", "30 seconds", "1 min", "1m".
   if (
     /^\s*\d+(\.\d+)?\s*(s|sec|secs|second|seconds|m|min|mins|minute|minutes)\s*$/i.test(
       reps
@@ -93,14 +110,13 @@ export function detectTracking(item: ProgramItem): TrackingConfig {
     return { mode: "time", unitLabel: "sec", showWeight: false };
   }
 
-  // Handstand-style attempts: "5 attempts", "3 tries", "max attempts"
+  // Handstand-style attempts: "5 attempts", "3 tries", "max attempts".
   if (/(attempt|tries|try)/i.test(reps)) {
     return { mode: "attempts", unitLabel: "tries", showWeight: false };
   }
 
-  // Standard reps. Weight stays optional, the input shows but the client
-  // leaves it blank for bodyweight.
-  return { mode: "reps", unitLabel: "reps", showWeight: true };
+  // Default: standard reps (covers "10", "8", "5 each leg", "8/leg", etc.).
+  return { mode: "reps", unitLabel: "reps", showWeight: false };
 }
 
 type Props = {

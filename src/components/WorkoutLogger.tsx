@@ -49,7 +49,7 @@ const WorkoutLogger = ({
   clientId,
   readOnly = false,
   unitLabel = "reps",
-  showWeight = true,
+  showWeight = false,
 }: Props) => {
   const today = useMemo(() => todayISO(), []);
   const [logs, setLogs] = useState<Log[]>([]);
@@ -184,8 +184,7 @@ const WorkoutLogger = ({
         {pr && pr.reps_done != null && (
           <p>
             <Trophy size={10} className="inline mr-1 text-amber-600" />
-            <span className="font-semibold">Best:</span> {pr.reps_done} reps
-            {pr.weight_kg ? ` · ${pr.weight_kg} kg` : ""}{" "}
+            <span className="font-semibold">Best:</span> {pr.reps_done} {unitLabel}{" "}
             <span className="opacity-70">({formatDate(pr.session_date)})</span>
           </p>
         )}
