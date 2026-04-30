@@ -218,11 +218,15 @@ const AdminClientDetail = () => {
       sbGet<Comment[]>(
         `exercise_comments?select=*,program_items(custom_name)&order=created_at.desc&limit=200`
       ),
+      // Defensive limit: this query pulls every program_week / item
+      // visible to the coach, not just the ones for this client, so
+      // the silent 1000-row PostgREST cap can drop the items of the
+      // newest block and break the session counts downstream.
       sbGet<Array<ProgramWeekLite & { program_id: string }>>(
-        `program_weeks?select=id,week_number,title,program_id`
+        `program_weeks?select=id,week_number,title,program_id&limit=10000`
       ),
       sbGet<Array<{ id: string; week_id: string; order_index: number }>>(
-        `program_items?select=id,week_id,order_index`
+        `program_items?select=id,week_id,order_index&limit=50000`
       ),
       sbGet<LogRow[]>(
         `workout_logs?select=id,program_item_id,session_run_id,session_date,set_number,reps_done,weight_kg,completed_at,program_items(id,custom_name,sets,reps,rest_seconds,notes,video_url,group_name,week_id,order_index,program_weeks(title,week_number,program_id))&client_id=eq.${clientId}&order=completed_at.desc.nullslast,set_number.asc&limit=500`

@@ -188,11 +188,18 @@ const AdminDashboard = () => {
         "client_level_assessments?select=client_id"
       ),
       sbGet<Array<{ client_id: string }>>("client_intakes?select=client_id"),
+      // Same defensive ceiling as workout_logs: PostgREST silently caps
+      // unbounded queries at the server default (~1000) and the coach
+      // sees every program in the database, including drafts and
+      // archived blocks across every client. With several blocks the
+      // 1000-row cap on program_items can drop the items of the most
+      // recent block, which makes the dashboard under-count sessions
+      // because the items don't match the workout_logs anymore.
       sbGet<Array<ProgramWeekLite & { program_id: string }>>(
-        "program_weeks?select=id,week_number,title,program_id"
+        "program_weeks?select=id,week_number,title,program_id&limit=10000"
       ),
       sbGet<Array<{ id: string; week_id: string; order_index: number }>>(
-        "program_items?select=id,week_id,order_index"
+        "program_items?select=id,week_id,order_index&limit=50000"
       ),
       // Explicit limit + ordering: PostgREST silently truncates at the
       // server's max-rows (≈1000) when no limit is set, which can drop
