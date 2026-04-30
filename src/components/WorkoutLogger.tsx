@@ -16,6 +16,10 @@ type Props = {
   prescribedSets: number;
   clientId: string;
   readOnly?: boolean;
+  /** "reps" | "time" (in sec) | "attempts" — drives the unit label and
+   *  whether we show the weight field. */
+  unitLabel?: string;
+  showWeight?: boolean;
 };
 
 type Log = {
@@ -44,6 +48,8 @@ const WorkoutLogger = ({
   prescribedSets,
   clientId,
   readOnly = false,
+  unitLabel = "reps",
+  showWeight = true,
 }: Props) => {
   const today = useMemo(() => todayISO(), []);
   const [logs, setLogs] = useState<Log[]>([]);
@@ -240,7 +246,11 @@ const WorkoutLogger = ({
               reps={log?.reps_done ?? null}
               weight={log?.weight_kg ?? null}
               saving={saving}
+              unitLabel={unitLabel}
+              showWeight={showWeight}
+              disabled={readOnly}
               onToggle={() => {
+                if (readOnly) return;
                 if (done) clearSet(n);
                 else upsertSet(n, {});
               }}
@@ -260,6 +270,9 @@ const SetRow = ({
   reps,
   weight,
   saving,
+  unitLabel,
+  showWeight,
+  disabled,
   onToggle,
   onChangeReps,
   onChangeWeight,
@@ -269,6 +282,9 @@ const SetRow = ({
   reps: number | null;
   weight: number | null;
   saving: boolean;
+  unitLabel: string;
+  showWeight: boolean;
+  disabled: boolean;
   onToggle: () => void;
   onChangeReps: (v: number | null) => void;
   onChangeWeight: (v: number | null) => void;
@@ -306,6 +322,8 @@ const SetRow = ({
     if (Number.isFinite(n) && n !== weight) onChangeWeight(n);
   };
 
+  const inputsDisabled = disabled || saving;
+
   return (
     <div
       className={`flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors ${
@@ -315,13 +333,13 @@ const SetRow = ({
       <button
         type="button"
         onClick={onToggle}
-        disabled={saving}
+        disabled={disabled || saving}
         aria-label={done ? `Mark set ${setNumber} undone` : `Mark set ${setNumber} done`}
         className={`shrink-0 w-9 h-9 rounded-full border flex items-center justify-center transition-colors ${
           done
             ? "bg-green-500 border-green-500 text-white"
             : "bg-white border-border text-muted-foreground hover:border-green-400 active:scale-95"
-        }`}
+        } ${disabled ? "opacity-70 cursor-not-allowed" : ""}`}
       >
         {saving ? (
           <Loader2 size={14} className="animate-spin" />
@@ -332,46 +350,54 @@ const SetRow = ({
         )}
       </button>
 
-      <div className="flex-1 grid grid-cols-2 gap-2 min-w-0">
+      <div
+        className={`flex-1 grid gap-2 min-w-0 ${
+          showWeight ? "grid-cols-2" : "grid-cols-1"
+        }`}
+      >
         <div className="relative">
           <input
             type="number"
             inputMode="numeric"
             min={0}
             value={repsLocal}
+            disabled={inputsDisabled}
             onChange={(e) => setRepsLocal(e.target.value)}
             onBlur={commitReps}
             onKeyDown={(e) => {
               if (e.key === "Enter") (e.target as HTMLInputElement).blur();
             }}
-            aria-label={`Set ${setNumber} reps`}
-            className="w-full rounded-md border border-border bg-white pl-2 pr-9 py-1.5 text-sm focus:outline-none focus:border-accent"
+            aria-label={`Set ${setNumber} ${unitLabel}`}
+            className="w-full rounded-md border border-border bg-white pl-2 pr-12 py-1.5 text-sm focus:outline-none focus:border-accent disabled:bg-muted disabled:cursor-not-allowed"
             placeholder="0"
           />
           <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-muted-foreground uppercase pointer-events-none">
-            reps
+            {unitLabel}
           </span>
         </div>
-        <div className="relative">
-          <input
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step={0.5}
-            value={weightLocal}
-            onChange={(e) => setWeightLocal(e.target.value)}
-            onBlur={commitWeight}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-            }}
-            aria-label={`Set ${setNumber} weight in kilograms`}
-            className="w-full rounded-md border border-border bg-white pl-2 pr-7 py-1.5 text-sm focus:outline-none focus:border-accent"
-            placeholder="—"
-          />
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-muted-foreground uppercase pointer-events-none">
-            kg
-          </span>
-        </div>
+        {showWeight && (
+          <div className="relative">
+            <input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step={0.5}
+              value={weightLocal}
+              disabled={inputsDisabled}
+              onChange={(e) => setWeightLocal(e.target.value)}
+              onBlur={commitWeight}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
+              aria-label={`Set ${setNumber} weight in kilograms`}
+              className="w-full rounded-md border border-border bg-white pl-2 pr-7 py-1.5 text-sm focus:outline-none focus:border-accent disabled:bg-muted disabled:cursor-not-allowed"
+              placeholder="—"
+            />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-muted-foreground uppercase pointer-events-none">
+              kg
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -276,12 +276,15 @@ const ProgramDetail = () => {
                                     item={b.item}
                                     canComment={!isCoach}
                                     accent={style.border}
+                                    // Overview page: no interactive logger
+                                    // for the client. The coach keeps a
+                                    // read-only summary of what the client
+                                    // has logged, so coaching decisions
+                                    // stay data-driven.
                                     loggerClientId={
-                                      isCoach
-                                        ? program.assigned_client_id
-                                        : user?.id ?? null
+                                      isCoach ? program.assigned_client_id : null
                                     }
-                                    loggerReadOnly={isCoach}
+                                    loggerReadOnly
                                   />
                                 ) : (
                                   (() => {
@@ -326,9 +329,9 @@ const ProgramDetail = () => {
                                                 loggerClientId={
                                                   isCoach
                                                     ? program.assigned_client_id
-                                                    : user?.id ?? null
+                                                    : null
                                                 }
-                                                loggerReadOnly={isCoach}
+                                                loggerReadOnly
                                               />
                                             </div>
                                           ))}

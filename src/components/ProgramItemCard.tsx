@@ -39,10 +39,68 @@ export function stripSection(name: string | null) {
   return name.replace(/^\[[^\]]+\]\s*/, "");
 }
 
+/** Read the [SECTION] prefix back as an uppercase tag. */
+export function getSection(name: string | null): string {
+  if (!name) return "EXERCISES";
+  const match = name.match(/^\[([^\]]+)\]/);
+  return match ? match[1].trim().toUpperCase() : "EXERCISES";
+}
+
 export function formatReps(reps: string | null) {
   if (!reps) return null;
   const trimmed = reps.trim();
   return trimmed || null;
+}
+
+/** Sections where we don't ask the client to log reps/weight: warmups,
+ *  mobility flows and cooldowns are "info only". */
+const NO_LOG_SECTIONS = new Set([
+  "WARMUP",
+  "WARM-UP",
+  "WARM UP",
+  "COOLDOWN",
+  "COOL-DOWN",
+  "COOL DOWN",
+  "MOBILITY",
+  "STRETCH",
+  "STRETCHING",
+]);
+
+export type TrackingMode = "none" | "reps" | "time" | "attempts";
+
+export type TrackingConfig = {
+  mode: TrackingMode;
+  unitLabel: string;
+  showWeight: boolean;
+};
+
+/** Derive how the workout logger should render this item from its
+ *  prescription. Heuristic only — no DB column yet. */
+export function detectTracking(item: ProgramItem): TrackingConfig {
+  const section = getSection(item.custom_name);
+  if (NO_LOG_SECTIONS.has(section)) {
+    return { mode: "none", unitLabel: "", showWeight: false };
+  }
+
+  const reps = (item.reps ?? "").toLowerCase().trim();
+
+  // Time-based holds: "30s", "30 sec", "30 seconds", "1 min", "1m"
+  if (
+    /^\s*\d+(\.\d+)?\s*(s|sec|secs|second|seconds|m|min|mins|minute|minutes)\s*$/i.test(
+      reps
+    )
+  ) {
+    return { mode: "time", unitLabel: "sec", showWeight: false };
+  }
+
+  // Handstand-style attempts: "5 attempts", "3 tries", "max attempts"
+  if (/(attempt|tries|try)/i.test(reps)) {
+    return { mode: "attempts", unitLabel: "tries", showWeight: false };
+  }
+
+  // Standard reps. Weight stays optional, the input shows but the client
+  // leaves it blank for bodyweight.
+  return { mode: "reps", unitLabel: "reps", showWeight: true };
 }
 
 type Props = {
@@ -123,14 +181,21 @@ const ProgramItemCard = ({
         </p>
       )}
 
-      {loggerClientId && item.sets != null && item.sets > 0 && (
-        <WorkoutLogger
-          itemId={item.id}
-          prescribedSets={item.sets}
-          clientId={loggerClientId}
-          readOnly={loggerReadOnly}
-        />
-      )}
+      {(() => {
+        if (!loggerClientId || item.sets == null || item.sets <= 0) return null;
+        const tracking = detectTracking(item);
+        if (tracking.mode === "none") return null;
+        return (
+          <WorkoutLogger
+            itemId={item.id}
+            prescribedSets={item.sets}
+            clientId={loggerClientId}
+            readOnly={loggerReadOnly}
+            unitLabel={tracking.unitLabel}
+            showWeight={tracking.showWeight}
+          />
+        );
+      })()}
 
       {canComment && <FormCheckUpload itemId={item.id} />}
       {canComment && <ExerciseComments itemId={item.id} />}

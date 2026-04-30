@@ -257,7 +257,7 @@ const Today = () => {
                 item={it}
                 canComment
                 loggerClientId={user?.id ?? null}
-                loggerReadOnly={false}
+                loggerReadOnly={justCompletedToday}
               />
             ))}
           </div>
