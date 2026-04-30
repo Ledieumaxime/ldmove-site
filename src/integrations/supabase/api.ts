@@ -31,14 +31,23 @@ export async function sbGet<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-export async function sbPost<T>(path: string, body: unknown): Promise<T> {
+export async function sbPost<T>(
+  path: string,
+  body: unknown,
+  options?: { merge?: boolean }
+): Promise<T> {
   const token = getToken();
+  // PostgREST upsert: combine "resolution=merge-duplicates" with the
+  // on_conflict query param the caller adds to the path.
+  const prefer = options?.merge
+    ? "resolution=merge-duplicates,return=representation"
+    : "return=representation";
   const res = await fetch(`${URL}/rest/v1/${path}`, {
     method: "POST",
     headers: {
       apikey: KEY,
       "Content-Type": "application/json",
-      Prefer: "return=representation",
+      Prefer: prefer,
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(body),

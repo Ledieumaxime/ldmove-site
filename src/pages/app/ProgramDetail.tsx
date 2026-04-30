@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import ExerciseComments from "@/components/ExerciseComments";
 import FormCheckUpload from "@/components/FormCheckUpload";
+import WorkoutLogger from "@/components/WorkoutLogger";
 
 type Program = {
   id: string;
@@ -277,6 +278,12 @@ const ProgramDetail = () => {
                                     item={b.item}
                                     canComment={!isCoach}
                                     accent={style.border}
+                                    loggerClientId={
+                                      isCoach
+                                        ? program.assigned_client_id
+                                        : user?.id ?? null
+                                    }
+                                    loggerReadOnly={isCoach}
                                   />
                                 ) : (
                                   (() => {
@@ -318,6 +325,12 @@ const ProgramDetail = () => {
                                                 compact
                                                 canComment={!isCoach}
                                                 inSuperset
+                                                loggerClientId={
+                                                  isCoach
+                                                    ? program.assigned_client_id
+                                                    : user?.id ?? null
+                                                }
+                                                loggerReadOnly={isCoach}
                                               />
                                             </div>
                                           ))}
@@ -407,12 +420,16 @@ const ItemCard = ({
   canComment = true,
   accent = "",
   inSuperset = false,
+  loggerClientId = null,
+  loggerReadOnly = false,
 }: {
   item: Item;
   compact?: boolean;
   canComment?: boolean;
   accent?: string;
   inSuperset?: boolean;
+  loggerClientId?: string | null;
+  loggerReadOnly?: boolean;
 }) => {
   const { tempo, load, comment } = parseNotes(item.notes);
   const displayName = stripSection(item.custom_name);
@@ -468,6 +485,15 @@ const ItemCard = ({
         <p className="text-xs text-muted-foreground mt-2 whitespace-pre-wrap leading-relaxed">
           {comment}
         </p>
+      )}
+
+      {loggerClientId && item.sets != null && item.sets > 0 && (
+        <WorkoutLogger
+          itemId={item.id}
+          prescribedSets={item.sets}
+          clientId={loggerClientId}
+          readOnly={loggerReadOnly}
+        />
       )}
 
       {canComment && <FormCheckUpload itemId={item.id} />}
