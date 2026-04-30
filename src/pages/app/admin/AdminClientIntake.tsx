@@ -277,10 +277,10 @@ const AdminClientIntake = () => {
     return (
       <div className="space-y-4">
         <Link
-          to="/app/admin/clients"
+          to="/app/home"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft size={14} /> Back to clients
+          <ArrowLeft size={14} /> Back to dashboard
         </Link>
         <div className="bg-white rounded-2xl border border-border p-8 text-center">
           <p className="text-muted-foreground">Client not found.</p>
@@ -292,10 +292,10 @@ const AdminClientIntake = () => {
   return (
     <div className="space-y-6">
       <Link
-        to="/app/admin/clients"
+        to={`/app/admin/clients/${id}`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft size={14} /> Back to clients
+        <ArrowLeft size={14} /> Back to client
       </Link>
 
       <div>

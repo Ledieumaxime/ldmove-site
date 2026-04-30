@@ -7,6 +7,7 @@ import {
   ArrowRight,
   PlusCircle,
   Inbox,
+  UserPlus,
 } from "lucide-react";
 import { sbGet } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,6 +17,7 @@ import {
   listProgramDays,
   ProgramWeekLite,
 } from "@/lib/workoutDay";
+import InviteClientDialog from "@/components/InviteClientDialog";
 
 /**
  * Coach dashboard. Built around what the coach actually does day-to-day:
@@ -162,6 +164,8 @@ const AdminDashboard = () => {
   );
   const [allPrograms, setAllPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(true);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
     Promise.all([
@@ -255,7 +259,10 @@ const AdminDashboard = () => {
         setPendingAssessmentClients(pendingList);
       })
       .finally(() => setLoading(false));
-  }, []);
+    // reloadTick lets the invite dialog trigger a refetch after a
+    // successful invite so the new client shows up without a manual
+    // page reload.
+  }, [reloadTick]);
 
   const now = Date.now();
 
@@ -475,14 +482,29 @@ const AdminDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-sm text-muted-foreground uppercase tracking-wider">
-          Coach Dashboard
-        </p>
-        <h1 className="font-heading text-3xl md:text-4xl font-bold">
-          Hi {profile?.first_name ?? "Coach"}
-        </h1>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-sm text-muted-foreground uppercase tracking-wider">
+            Coach Dashboard
+          </p>
+          <h1 className="font-heading text-3xl md:text-4xl font-bold">
+            Hi {profile?.first_name ?? "Coach"}
+          </h1>
+        </div>
+        <button
+          type="button"
+          onClick={() => setInviteOpen(true)}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold border border-border rounded-full px-3 py-2 hover:bg-muted/50 transition"
+        >
+          <UserPlus size={14} /> Invite client
+        </button>
       </div>
+
+      <InviteClientDialog
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        onInvited={() => setReloadTick((t) => t + 1)}
+      />
 
       {/* ============ ASSESSMENT REVIEW (onboarding-level alert) ============ */}
       {pendingAssessmentClients.length > 0 && (
@@ -512,21 +534,16 @@ const AdminDashboard = () => {
               </p>
             </div>
           </div>
-          {pendingAssessmentClients.length === 1 ? (
-            <Link
-              to={`/app/admin/clients/${pendingAssessmentClients[0].client_id}/intake`}
-              className="inline-flex items-center gap-1 text-sm font-semibold bg-amber-700 text-white rounded-full px-4 py-2 hover:bg-amber-800"
-            >
-              Review now <ArrowRight size={14} />
-            </Link>
-          ) : (
-            <Link
-              to="/app/admin/clients"
-              className="inline-flex items-center gap-1 text-sm font-semibold bg-amber-700 text-white rounded-full px-4 py-2 hover:bg-amber-800"
-            >
-              Open clients <ArrowRight size={14} />
-            </Link>
-          )}
+          {/* When several assessments are waiting we just open the first
+              one — the coach goes through them one by one and comes back
+              to the dashboard for the next. */}
+          <Link
+            to={`/app/admin/clients/${pendingAssessmentClients[0].client_id}/intake`}
+            className="inline-flex items-center gap-1 text-sm font-semibold bg-amber-700 text-white rounded-full px-4 py-2 hover:bg-amber-800"
+          >
+            Review {pendingAssessmentClients.length === 1 ? "now" : "first"}{" "}
+            <ArrowRight size={14} />
+          </Link>
         </div>
       )}
 
@@ -620,14 +637,10 @@ const AdminDashboard = () => {
 
         {activeEntries.length === 0 ? (
           <p className="bg-white border border-border rounded-2xl p-5 text-sm text-muted-foreground">
-            No active client programs. Assign one from the{" "}
-            <Link
-              to="/app/admin/clients"
-              className="text-accent hover:underline"
-            >
-              Clients
-            </Link>{" "}
-            page.
+            No clients with an active block right now.
+            {clients.length > 0
+              ? " Build a block from a client's page below."
+              : " Use the Invite client button above to get started."}
           </p>
         ) : (
           <div className="space-y-2">
