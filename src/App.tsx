@@ -42,6 +42,7 @@ import OnboardingIntake from "./pages/app/OnboardingIntake";
 import OnboardingAssessmentUpload from "./pages/app/OnboardingAssessmentUpload";
 import ClientIntakeView from "./pages/app/ClientIntakeView";
 import Today from "./pages/app/Today";
+import History from "./pages/app/History";
 import SetPassword from "./pages/app/SetPassword";
 
 const queryClient = new QueryClient();
@@ -96,6 +97,7 @@ const App = () => (
                 <Route path="onboarding/assessment" element={<OnboardingAssessmentUpload />} />
                 <Route path="intake" element={<ClientIntakeView />} />
                 <Route path="today" element={<Today />} />
+                <Route path="history" element={<History />} />
 
                 {/* Admin (coach) */}
                 <Route

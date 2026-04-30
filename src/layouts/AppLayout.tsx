@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Home, Dumbbell, User, LogOut, Film } from "lucide-react";
+import { Home, Dumbbell, User, LogOut, Film, History } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import logo from "@/assets/logo-ldmove.png";
 
@@ -60,6 +60,11 @@ const AppLayout = () => {
                 to="/app/programs"
                 icon={<Dumbbell size={20} />}
                 label="Programs"
+              />
+              <BottomLink
+                to="/app/history"
+                icon={<History size={20} />}
+                label="History"
               />
               <BottomLink
                 to="/app/archive"
