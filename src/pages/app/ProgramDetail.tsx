@@ -333,6 +333,7 @@ const ProgramDetail = () => {
                                                     : null
                                                 }
                                                 loggerReadOnly
+                                                setsOverride={groupSets}
                                               />
                                             </div>
                                           ))}

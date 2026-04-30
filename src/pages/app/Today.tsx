@@ -333,6 +333,7 @@ const Today = () => {
                             canComment
                             loggerClientId={user?.id ?? null}
                             loggerReadOnly={justCompletedToday}
+                            setsOverride={groupSets}
                           />
                         </div>
                       ))}

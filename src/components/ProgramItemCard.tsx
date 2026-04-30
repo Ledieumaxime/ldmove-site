@@ -111,6 +111,10 @@ type Props = {
   inSuperset?: boolean;
   loggerClientId?: string | null;
   loggerReadOnly?: boolean;
+  /** Inside a superset only the leading item carries `sets` (the group's
+   *  round count); the followers have sets=null. Pass the group's sets
+   *  here so the logger still renders one row per round on every item. */
+  setsOverride?: number | null;
 };
 
 const ProgramItemCard = ({
@@ -121,6 +125,7 @@ const ProgramItemCard = ({
   inSuperset = false,
   loggerClientId = null,
   loggerReadOnly = false,
+  setsOverride = null,
 }: Props) => {
   const { tempo, load, comment } = parseNotes(item.notes);
   const displayName = stripSection(item.custom_name);
@@ -182,13 +187,15 @@ const ProgramItemCard = ({
       )}
 
       {(() => {
-        if (!loggerClientId || item.sets == null || item.sets <= 0) return null;
+        const effectiveSets = setsOverride ?? item.sets;
+        if (!loggerClientId || effectiveSets == null || effectiveSets <= 0)
+          return null;
         const tracking = detectTracking(item);
         if (tracking.mode === "none") return null;
         return (
           <WorkoutLogger
             itemId={item.id}
-            prescribedSets={item.sets}
+            prescribedSets={effectiveSets}
             clientId={loggerClientId}
             readOnly={loggerReadOnly}
             unitLabel={tracking.unitLabel}
