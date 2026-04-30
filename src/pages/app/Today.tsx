@@ -288,6 +288,7 @@ const Today = () => {
                       key={b.item.id}
                       item={b.item}
                       canComment
+                      canUploadFormCheck
                       accent={style.border}
                       loggerClientId={user?.id ?? null}
                       loggerReadOnly={false}
@@ -343,6 +344,7 @@ const Today = () => {
                             compact
                             inSuperset
                             canComment
+                      canUploadFormCheck
                             loggerClientId={user?.id ?? null}
                             loggerReadOnly={false}
                             setsOverride={groupSets}

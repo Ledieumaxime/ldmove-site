@@ -122,7 +122,15 @@ export function detectTracking(item: ProgramItem): TrackingConfig {
 type Props = {
   item: ProgramItem;
   compact?: boolean;
+  /** Shows the comments thread (read + write). Default true.
+   *  Disable on catalogue / generic views where there's no
+   *  client-coach relationship to discuss. */
   canComment?: boolean;
+  /** Shows the "send a form check video" UI. Default false — only
+   *  the client doing their own session should see it (coaches don't
+   *  upload form checks, and most overview pages aren't the right
+   *  place to record one even for the client). */
+  canUploadFormCheck?: boolean;
   accent?: string;
   inSuperset?: boolean;
   loggerClientId?: string | null;
@@ -140,6 +148,7 @@ const ProgramItemCard = ({
   item,
   compact = false,
   canComment = true,
+  canUploadFormCheck = false,
   accent = "",
   inSuperset = false,
   loggerClientId = null,
@@ -225,7 +234,7 @@ const ProgramItemCard = ({
         );
       })()}
 
-      {canComment && <FormCheckUpload itemId={item.id} />}
+      {canUploadFormCheck && <FormCheckUpload itemId={item.id} />}
       {canComment && <ExerciseComments itemId={item.id} />}
     </div>
   );
