@@ -298,6 +298,19 @@ const AdminClientDetail = () => {
         workoutsBehind: number;
         daysSinceLastTraining: number | null;
         sessionsPerLoop: number;
+        // Temporary debug surface to chase a count discrepancy. Will be
+        // removed once root cause is found.
+        debug: {
+          itemsState: number;
+          programWeeks: number;
+          programItemList: number;
+          validItemIds: number;
+          logsTotal: number;
+          completedLogs: number;
+          distinctRunsAll: number;
+          logsMatchingItems: number;
+          missingProgramItemIds: string[];
+        };
       };
     const start = new Date(currentProgram.created_at).getTime();
     const wks = currentProgram.duration_weeks ?? 4;
@@ -363,6 +376,28 @@ const AdminClientDetail = () => {
       status = "ontrack";
     }
 
+    // Debug: surface intermediate counts to chase the 6/3 vs 9/3
+    // discrepancy. Compare these to recentSessions to see where it
+    // breaks.
+    const validItemIds = new Set(days.flatMap((d) => d.items.map((i) => i.id)));
+    const distinctRunsAll = new Set(
+      logs.filter((l) => l.completed_at).map((l) => l.session_run_id)
+    ).size;
+    const logsMatchingItems = logs.filter(
+      (l) => l.completed_at && validItemIds.has(l.program_item_id)
+    ).length;
+    // Sample of program_item_ids referenced by completed logs that
+    // aren't in our local items state — the smoking gun.
+    const missingProgramItemIds = Array.from(
+      new Set(
+        logs
+          .filter(
+            (l) => l.completed_at && !validItemIds.has(l.program_item_id)
+          )
+          .map((l) => l.program_item_id)
+      )
+    ).slice(0, 5);
+
     return {
       status,
       progress,
@@ -372,6 +407,17 @@ const AdminClientDetail = () => {
       workoutsBehind,
       daysSinceLastTraining,
       sessionsPerLoop,
+      debug: {
+        itemsState: items.length,
+        programWeeks: programWeeks.length,
+        programItemList: programItemList.length,
+        validItemIds: validItemIds.size,
+        logsTotal: logs.length,
+        completedLogs: logs.filter((l) => l.completed_at).length,
+        distinctRunsAll,
+        logsMatchingItems,
+        missingProgramItemIds,
+      },
     };
   }, [currentProgram, weeks, items, logs, now]);
 
@@ -1088,6 +1134,30 @@ const AdminClientDetail = () => {
           )}
         </aside>
       </div>
+
+      {/* TEMPORARY debug strip to chase the 6/3 vs 9 sessions
+          discrepancy. Remove once root cause is found. */}
+      {block?.debug && (
+        <pre className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-3 text-[11px] overflow-x-auto">
+{`[debug block.sessionsDone trace]
+  sessionsDone           = ${block.sessionsDone}
+  expectedTotal          = ${block.expectedTotal}
+  sessionsPerLoop        = ${block.sessionsPerLoop}
+  -----
+  itemsState (filtered)  = ${block.debug.itemsState}
+  programWeeks           = ${block.debug.programWeeks}
+  programItemList        = ${block.debug.programItemList}
+  validItemIds           = ${block.debug.validItemIds}
+  -----
+  logsTotal              = ${block.debug.logsTotal}
+  completedLogs          = ${block.debug.completedLogs}
+  distinctRunsAll        = ${block.debug.distinctRunsAll}
+  logsMatchingItems      = ${block.debug.logsMatchingItems}
+  -----
+  currentProgram.id      = ${currentProgram?.id ?? "n/a"}
+  missingProgramItemIds  = ${JSON.stringify(block.debug.missingProgramItemIds)}`}
+        </pre>
+      )}
     </div>
   );
 };
