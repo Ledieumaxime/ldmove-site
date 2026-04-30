@@ -486,9 +486,18 @@ const AdminDashboard = () => {
         </div>
         <Link
           to="/app/admin/form-checks"
-          className="inline-flex items-center gap-1.5 text-sm font-semibold border border-border rounded-full px-3 py-2 hover:bg-muted/50 transition"
+          className={`inline-flex items-center gap-1.5 text-sm font-semibold border rounded-full px-3 py-2 transition ${
+            totalPendingChecks.length + totalUnansweredComments > 0
+              ? "border-accent bg-accent/10 text-accent hover:bg-accent/15"
+              : "border-border hover:bg-muted/50"
+          }`}
         >
           <Inbox size={14} /> Inbox
+          {totalPendingChecks.length + totalUnansweredComments > 0 && (
+            <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-white text-[10px] font-bold">
+              {totalPendingChecks.length + totalUnansweredComments}
+            </span>
+          )}
         </Link>
       </div>
 
