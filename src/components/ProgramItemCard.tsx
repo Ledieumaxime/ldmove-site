@@ -131,6 +131,9 @@ type Props = {
    *  round count); the followers have sets=null. Pass the group's sets
    *  here so the logger still renders one row per round on every item. */
   setsOverride?: number | null;
+  /** UUID of the current session run. Required when the logger is
+   *  interactive; ignored in read-only / coach views. */
+  sessionRunId?: string;
 };
 
 const ProgramItemCard = ({
@@ -142,6 +145,7 @@ const ProgramItemCard = ({
   loggerClientId = null,
   loggerReadOnly = false,
   setsOverride = null,
+  sessionRunId = "00000000-0000-0000-0000-000000000000",
 }: Props) => {
   const { tempo, load, comment } = parseNotes(item.notes);
   const displayName = stripSection(item.custom_name);
@@ -213,6 +217,7 @@ const ProgramItemCard = ({
             itemId={item.id}
             prescribedSets={effectiveSets}
             clientId={loggerClientId}
+            sessionRunId={sessionRunId}
             readOnly={loggerReadOnly}
             unitLabel={tracking.unitLabel}
             showWeight={tracking.showWeight}

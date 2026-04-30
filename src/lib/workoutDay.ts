@@ -23,6 +23,7 @@ export type ProgramWeekLite = {
 
 export type CompletedLog = {
   program_item_id: string;
+  session_run_id: string;
   session_date: string;
   completed_at: string | null;
 };
@@ -73,22 +74,19 @@ export function isDayCompleted(
   );
 }
 
-/** Count distinct completed sessions for this set of days, where a
- *  session is identified by (weekId, session_date). */
+/** Count distinct completed sessions for this set of days. A session
+ *  is identified by its session_run_id (one UUID per actual run), so
+ *  two same-day runs of the same week count as two completions. */
 export function countCompletedSessions(
   days: WorkoutDay[],
   logs: CompletedLog[]
 ): number {
-  const itemIdToWeekId = new Map<string, string>();
-  for (const day of days) {
-    for (const item of day.items) itemIdToWeekId.set(item.id, day.weekId);
-  }
+  const validItemIds = new Set(days.flatMap((d) => d.items.map((i) => i.id)));
   const seen = new Set<string>();
   for (const log of logs) {
     if (!log.completed_at) continue;
-    const weekId = itemIdToWeekId.get(log.program_item_id);
-    if (!weekId) continue;
-    seen.add(`${weekId}|${log.session_date}`);
+    if (!validItemIds.has(log.program_item_id)) continue;
+    seen.add(log.session_run_id);
   }
   return seen.size;
 }

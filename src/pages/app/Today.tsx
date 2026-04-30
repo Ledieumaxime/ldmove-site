@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -141,6 +141,50 @@ const Today = () => {
     ? totalCompleted
     : totalCompleted + 1;
 
+  /** UUID identifying the current run of the displayed session.
+   *  - If we're in celebration mode: take the run id of the most recent
+   *    completed log on this session's items (the one we just stamped).
+   *  - Otherwise: reuse any existing in-progress run (logs without
+   *    completed_at on this session's items). If none exists yet, mint
+   *    a fresh UUID — it will be persisted on the first set save.
+   *  The ref makes sure the freshly-minted UUID is stable across re-renders.
+   */
+  const freshRunIdRef = useRef<string | null>(null);
+  const sessionRunId = useMemo(() => {
+    if (!todaysWorkout) return "00000000-0000-0000-0000-000000000000";
+    const sessionItemIds = new Set(todaysWorkout.items.map((i) => i.id));
+
+    if (celebrated) {
+      // Find the most recent completed_at on this session's items.
+      let latest: CompletedLog | null = null;
+      for (const log of logs) {
+        if (!log.completed_at) continue;
+        if (!sessionItemIds.has(log.program_item_id)) continue;
+        if (!latest || log.completed_at > (latest.completed_at ?? "")) {
+          latest = log;
+        }
+      }
+      if (latest) return latest.session_run_id;
+    }
+
+    // In-progress run? (a log without completed_at on this session's items)
+    const inProgress = logs.find(
+      (l) => !l.completed_at && sessionItemIds.has(l.program_item_id)
+    );
+    if (inProgress) {
+      freshRunIdRef.current = null;
+      return inProgress.session_run_id;
+    }
+
+    if (!freshRunIdRef.current) {
+      freshRunIdRef.current =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+    return freshRunIdRef.current;
+  }, [todaysWorkout, logs, celebrated]);
+
   // Logger should be locked when we're in the celebration view.
   const justCompletedToday = celebrated != null;
 
@@ -149,17 +193,17 @@ const Today = () => {
     setCompleting(true);
     setError(null);
     try {
-      const itemIds = todaysWorkout.items.map((i) => i.id);
-      const inList = `(${itemIds.join(",")})`;
+      // Stamp every log of the current run as completed.
       await sbPatch(
         `workout_logs?client_id=eq.${user.id}` +
-          `&program_item_id=in.${inList}` +
-          `&session_date=eq.${today}` +
+          `&session_run_id=eq.${sessionRunId}` +
           `&completed_at=is.null`,
         { completed_at: new Date().toISOString() }
       );
       // Stay on the just-completed session for the celebration view.
       setCelebrated({ weekId: todaysWorkout.weekId, sessionDate: today });
+      // Reset the freshly-minted run id so the next session gets its own.
+      freshRunIdRef.current = null;
       await loadAll();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -312,6 +356,7 @@ const Today = () => {
                       accent={style.border}
                       loggerClientId={user?.id ?? null}
                       loggerReadOnly={justCompletedToday}
+                      sessionRunId={sessionRunId}
                     />
                   );
                 }
@@ -366,6 +411,7 @@ const Today = () => {
                             loggerClientId={user?.id ?? null}
                             loggerReadOnly={justCompletedToday}
                             setsOverride={groupSets}
+                            sessionRunId={sessionRunId}
                           />
                         </div>
                       ))}

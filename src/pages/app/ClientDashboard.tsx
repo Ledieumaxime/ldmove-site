@@ -59,7 +59,7 @@ type ProgramWeekRef = { id: string; program_id: string };
 
 type CompletionLog = {
   program_item_id: string;
-  session_date: string;
+  session_run_id: string;
 };
 
 const ClientDashboard = () => {
@@ -112,7 +112,7 @@ const ClientDashboard = () => {
         `program_items?select=id,week_id`
       ),
       sbGet<CompletionLog[]>(
-        `workout_logs?client_id=eq.${user.id}&completed_at=not.is.null&select=program_item_id,session_date`
+        `workout_logs?client_id=eq.${user.id}&completed_at=not.is.null&select=program_item_id,session_run_id`
       ),
     ])
       .then(([p, co, r, fc, intake, av, notifs, weeks, items, logs]) => {
@@ -199,7 +199,7 @@ const ClientDashboard = () => {
     for (const log of completedLogs) {
       const weekId = programItemsByWeek[log.program_item_id];
       if (!weekId || !programWeekIds.has(weekId)) continue;
-      completionsKey.add(`${weekId}|${log.session_date}`);
+      completionsKey.add(log.session_run_id);
     }
     totalSessionsCompleted = completionsKey.size;
 

@@ -15,6 +15,10 @@ type Props = {
   itemId: string;
   prescribedSets: number;
   clientId: string;
+  /** UUID of the current session run. Logs of the active tracker share
+   *  this id; previous runs of the same exercise sit under different
+   *  ids and feed the "Last" / "Best" lines. */
+  sessionRunId: string;
   readOnly?: boolean;
   /** "reps" | "time" (in sec) | "attempts" — drives the unit label and
    *  whether we show the weight field. */
@@ -27,7 +31,9 @@ type Log = {
   set_number: number;
   reps_done: number | null;
   weight_kg: number | null;
+  session_run_id: string;
   session_date: string; // YYYY-MM-DD
+  completed_at: string | null;
 };
 
 const todayISO = () => {
@@ -47,6 +53,7 @@ const WorkoutLogger = ({
   itemId,
   prescribedSets,
   clientId,
+  sessionRunId,
   readOnly = false,
   unitLabel = "reps",
   showWeight = false,
@@ -61,7 +68,7 @@ const WorkoutLogger = ({
     (async () => {
       try {
         const rows = await sbGet<Log[]>(
-          `workout_logs?client_id=eq.${clientId}&program_item_id=eq.${itemId}&select=id,set_number,reps_done,weight_kg,session_date&order=session_date.desc,set_number.asc`
+          `workout_logs?client_id=eq.${clientId}&program_item_id=eq.${itemId}&select=id,set_number,reps_done,weight_kg,session_run_id,session_date,completed_at&order=session_date.desc,set_number.asc`
         );
         if (!cancelled) setLogs(rows);
       } finally {
@@ -73,25 +80,30 @@ const WorkoutLogger = ({
     };
   }, [itemId, clientId]);
 
-  // Group logs by session date
-  const bySession = useMemo(() => {
+  // Group logs by run
+  const byRun = useMemo(() => {
     const map = new Map<string, Log[]>();
     for (const l of logs) {
-      if (!map.has(l.session_date)) map.set(l.session_date, []);
-      map.get(l.session_date)!.push(l);
+      if (!map.has(l.session_run_id)) map.set(l.session_run_id, []);
+      map.get(l.session_run_id)!.push(l);
     }
     return map;
   }, [logs]);
 
-  const todayLogs = bySession.get(today) ?? [];
-  const todayBySet = new Map(todayLogs.map((l) => [l.set_number, l]));
+  // Logs of the run currently being executed by the client.
+  const currentRunLogs = byRun.get(sessionRunId) ?? [];
+  const todayBySet = new Map(currentRunLogs.map((l) => [l.set_number, l]));
 
-  // Last session (excluding today)
-  const lastSessionDate = [...bySession.keys()]
-    .filter((d) => d !== today)
-    .sort()
-    .reverse()[0];
-  const lastSessionLogs = lastSessionDate ? bySession.get(lastSessionDate)! : [];
+  // Last finished run (any other run with completed_at set), most recent first.
+  const completedRunIds = [...byRun.entries()]
+    .filter(([id, ls]) => id !== sessionRunId && ls.some((l) => l.completed_at))
+    .sort((a, b) => {
+      const aDate = a[1][0]?.completed_at ?? "";
+      const bDate = b[1][0]?.completed_at ?? "";
+      return bDate.localeCompare(aDate);
+    });
+  const lastSessionLogs = completedRunIds[0]?.[1] ?? [];
+  const lastSessionDate = lastSessionLogs[0]?.session_date ?? null;
 
   // Personal record (max reps_done, all sessions)
   const pr = useMemo(() => {
@@ -113,6 +125,7 @@ const WorkoutLogger = ({
       const body = {
         client_id: clientId,
         program_item_id: itemId,
+        session_run_id: sessionRunId,
         session_date: today,
         set_number: setNumber,
         reps_done: existing?.reps_done ?? null,
@@ -120,16 +133,17 @@ const WorkoutLogger = ({
         ...patch,
       };
       const url =
-        "workout_logs?on_conflict=client_id,program_item_id,session_date,set_number";
+        "workout_logs?on_conflict=client_id,program_item_id,session_run_id,set_number";
       const rows = await sbPost<Log[]>(
-        url + "&select=id,set_number,reps_done,weight_kg,session_date",
+        url + "&select=id,set_number,reps_done,weight_kg,session_run_id,session_date,completed_at",
         body,
         { merge: true }
       );
       const saved = rows[0];
       setLogs((prev) => {
         const filtered = prev.filter(
-          (l) => !(l.session_date === today && l.set_number === setNumber)
+          (l) =>
+            !(l.session_run_id === sessionRunId && l.set_number === setNumber)
         );
         return saved ? [...filtered, saved] : filtered;
       });
