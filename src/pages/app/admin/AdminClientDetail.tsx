@@ -152,6 +152,21 @@ const formatDate = (iso: string) =>
     year: "numeric",
   });
 
+/** Build the "target" line shown next to actual numbers when a session
+ *  is expanded — e.g. "3 × 10 reps" or just "max hold". Returns null
+ *  when nothing is prescribed worth showing (so the UI can hide the
+ *  label entirely instead of writing "target: —"). */
+const formatTarget = (
+  sets: number | null,
+  reps: string | null
+): string | null => {
+  const cleanReps = reps?.trim();
+  if (sets != null && sets > 0 && cleanReps) return `${sets} × ${cleanReps}`;
+  if (sets != null && sets > 0) return `${sets} sets`;
+  if (cleanReps) return cleanReps;
+  return null;
+};
+
 const formatRelative = (iso: string, now: number) => {
   const diff = now - new Date(iso).getTime();
   const mins = Math.floor(diff / 60_000);
@@ -426,6 +441,8 @@ const AdminClientDetail = () => {
         name: string;
         sets: LogRow[];
         unitLabel: string;
+        prescribedSets: number | null;
+        prescribedReps: string | null;
       }[];
     };
     const byRun = new Map<string, LogRow[]>();
@@ -469,6 +486,8 @@ const AdminClientDetail = () => {
           name: stripSection(item.custom_name),
           unitLabel: tracking.unitLabel,
           sets: [...itemLogs].sort((a, b) => a.set_number - b.set_number),
+          prescribedSets: item.sets ?? null,
+          prescribedReps: item.reps ?? null,
         });
       }
       exercises.sort((a, b) => {
@@ -815,14 +834,25 @@ const AdminClientDetail = () => {
                               weights.length > 0
                                 ? Math.max(...weights)
                                 : null;
+                            const target = formatTarget(
+                              ex.prescribedSets,
+                              ex.prescribedReps
+                            );
                             return (
                               <div
                                 key={ex.itemId}
                                 className="border border-border rounded-md p-2.5"
                               >
-                                <p className="font-semibold text-sm">
-                                  {ex.name}
-                                </p>
+                                <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                                  <p className="font-semibold text-sm">
+                                    {ex.name}
+                                  </p>
+                                  {target && (
+                                    <p className="text-[11px] text-muted-foreground">
+                                      target: {target}
+                                    </p>
+                                  )}
+                                </div>
                                 <p className="text-xs text-muted-foreground mt-0.5">
                                   <span className="font-semibold text-foreground">
                                     {numbers}

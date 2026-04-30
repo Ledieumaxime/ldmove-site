@@ -58,6 +58,7 @@ type ExerciseGroup = {
   name: string;
   unitLabel: string;
   sets: LogRow[];
+  prescribedSets: number | null;
   prescribedReps: string | null;
 };
 
@@ -165,6 +166,7 @@ const History = () => {
           name: stripSection(item.custom_name),
           unitLabel: tracking.unitLabel,
           sets: [...itemLogs].sort((a, b) => a.set_number - b.set_number),
+          prescribedSets: item.sets ?? null,
           prescribedReps: item.reps,
         });
       }
@@ -324,6 +326,20 @@ const History = () => {
   );
 };
 
+/** Reads "3 × 10 reps" / "max hold" / null when nothing prescribed.
+ *  Mirrors the same helper on the coach side so client and coach see
+ *  the target in the exact same format. */
+const formatTarget = (
+  sets: number | null,
+  reps: string | null
+): string | null => {
+  const cleanReps = reps?.trim();
+  if (sets != null && sets > 0 && cleanReps) return `${sets} × ${cleanReps}`;
+  if (sets != null && sets > 0) return `${sets} sets`;
+  if (cleanReps) return cleanReps;
+  return null;
+};
+
 const ExerciseRow = ({ ex }: { ex: ExerciseGroup }) => {
   const numbers = ex.sets
     .map((s) => (s.reps_done != null ? String(s.reps_done) : "—"))
@@ -332,15 +348,14 @@ const ExerciseRow = ({ ex }: { ex: ExerciseGroup }) => {
     .map((s) => s.weight_kg)
     .filter((w): w is number => w != null);
   const maxWeight = weights.length > 0 ? Math.max(...weights) : null;
+  const target = formatTarget(ex.prescribedSets, ex.prescribedReps);
 
   return (
     <div className="bg-white border border-border rounded-lg p-3">
       <div className="flex items-baseline justify-between gap-2 flex-wrap">
         <p className="font-semibold text-sm">{ex.name}</p>
-        {ex.prescribedReps && (
-          <p className="text-[11px] text-muted-foreground">
-            target: {ex.prescribedReps}
-          </p>
+        {target && (
+          <p className="text-[11px] text-muted-foreground">target: {target}</p>
         )}
       </div>
       <p className="text-xs text-muted-foreground mt-1">
