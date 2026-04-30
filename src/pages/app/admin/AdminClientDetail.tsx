@@ -196,6 +196,15 @@ const AdminClientDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
+  // Raw, unfiltered fetches kept around so the debug strip can
+  // explain why an item logged by the client is missing from the
+  // local items state.
+  const [rawWeeks, setRawWeeks] = useState<
+    Array<ProgramWeekLite & { program_id: string }>
+  >([]);
+  const [rawItems, setRawItems] = useState<
+    Array<{ id: string; week_id: string; order_index: number }>
+  >([]);
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(
     new Set()
   );
@@ -261,6 +270,8 @@ const AdminClientDetail = () => {
         for (const i of filteredItems) programItemIds.add(i.id);
         setItems(filteredItems);
         setLogs(lg);
+        setRawWeeks(w);
+        setRawItems(it);
       })
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
@@ -1138,7 +1149,7 @@ const AdminClientDetail = () => {
       {/* TEMPORARY debug strip to chase the 6/3 vs 9 sessions
           discrepancy. Remove once root cause is found. */}
       {block?.debug && (
-        <pre className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-3 text-[11px] overflow-x-auto">
+        <pre className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-3 text-[11px] overflow-x-auto whitespace-pre-wrap">
 {`[debug block.sessionsDone trace]
   sessionsDone           = ${block.sessionsDone}
   expectedTotal          = ${block.expectedTotal}
@@ -1155,7 +1166,23 @@ const AdminClientDetail = () => {
   logsMatchingItems      = ${block.debug.logsMatchingItems}
   -----
   currentProgram.id      = ${currentProgram?.id ?? "n/a"}
-  missingProgramItemIds  = ${JSON.stringify(block.debug.missingProgramItemIds)}`}
+  rawItems (server)      = ${rawItems.length}
+  rawWeeks (server)      = ${rawWeeks.length}
+  -----
+[trace each missing item]
+${block.debug.missingProgramItemIds
+  .map((iid) => {
+    const found = rawItems.find((x) => x.id === iid);
+    if (!found)
+      return `  ${iid} → NOT IN RAW ITEMS FETCH (truncation or RLS)`;
+    const week = rawWeeks.find((w) => w.id === found.week_id);
+    if (!week)
+      return `  ${iid} → week ${found.week_id} NOT IN RAW WEEKS FETCH`;
+    return `  ${iid} → week ${found.week_id} → program ${week.program_id}${
+      week.program_id === currentProgram?.id ? " (CURRENT!)" : " (OTHER)"
+    }`;
+  })
+  .join("\n")}`}
         </pre>
       )}
     </div>
