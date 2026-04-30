@@ -220,9 +220,14 @@ const WorkoutLogger = ({
       )}
 
       <div className="bg-muted/40 border border-border rounded-lg p-2.5 space-y-1.5">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-          Today
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Today
+          </p>
+          <p className="text-[10px] font-semibold tracking-wide text-muted-foreground">
+            {todayLogs.length}/{prescribedSets} done
+          </p>
+        </div>
         {setsArray.map((n) => {
           const log = todayBySet.get(n);
           const done = !!log;
@@ -302,60 +307,72 @@ const SetRow = ({
   };
 
   return (
-    <div className="flex items-center gap-2 text-sm">
+    <div
+      className={`flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors ${
+        done ? "bg-green-50" : ""
+      }`}
+    >
       <button
         type="button"
         onClick={onToggle}
         disabled={saving}
         aria-label={done ? `Mark set ${setNumber} undone` : `Mark set ${setNumber} done`}
-        className={`shrink-0 w-7 h-7 rounded-full border flex items-center justify-center transition-colors ${
+        className={`shrink-0 w-9 h-9 rounded-full border flex items-center justify-center transition-colors ${
           done
             ? "bg-green-500 border-green-500 text-white"
-            : "bg-white border-border text-muted-foreground hover:border-green-400"
+            : "bg-white border-border text-muted-foreground hover:border-green-400 active:scale-95"
         }`}
       >
         {saving ? (
-          <Loader2 size={12} className="animate-spin" />
+          <Loader2 size={14} className="animate-spin" />
         ) : done ? (
-          <CheckCircle2 size={14} />
+          <CheckCircle2 size={16} />
         ) : (
-          <span className="text-[11px] font-bold">{setNumber}</span>
+          <span className="text-xs font-bold">{setNumber}</span>
         )}
       </button>
-      <span className="text-xs text-muted-foreground w-8">Set {setNumber}</span>
-      <label className="flex items-center gap-1 text-xs">
-        <span className="text-muted-foreground">reps</span>
-        <input
-          type="number"
-          inputMode="numeric"
-          min={0}
-          value={repsLocal}
-          onChange={(e) => setRepsLocal(e.target.value)}
-          onBlur={commitReps}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-          }}
-          className="w-14 rounded border border-border bg-white px-2 py-1 text-sm"
-          placeholder="—"
-        />
-      </label>
-      <label className="flex items-center gap-1 text-xs">
-        <span className="text-muted-foreground">kg</span>
-        <input
-          type="number"
-          inputMode="decimal"
-          min={0}
-          step={0.5}
-          value={weightLocal}
-          onChange={(e) => setWeightLocal(e.target.value)}
-          onBlur={commitWeight}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-          }}
-          className="w-16 rounded border border-border bg-white px-2 py-1 text-sm"
-          placeholder="—"
-        />
-      </label>
+
+      <div className="flex-1 grid grid-cols-2 gap-2 min-w-0">
+        <div className="relative">
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            value={repsLocal}
+            onChange={(e) => setRepsLocal(e.target.value)}
+            onBlur={commitReps}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            }}
+            aria-label={`Set ${setNumber} reps`}
+            className="w-full rounded-md border border-border bg-white pl-2 pr-9 py-1.5 text-sm focus:outline-none focus:border-accent"
+            placeholder="0"
+          />
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-muted-foreground uppercase pointer-events-none">
+            reps
+          </span>
+        </div>
+        <div className="relative">
+          <input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step={0.5}
+            value={weightLocal}
+            onChange={(e) => setWeightLocal(e.target.value)}
+            onBlur={commitWeight}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            }}
+            aria-label={`Set ${setNumber} weight in kilograms`}
+            className="w-full rounded-md border border-border bg-white pl-2 pr-7 py-1.5 text-sm focus:outline-none focus:border-accent"
+            placeholder="—"
+          />
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-muted-foreground uppercase pointer-events-none">
+            kg
+          </span>
+        </div>
+      </div>
     </div>
   );
 };
