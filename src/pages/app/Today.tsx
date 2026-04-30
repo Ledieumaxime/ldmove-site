@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   CheckCircle2,
@@ -43,6 +43,7 @@ const todayISO = () => {
 
 const Today = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [program, setProgram] = useState<Program | null>(null);
   const [weeks, setWeeks] = useState<ProgramWeekLite[]>([]);
   const [items, setItems] = useState<ProgramItem[]>([]);
@@ -50,16 +51,6 @@ const Today = () => {
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** When the client just finished a session in this page load, we keep
-   *  the celebration view (locked tracker + green banner + Continue
-   *  button) instead of jumping straight to the next session. The pin
-   *  is the (weekId, session_date) tuple of the completed session.
-   *  Cleared when the client clicks "Continue to next session" or
-   *  navigates fresh. */
-  const [celebrated, setCelebrated] = useState<{
-    weekId: string;
-    sessionDate: string;
-  } | null>(null);
 
   const loadAll = async () => {
     if (!user) return;
@@ -112,7 +103,7 @@ const Today = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  const days: WorkoutDay[] = useMemo(
+  const days: WorkoutDay<ProgramItem>[] = useMemo(
     () => listProgramDays(weeks, items),
     [weeks, items]
   );
@@ -124,49 +115,25 @@ const Today = () => {
     [days, logs]
   );
 
-  // The session to display: either the just-completed one (celebration) or
-  // the one ranked totalCompleted+1 in sequence.
-  const todaysWorkout: WorkoutDay | null = useMemo(() => {
-    if (celebrated) {
-      return days.find((d) => d.weekId === celebrated.weekId) ?? null;
-    }
-    return nextDay(days, logs);
-  }, [celebrated, days, logs]);
+  // The session to display: the next one in sequence.
+  const todaysWorkout: WorkoutDay<ProgramItem> | null = useMemo(
+    () => nextDay(days, logs),
+    [days, logs]
+  );
 
   // Sequential session number for display ("Session 1", "Session 16", etc.).
-  // While celebrating: it's totalCompleted (the one just done).
-  // While doing a fresh session: totalCompleted + 1.
-  const displaySessionNumber = celebrated
-    ? totalCompleted
-    : totalCompleted + 1;
+  const displaySessionNumber = totalCompleted + 1;
 
   /** UUID identifying the current run of the displayed session.
-   *  - If we're in celebration mode: take the run id of the most recent
-   *    completed log on this session's items (the one we just stamped).
-   *  - Otherwise: reuse any existing in-progress run (logs without
-   *    completed_at on this session's items). If none exists yet, mint
-   *    a fresh UUID — it will be persisted on the first set save.
-   *  The ref makes sure the freshly-minted UUID is stable across re-renders.
+   *  Reuse any existing in-progress run (logs without completed_at on
+   *  this session's items). If none exists, mint a fresh UUID stable
+   *  across renders via a ref — it gets persisted on the first set save.
    */
   const freshRunIdRef = useRef<string | null>(null);
   const sessionRunId = useMemo(() => {
     if (!todaysWorkout) return "00000000-0000-0000-0000-000000000000";
     const sessionItemIds = new Set(todaysWorkout.items.map((i) => i.id));
 
-    if (celebrated) {
-      // Find the most recent completed_at on this session's items.
-      let latest: CompletedLog | null = null;
-      for (const log of logs) {
-        if (!log.completed_at) continue;
-        if (!sessionItemIds.has(log.program_item_id)) continue;
-        if (!latest || log.completed_at > (latest.completed_at ?? "")) {
-          latest = log;
-        }
-      }
-      if (latest) return latest.session_run_id;
-    }
-
-    // In-progress run? (a log without completed_at on this session's items)
     const inProgress = logs.find(
       (l) => !l.completed_at && sessionItemIds.has(l.program_item_id)
     );
@@ -182,10 +149,7 @@ const Today = () => {
           : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     }
     return freshRunIdRef.current;
-  }, [todaysWorkout, logs, celebrated]);
-
-  // Logger should be locked when we're in the celebration view.
-  const justCompletedToday = celebrated != null;
+  }, [todaysWorkout, logs]);
 
   const completeWorkout = async () => {
     if (!todaysWorkout || !user) return;
@@ -199,22 +163,15 @@ const Today = () => {
           `&completed_at=is.null`,
         { completed_at: new Date().toISOString() }
       );
-      // Stay on the just-completed session for the celebration view.
-      setCelebrated({ weekId: todaysWorkout.weekId, sessionDate: today });
       // Reset the freshly-minted run id so the next session gets its own.
       freshRunIdRef.current = null;
-      await loadAll();
+      // Send the client back to the dashboard, where the next session
+      // shows up as the new "Start Session N" CTA.
+      navigate("/app/home");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-    } finally {
       setCompleting(false);
     }
-  };
-
-  const continueToNext = () => {
-    setCelebrated(null);
-    // Scroll back to top so the client lands on the new session header.
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   if (loading) {
@@ -281,7 +238,7 @@ const Today = () => {
     <div className="space-y-6 max-w-3xl">
       <div>
         <p className="text-xs font-semibold text-accent uppercase tracking-widest mb-1">
-          {celebrated ? "Just finished" : "Today's workout"}
+          Today's workout
         </p>
         <h1 className="font-heading text-3xl md:text-4xl font-bold mb-1">
           Session {displaySessionNumber}
@@ -290,27 +247,6 @@ const Today = () => {
           {program.title} · {dayDisplayLabel(todaysWorkout)}
         </p>
       </div>
-
-      {celebrated && (
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-5 flex items-start justify-between gap-3 flex-wrap">
-          <div className="flex items-start gap-3">
-            <CheckCircle2 size={22} className="text-green-700 mt-0.5 shrink-0" />
-            <div className="text-sm">
-              <p className="font-semibold text-green-900">
-                Session {displaySessionNumber} complete. Great work.
-              </p>
-              <p className="text-green-800 mt-0.5">
-                Your numbers are saved. Move on to Session{" "}
-                {displaySessionNumber + 1} when you're ready.
-              </p>
-            </div>
-          </div>
-          <Button onClick={continueToNext} className="gap-2">
-            Continue to Session {displaySessionNumber + 1}
-            <ArrowRight size={16} />
-          </Button>
-        </div>
-      )}
 
       {sections.map((sec, sIdx) => {
         const style = sectionStyle(sec.section);
@@ -354,7 +290,7 @@ const Today = () => {
                       canComment
                       accent={style.border}
                       loggerClientId={user?.id ?? null}
-                      loggerReadOnly={justCompletedToday}
+                      loggerReadOnly={false}
                       sessionRunId={sessionRunId}
                     />
                   );
@@ -408,7 +344,7 @@ const Today = () => {
                             inSuperset
                             canComment
                             loggerClientId={user?.id ?? null}
-                            loggerReadOnly={justCompletedToday}
+                            loggerReadOnly={false}
                             setsOverride={groupSets}
                             sessionRunId={sessionRunId}
                           />
@@ -423,28 +359,26 @@ const Today = () => {
         );
       })}
 
-      {!celebrated && (
-        <div className="sticky bottom-4 z-10 bg-white border border-border rounded-2xl shadow-lg p-4 flex items-center justify-between gap-3 flex-wrap">
-          <div className="text-sm">
-            <p className="font-semibold">Done with this session?</p>
-            <p className="text-muted-foreground text-xs">
-              Mark it complete to lock your numbers and unlock the next one.
-            </p>
-          </div>
-          <Button
-            onClick={completeWorkout}
-            disabled={completing}
-            className="gap-2"
-          >
-            {completing ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Trophy size={16} />
-            )}
-            {completing ? "Saving…" : "Complete workout"}
-          </Button>
+      <div className="sticky bottom-4 z-10 bg-white border border-border rounded-2xl shadow-lg p-4 flex items-center justify-between gap-3 flex-wrap">
+        <div className="text-sm">
+          <p className="font-semibold">Done with this session?</p>
+          <p className="text-muted-foreground text-xs">
+            Mark it complete to lock your numbers and unlock the next one.
+          </p>
         </div>
-      )}
+        <Button
+          onClick={completeWorkout}
+          disabled={completing}
+          className="gap-2"
+        >
+          {completing ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Trophy size={16} />
+          )}
+          {completing ? "Saving…" : "Complete workout"}
+        </Button>
+      </div>
 
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>

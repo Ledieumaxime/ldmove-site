@@ -28,20 +28,20 @@ export type CompletedLog = {
   completed_at: string | null;
 };
 
-export type WorkoutDay = {
+export type WorkoutDay<T extends ProgramItemLite = ProgramItemLite> = {
   weekId: string;
   weekNumber: number;
   weekTitle: string | null;
-  items: ProgramItemLite[];
+  items: T[];
 };
 
 /** All training sessions in the program, in week_number order. */
-export function listProgramDays(
+export function listProgramDays<T extends ProgramItemLite>(
   weeks: ProgramWeekLite[],
-  items: ProgramItemLite[]
-): WorkoutDay[] {
+  items: T[]
+): WorkoutDay<T>[] {
   const sortedWeeks = [...weeks].sort((a, b) => a.week_number - b.week_number);
-  const days: WorkoutDay[] = [];
+  const days: WorkoutDay<T>[] = [];
 
   for (const w of sortedWeeks) {
     const weekItems = items
@@ -96,10 +96,10 @@ export function countCompletedSessions(
  *  the loop wraps back to session 1, but the *display* number keeps
  *  climbing (Session 16 = loop 6 day 1) so the client sees their
  *  cumulative count. */
-export function nextDay(
-  days: WorkoutDay[],
+export function nextDay<T extends ProgramItemLite>(
+  days: WorkoutDay<T>[],
   logs: CompletedLog[]
-): WorkoutDay | null {
+): WorkoutDay<T> | null {
   if (days.length === 0) return null;
   const completed = countCompletedSessions(days, logs);
   return days[completed % days.length] ?? null;
