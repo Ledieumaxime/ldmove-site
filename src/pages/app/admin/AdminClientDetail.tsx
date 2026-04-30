@@ -4,6 +4,8 @@ import {
   Archive,
   ArrowLeft,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   ClipboardList,
   Edit2,
   History as HistoryIcon,
@@ -179,6 +181,9 @@ const AdminClientDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(
+    new Set()
+  );
 
   useEffect(() => {
     if (!clientId) return;
@@ -482,9 +487,9 @@ const AdminClientDetail = () => {
         exercises,
       });
     }
-    return groups
-      .sort((a, b) => b.completedAt.localeCompare(a.completedAt))
-      .slice(0, 5);
+    return groups.sort((a, b) =>
+      b.completedAt.localeCompare(a.completedAt)
+    );
   }, [logs]);
 
   // Activity timeline: form checks + client comments + coach replies +
@@ -735,6 +740,12 @@ const AdminClientDetail = () => {
               <h2 className="font-heading text-xl font-bold">
                 Recent training
               </h2>
+              {recentSessions.length > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {recentSessions.length} session
+                  {recentSessions.length !== 1 ? "s" : ""} completed
+                </span>
+              )}
             </div>
             {recentSessions.length === 0 ? (
               <p className="text-sm text-muted-foreground italic">
@@ -742,44 +753,95 @@ const AdminClientDetail = () => {
               </p>
             ) : (
               <ul className="space-y-2">
-                {recentSessions.map((s) => (
-                  <li
-                    key={s.runId}
-                    className="bg-muted/40 border border-border rounded-lg p-3"
-                  >
-                    <div className="flex items-baseline justify-between gap-2 flex-wrap mb-2">
-                      <p className="font-semibold text-sm">
-                        {s.weekTitle?.trim()
-                          ? s.weekTitle.trim()
-                          : `Session ${s.weekNumber}`}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(s.completedAt)} ·{" "}
-                        {formatRelative(s.completedAt, now)}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                      {s.exercises.slice(0, 4).map((ex) => (
-                        <span key={ex.itemId} className="text-muted-foreground">
-                          <span className="font-semibold text-foreground">
-                            {ex.name}:
-                          </span>{" "}
-                          {ex.sets
-                            .map((set) =>
-                              set.reps_done != null ? String(set.reps_done) : "—"
-                            )
-                            .join(", ")}{" "}
-                          {ex.unitLabel}
-                        </span>
-                      ))}
-                      {s.exercises.length > 4 && (
-                        <span className="text-muted-foreground italic">
-                          +{s.exercises.length - 4} more
-                        </span>
+                {recentSessions.map((s) => {
+                  const isOpen = expandedSessions.has(s.runId);
+                  return (
+                    <li
+                      key={s.runId}
+                      className="bg-muted/40 border border-border rounded-lg overflow-hidden"
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedSessions((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(s.runId)) next.delete(s.runId);
+                            else next.add(s.runId);
+                            return next;
+                          })
+                        }
+                        className="w-full text-left p-3 flex items-center gap-3 hover:bg-muted/70 transition-colors"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm">
+                            {s.weekTitle?.trim()
+                              ? s.weekTitle.trim()
+                              : `Session ${s.weekNumber}`}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {formatDate(s.completedAt)} ·{" "}
+                            {formatRelative(s.completedAt, now)} ·{" "}
+                            {s.exercises.length} exercise
+                            {s.exercises.length !== 1 ? "s" : ""}
+                          </p>
+                        </div>
+                        {isOpen ? (
+                          <ChevronUp
+                            size={16}
+                            className="text-muted-foreground shrink-0"
+                          />
+                        ) : (
+                          <ChevronDown
+                            size={16}
+                            className="text-muted-foreground shrink-0"
+                          />
+                        )}
+                      </button>
+
+                      {isOpen && (
+                        <div className="border-t border-border bg-white p-3 space-y-2">
+                          {s.exercises.map((ex) => {
+                            const numbers = ex.sets
+                              .map((set) =>
+                                set.reps_done != null
+                                  ? String(set.reps_done)
+                                  : "—"
+                              )
+                              .join(", ");
+                            const weights = ex.sets
+                              .map((set) => set.weight_kg)
+                              .filter((w): w is number => w != null);
+                            const maxWeight =
+                              weights.length > 0
+                                ? Math.max(...weights)
+                                : null;
+                            return (
+                              <div
+                                key={ex.itemId}
+                                className="border border-border rounded-md p-2.5"
+                              >
+                                <p className="font-semibold text-sm">
+                                  {ex.name}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  <span className="font-semibold text-foreground">
+                                    {numbers}
+                                  </span>{" "}
+                                  {ex.unitLabel}
+                                  {maxWeight != null && (
+                                    <span className="ml-2">
+                                      · up to {maxWeight} kg
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                            );
+                          })}
+                        </div>
                       )}
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>
