@@ -178,6 +178,7 @@ const AdminClientDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
     if (!clientId) return;
@@ -234,7 +235,20 @@ const AdminClientDetail = () => {
       })
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
-  }, [clientId]);
+  }, [clientId, reloadTick]);
+
+  // Auto-refresh when the tab regains focus — same reasoning as the
+  // dashboard: avoids a stale workout count after the coach checks
+  // something on the client side.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        setReloadTick((t) => t + 1);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
 
   const now = Date.now();
 

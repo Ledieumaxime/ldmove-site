@@ -194,8 +194,12 @@ const AdminDashboard = () => {
       sbGet<Array<{ id: string; week_id: string; order_index: number }>>(
         "program_items?select=id,week_id,order_index"
       ),
+      // Explicit limit + ordering: PostgREST silently truncates at the
+      // server's max-rows (≈1000) when no limit is set, which can drop
+      // recent logs and make the dashboard count under-report. Pulling
+      // newest-first up to 50k keeps every realistic case covered.
       sbGet<Array<CompletedLog & { client_id: string }>>(
-        "workout_logs?select=client_id,program_item_id,session_run_id,session_date,completed_at&completed_at=not.is.null"
+        "workout_logs?select=client_id,program_item_id,session_run_id,session_date,completed_at&completed_at=not.is.null&order=completed_at.desc&limit=50000"
       ),
     ])
       .then(([allP, c, f, co, videos, reviews, intakes, weeks, items, logs]) => {
@@ -263,6 +267,20 @@ const AdminDashboard = () => {
     // successful invite so the new client shows up without a manual
     // page reload.
   }, [reloadTick]);
+
+  // Refetch when the tab regains focus. Otherwise the dashboard stays
+  // frozen on whatever was loaded at first mount, and a coach who
+  // switches to a client account to test, then comes back, sees a
+  // stale workout count.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        setReloadTick((t) => t + 1);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
 
   const now = Date.now();
 
