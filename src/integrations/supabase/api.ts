@@ -31,6 +31,36 @@ export async function sbGet<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+/**
+ * Fetch every row from a PostgREST endpoint by paginating, regardless
+ * of the server's max-rows ceiling (Supabase enforces ~1000 even when
+ * the URL passes ?limit=50000). Loops with offset+limit until a page
+ * comes back smaller than the page size.
+ *
+ * Use only when you genuinely need every row — cross-program counts,
+ * coach dashboards, etc. Anything filtered down to a single client's
+ * data is safe with the regular sbGet because it stays well below
+ * 1000 rows.
+ */
+export async function sbGetAll<T>(
+  path: string,
+  pageSize = 1000
+): Promise<T[]> {
+  const result: T[] = [];
+  let offset = 0;
+  // Cap iterations to avoid infinite loops on a backend bug.
+  for (let i = 0; i < 50; i++) {
+    const sep = path.includes("?") ? "&" : "?";
+    const page = await sbGet<T[]>(
+      `${path}${sep}offset=${offset}&limit=${pageSize}`
+    );
+    result.push(...page);
+    if (page.length < pageSize) return result;
+    offset += pageSize;
+  }
+  return result;
+}
+
 export async function sbPost<T>(
   path: string,
   body: unknown,

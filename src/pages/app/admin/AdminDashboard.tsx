@@ -9,7 +9,7 @@ import {
   Inbox,
   UserPlus,
 } from "lucide-react";
-import { sbGet } from "@/integrations/supabase/api";
+import { sbGet, sbGetAll } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   CompletedLog,
@@ -188,25 +188,18 @@ const AdminDashboard = () => {
         "client_level_assessments?select=client_id"
       ),
       sbGet<Array<{ client_id: string }>>("client_intakes?select=client_id"),
-      // Same defensive ceiling as workout_logs: PostgREST silently caps
-      // unbounded queries at the server default (~1000) and the coach
-      // sees every program in the database, including drafts and
-      // archived blocks across every client. With several blocks the
-      // 1000-row cap on program_items can drop the items of the most
-      // recent block, which makes the dashboard under-count sessions
-      // because the items don't match the workout_logs anymore.
-      sbGet<Array<ProgramWeekLite & { program_id: string }>>(
-        "program_weeks?select=id,week_number,title,program_id&limit=10000"
+      // Cross-program / cross-client reads: paginate explicitly.
+      // PostgREST's server-side max-rows (~1000 on Supabase) silently
+      // caps any single request even when ?limit=50000 is passed,
+      // which drops the newest rows and breaks the session counts.
+      sbGetAll<ProgramWeekLite & { program_id: string }>(
+        "program_weeks?select=id,week_number,title,program_id"
       ),
-      sbGet<Array<{ id: string; week_id: string; order_index: number }>>(
-        "program_items?select=id,week_id,order_index&limit=50000"
+      sbGetAll<{ id: string; week_id: string; order_index: number }>(
+        "program_items?select=id,week_id,order_index"
       ),
-      // Explicit limit + ordering: PostgREST silently truncates at the
-      // server's max-rows (≈1000) when no limit is set, which can drop
-      // recent logs and make the dashboard count under-report. Pulling
-      // newest-first up to 50k keeps every realistic case covered.
-      sbGet<Array<CompletedLog & { client_id: string }>>(
-        "workout_logs?select=client_id,program_item_id,session_run_id,session_date,completed_at&completed_at=not.is.null&order=completed_at.desc&limit=50000"
+      sbGetAll<CompletedLog & { client_id: string }>(
+        "workout_logs?select=client_id,program_item_id,session_run_id,session_date,completed_at&completed_at=not.is.null&order=completed_at.desc"
       ),
     ])
       .then(([allP, c, f, co, videos, reviews, intakes, weeks, items, logs]) => {

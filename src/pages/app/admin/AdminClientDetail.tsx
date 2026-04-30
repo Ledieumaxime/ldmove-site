@@ -16,7 +16,7 @@ import {
   ArrowRight,
   Send,
 } from "lucide-react";
-import { sbGet, sbPatch } from "@/integrations/supabase/api";
+import { sbGet, sbGetAll, sbPatch } from "@/integrations/supabase/api";
 import {
   CompletedLog,
   countCompletedSessions,
@@ -196,15 +196,6 @@ const AdminClientDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
-  // Raw, unfiltered fetches kept around so the debug strip can
-  // explain why an item logged by the client is missing from the
-  // local items state.
-  const [rawWeeks, setRawWeeks] = useState<
-    Array<ProgramWeekLite & { program_id: string }>
-  >([]);
-  const [rawItems, setRawItems] = useState<
-    Array<{ id: string; week_id: string; order_index: number }>
-  >([]);
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(
     new Set()
   );
@@ -227,15 +218,15 @@ const AdminClientDetail = () => {
       sbGet<Comment[]>(
         `exercise_comments?select=*,program_items(custom_name)&order=created_at.desc&limit=200`
       ),
-      // Defensive limit: this query pulls every program_week / item
-      // visible to the coach, not just the ones for this client, so
-      // the silent 1000-row PostgREST cap can drop the items of the
-      // newest block and break the session counts downstream.
-      sbGet<Array<ProgramWeekLite & { program_id: string }>>(
-        `program_weeks?select=id,week_number,title,program_id&limit=10000`
+      // Cross-program reads: paginate explicitly. PostgREST's
+      // server-side max-rows (~1000 on Supabase) silently caps any
+      // single request even when ?limit=50000 is passed, which drops
+      // the newest items / weeks and breaks the session counts.
+      sbGetAll<ProgramWeekLite & { program_id: string }>(
+        `program_weeks?select=id,week_number,title,program_id`
       ),
-      sbGet<Array<{ id: string; week_id: string; order_index: number }>>(
-        `program_items?select=id,week_id,order_index&limit=50000`
+      sbGetAll<{ id: string; week_id: string; order_index: number }>(
+        `program_items?select=id,week_id,order_index`
       ),
       // 5000 keeps every realistic case covered: 5k rows ≈ 100+
       // sessions worth of detailed sets × exercises. The old 500 cap
@@ -270,8 +261,6 @@ const AdminClientDetail = () => {
         for (const i of filteredItems) programItemIds.add(i.id);
         setItems(filteredItems);
         setLogs(lg);
-        setRawWeeks(w);
-        setRawItems(it);
       })
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
@@ -309,19 +298,6 @@ const AdminClientDetail = () => {
         workoutsBehind: number;
         daysSinceLastTraining: number | null;
         sessionsPerLoop: number;
-        // Temporary debug surface to chase a count discrepancy. Will be
-        // removed once root cause is found.
-        debug: {
-          itemsState: number;
-          programWeeks: number;
-          programItemList: number;
-          validItemIds: number;
-          logsTotal: number;
-          completedLogs: number;
-          distinctRunsAll: number;
-          logsMatchingItems: number;
-          missingProgramItemIds: string[];
-        };
       };
     const start = new Date(currentProgram.created_at).getTime();
     const wks = currentProgram.duration_weeks ?? 4;
@@ -387,28 +363,6 @@ const AdminClientDetail = () => {
       status = "ontrack";
     }
 
-    // Debug: surface intermediate counts to chase the 6/3 vs 9/3
-    // discrepancy. Compare these to recentSessions to see where it
-    // breaks.
-    const validItemIds = new Set(days.flatMap((d) => d.items.map((i) => i.id)));
-    const distinctRunsAll = new Set(
-      logs.filter((l) => l.completed_at).map((l) => l.session_run_id)
-    ).size;
-    const logsMatchingItems = logs.filter(
-      (l) => l.completed_at && validItemIds.has(l.program_item_id)
-    ).length;
-    // Sample of program_item_ids referenced by completed logs that
-    // aren't in our local items state — the smoking gun.
-    const missingProgramItemIds = Array.from(
-      new Set(
-        logs
-          .filter(
-            (l) => l.completed_at && !validItemIds.has(l.program_item_id)
-          )
-          .map((l) => l.program_item_id)
-      )
-    ).slice(0, 5);
-
     return {
       status,
       progress,
@@ -418,17 +372,6 @@ const AdminClientDetail = () => {
       workoutsBehind,
       daysSinceLastTraining,
       sessionsPerLoop,
-      debug: {
-        itemsState: items.length,
-        programWeeks: programWeeks.length,
-        programItemList: programItemList.length,
-        validItemIds: validItemIds.size,
-        logsTotal: logs.length,
-        completedLogs: logs.filter((l) => l.completed_at).length,
-        distinctRunsAll,
-        logsMatchingItems,
-        missingProgramItemIds,
-      },
     };
   }, [currentProgram, weeks, items, logs, now]);
 
@@ -1146,45 +1089,6 @@ const AdminClientDetail = () => {
         </aside>
       </div>
 
-      {/* TEMPORARY debug strip to chase the 6/3 vs 9 sessions
-          discrepancy. Remove once root cause is found. */}
-      {block?.debug && (
-        <pre className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-3 text-[11px] overflow-x-auto whitespace-pre-wrap">
-{`[debug block.sessionsDone trace]
-  sessionsDone           = ${block.sessionsDone}
-  expectedTotal          = ${block.expectedTotal}
-  sessionsPerLoop        = ${block.sessionsPerLoop}
-  -----
-  itemsState (filtered)  = ${block.debug.itemsState}
-  programWeeks           = ${block.debug.programWeeks}
-  programItemList        = ${block.debug.programItemList}
-  validItemIds           = ${block.debug.validItemIds}
-  -----
-  logsTotal              = ${block.debug.logsTotal}
-  completedLogs          = ${block.debug.completedLogs}
-  distinctRunsAll        = ${block.debug.distinctRunsAll}
-  logsMatchingItems      = ${block.debug.logsMatchingItems}
-  -----
-  currentProgram.id      = ${currentProgram?.id ?? "n/a"}
-  rawItems (server)      = ${rawItems.length}
-  rawWeeks (server)      = ${rawWeeks.length}
-  -----
-[trace each missing item]
-${block.debug.missingProgramItemIds
-  .map((iid) => {
-    const found = rawItems.find((x) => x.id === iid);
-    if (!found)
-      return `  ${iid} → NOT IN RAW ITEMS FETCH (truncation or RLS)`;
-    const week = rawWeeks.find((w) => w.id === found.week_id);
-    if (!week)
-      return `  ${iid} → week ${found.week_id} NOT IN RAW WEEKS FETCH`;
-    return `  ${iid} → week ${found.week_id} → program ${week.program_id}${
-      week.program_id === currentProgram?.id ? " (CURRENT!)" : " (OTHER)"
-    }`;
-  })
-  .join("\n")}`}
-        </pre>
-      )}
     </div>
   );
 };
