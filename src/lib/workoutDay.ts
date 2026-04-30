@@ -1,20 +1,18 @@
-// Compute "the next workout day" for a client + program.
+// Compute "the next workout session" for a client + program.
 //
-// A program is split into weeks. Within a week, items can be tagged with
-// a `group_name` like "Day 1" / "Day 2" — when present, that grouping IS
-// the unit of one workout session. When absent, the week itself is the
-// unit (one program week = one workout).
+// In LD Move's data model, ONE week = ONE workout session. The week's
+// title is the session label ("SESSION 1 — PUSH" etc.). The `group_name`
+// field on program_items is reserved for SUPERSETS (chains of exercises
+// done back-to-back), not for splitting a week into multiple days.
 //
-// "Next day" = the first (week_number, day_label) tuple in sequence whose
-// items have NO completed_at set in workout_logs. Once a day is completed
-// we move on to the next one. If everything is done, we return null
-// ("program finished").
+// "Next session" = the first week in week_number order whose items have
+// NO completed_at set in workout_logs. Once a session is completed we
+// move on. If everything is done, we return null ("program finished").
 
 export type ProgramItemLite = {
   id: string;
   week_id: string;
   order_index: number;
-  group_name: string | null;
 };
 
 export type ProgramWeekLite = {
@@ -32,12 +30,10 @@ export type WorkoutDay = {
   weekId: string;
   weekNumber: number;
   weekTitle: string | null;
-  /** group_name when items use it, otherwise null and the day = the whole week. */
-  dayLabel: string | null;
   items: ProgramItemLite[];
 };
 
-/** All distinct days in the program, in training order. */
+/** All training sessions in the program, in week_number order. */
 export function listProgramDays(
   weeks: ProgramWeekLite[],
   items: ProgramItemLite[]
@@ -50,52 +46,22 @@ export function listProgramDays(
       .filter((i) => i.week_id === w.id)
       .sort((a, b) => a.order_index - b.order_index);
     if (weekItems.length === 0) continue;
-
-    // Split by group_name preserving the order they appear.
-    const seenLabels = new Set<string | null>();
-    const labelsInOrder: (string | null)[] = [];
-    for (const it of weekItems) {
-      const label = it.group_name ?? null;
-      if (!seenLabels.has(label)) {
-        seenLabels.add(label);
-        labelsInOrder.push(label);
-      }
-    }
-
-    // If there's only a single null label, the week itself is the day.
-    if (labelsInOrder.length === 1 && labelsInOrder[0] == null) {
-      days.push({
-        weekId: w.id,
-        weekNumber: w.week_number,
-        weekTitle: w.title,
-        dayLabel: null,
-        items: weekItems,
-      });
-      continue;
-    }
-
-    // Otherwise emit one WorkoutDay per group_name in encounter order.
-    for (const label of labelsInOrder) {
-      const dayItems = weekItems.filter((i) => (i.group_name ?? null) === label);
-      if (dayItems.length === 0) continue;
-      days.push({
-        weekId: w.id,
-        weekNumber: w.week_number,
-        weekTitle: w.title,
-        dayLabel: label,
-        items: dayItems,
-      });
-    }
+    days.push({
+      weekId: w.id,
+      weekNumber: w.week_number,
+      weekTitle: w.title,
+      items: weekItems,
+    });
   }
 
   return days;
 }
 
-/** A day is "completed" if at least one of its items has a workout log
- *  with completed_at set. We don't require all items to be marked — the
- *  client clicks "Complete workout" once for the whole day and that
- *  stamps every logged set, so any non-null completed_at on a row of
- *  the day's items proves the day was finished. */
+/** A session is "completed" if at least one of its items has a workout
+ *  log with completed_at set. The client clicks "Complete workout" once
+ *  per session and that stamps every logged set in one go, so any
+ *  non-null completed_at on a row of the session's items proves it was
+ *  finished. */
 export function isDayCompleted(
   day: WorkoutDay,
   logs: CompletedLog[]
@@ -106,23 +72,55 @@ export function isDayCompleted(
   );
 }
 
-/** First day in sequence whose items have no completed_at, or null if
- *  the program is fully done. */
+/** Pick which session the client should see today.
+ *
+ *  The block (a program of N sessions) is meant to loop: once the client
+ *  finishes session N, they restart at session 1 until the coach
+ *  assigns a new block. So this function is *not* a "first uncompleted"
+ *  check — it cycles.
+ *
+ *  Logic:
+ *  - No completion ever → session 1
+ *  - Most recent completion happened today → stay on it (so the client
+ *    sees the celebratory banner for their just-finished session)
+ *  - Most recent completion was before today → advance to the next
+ *    session in week order, wrapping back to 1 after the last one
+ */
 export function nextDay(
   days: WorkoutDay[],
-  logs: CompletedLog[]
+  logs: CompletedLog[],
+  todayISODate: string
 ): WorkoutDay | null {
-  for (const d of days) {
-    if (!isDayCompleted(d, logs)) return d;
+  if (days.length === 0) return null;
+
+  // Find the most recently completed session.
+  let lastCompleted: WorkoutDay | null = null;
+  let lastCompletedAt: string | null = null;
+  for (const log of logs) {
+    if (!log.completed_at) continue;
+    if (lastCompletedAt && log.completed_at <= lastCompletedAt) continue;
+    const day = days.find((d) =>
+      d.items.some((i) => i.id === log.program_item_id)
+    );
+    if (!day) continue;
+    lastCompleted = day;
+    lastCompletedAt = log.completed_at;
   }
-  return null;
+
+  if (!lastCompleted || !lastCompletedAt) return days[0];
+
+  // If the last completion was TODAY, the client is still on that session
+  // (they just finished it, show them the celebration).
+  if (lastCompletedAt.startsWith(todayISODate)) return lastCompleted;
+
+  // Otherwise advance, wrapping back to the first session after the last.
+  const lastIdx = days.findIndex((d) => d.weekId === lastCompleted!.weekId);
+  if (lastIdx === -1) return days[0];
+  const nextIdx = (lastIdx + 1) % days.length;
+  return days[nextIdx];
 }
 
-/** Human-readable label for a day, used in headers. */
+/** Human-readable label for a session, used in headers. */
 export function dayDisplayLabel(day: WorkoutDay): string {
-  const weekPart = day.weekTitle?.trim()
-    ? day.weekTitle.trim()
-    : `Week ${day.weekNumber}`;
-  if (day.dayLabel) return `${weekPart} · ${day.dayLabel}`;
-  return weekPart;
+  return day.weekTitle?.trim() ? day.weekTitle.trim() : `Session ${day.weekNumber}`;
 }
