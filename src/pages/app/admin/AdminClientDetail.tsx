@@ -811,61 +811,41 @@ const AdminClientDetail = () => {
 
         {/* ============ SIDEBAR ============ */}
         <aside className="space-y-6">
-          {/* Inbox: needs reply */}
+          {/* Inbox shortcut: counts only, action happens on the Inbox
+              page where the actual reply UI lives. We keep this here
+              so the coach lands on a client and instantly sees if
+              there's anything to action; we don't duplicate the list
+              of items because that lives on the Inbox page. */}
           {(pendingChecks.length > 0 || unansweredThreads.length > 0) && (
-            <section className="bg-white border-2 border-accent/40 rounded-2xl p-5">
-              <h2 className="font-heading text-base font-bold mb-3 flex items-center gap-2">
-                <Send size={16} className="text-accent" />
-                Needs your reply
-              </h2>
-              <div className="space-y-2">
-                {pendingChecks.slice(0, 5).map((c) => (
-                  <Link
-                    key={c.id}
-                    to="/app/admin/form-checks#form-checks"
-                    className="block bg-muted/40 hover:bg-muted/70 rounded-lg p-3"
-                  >
-                    <div className="flex items-baseline justify-between gap-2 flex-wrap mb-1">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-accent">
-                        Form check
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {formatRelative(c.created_at, now)}
-                      </p>
-                    </div>
-                    <p className="text-sm font-semibold">
-                      {c.program_items?.custom_name
-                        ? stripSection(c.program_items.custom_name)
-                        : "Exercise"}
-                    </p>
-                  </Link>
-                ))}
-                {unansweredThreads.slice(0, 5).map((c) => (
-                  <Link
-                    key={c.id}
-                    to="/app/admin/form-checks#comments"
-                    className="block bg-muted/40 hover:bg-muted/70 rounded-lg p-3"
-                  >
-                    <div className="flex items-baseline justify-between gap-2 flex-wrap mb-1">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Comment
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {formatRelative(c.created_at, now)}
-                      </p>
-                    </div>
-                    <p className="text-sm font-semibold">
-                      {c.program_items?.custom_name
-                        ? stripSection(c.program_items.custom_name)
-                        : "Exercise"}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5 italic line-clamp-2">
-                      "{c.body}"
-                    </p>
-                  </Link>
-                ))}
+            <Link
+              to={`/app/admin/form-checks#client-${client.id}`}
+              className="block bg-white border-2 border-accent/40 rounded-2xl p-5 hover:bg-accent/5 transition"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
+                  <Send size={18} className="text-accent" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-heading font-bold text-sm">
+                    {pendingChecks.length + unansweredThreads.length} item
+                    {pendingChecks.length + unansweredThreads.length > 1
+                      ? "s"
+                      : ""}{" "}
+                    waiting your reply
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {pendingChecks.length > 0 &&
+                      `${pendingChecks.length} form check${pendingChecks.length > 1 ? "s" : ""}`}
+                    {pendingChecks.length > 0 &&
+                      unansweredThreads.length > 0 &&
+                      " · "}
+                    {unansweredThreads.length > 0 &&
+                      `${unansweredThreads.length} message${unansweredThreads.length > 1 ? "s" : ""}`}
+                  </p>
+                </div>
+                <ArrowRight size={16} className="text-accent shrink-0" />
               </div>
-            </section>
+            </Link>
           )}
 
           {/* Intake summary */}

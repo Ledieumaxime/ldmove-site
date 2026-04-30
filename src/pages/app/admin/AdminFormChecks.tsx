@@ -1,5 +1,16 @@
-import { useEffect, useState, useLayoutEffect } from "react";
-import { Clock, User, CheckCircle2, MessageCircle, Video, ChevronDown, ChevronUp, Check, Archive, X } from "lucide-react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import {
+  Clock,
+  CheckCircle2,
+  MessageCircle,
+  Video,
+  ChevronDown,
+  ChevronUp,
+  Check,
+  Archive,
+  X,
+  Inbox as InboxIcon,
+} from "lucide-react";
 import { sbGet, sbPatch } from "@/integrations/supabase/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,11 +86,51 @@ type CommentRow = {
 type Thread = {
   item_id: string;
   exerciseName: string;
+  clientId: string | null;
   clientName: string;
   lastBody: string;
   lastAt: string;
   count: number;
   needsReply: boolean;
+};
+
+type PendingItem =
+  | { kind: "form_check"; date: string; check: FormCheck }
+  | { kind: "thread"; date: string; thread: Thread };
+
+type ClientSection = {
+  clientId: string;
+  clientName: string;
+  items: PendingItem[]; // oldest first
+  oldestDate: string; // for section sort
+  totalCount: number;
+};
+
+const formatRelativeShort = (iso: string, now: number) => {
+  const diff = now - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+};
+
+const waitingTone = (iso: string, now: number): "red" | "amber" | "grey" => {
+  const days = (now - new Date(iso).getTime()) / 86_400_000;
+  if (days >= 3) return "red";
+  if (days >= 1) return "amber";
+  return "grey";
+};
+
+const waitingBadgeClass: Record<"red" | "amber" | "grey", string> = {
+  red: "bg-red-100 text-red-700 border border-red-200",
+  amber: "bg-amber-100 text-amber-700 border border-amber-200",
+  grey: "bg-muted text-muted-foreground border border-border",
 };
 
 const AdminFormChecks = () => {
@@ -89,6 +140,7 @@ const AdminFormChecks = () => {
   const [error, setError] = useState<string | null>(null);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [showArchived, setShowArchived] = useState(false);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const load = async () => {
     setLoading(true);
@@ -103,7 +155,8 @@ const AdminFormChecks = () => {
       ]);
       setChecks(rows);
 
-      // Group comments by item_id. Since they arrive sorted desc, first in list = most recent.
+      // Group comments by item_id. Since they arrive sorted desc, first
+      // in list = most recent.
       const byItem = new Map<string, CommentRow[]>();
       for (const c of allComments) {
         if (!byItem.has(c.item_id)) byItem.set(c.item_id, []);
@@ -112,11 +165,11 @@ const AdminFormChecks = () => {
       const threadsOut: Thread[] = [];
       for (const [item_id, cs] of byItem) {
         const last = cs[0];
-        // Find a client in the thread to get a display name
         const clientMsg = cs.find((c) => c.author_role === "client");
         threadsOut.push({
           item_id,
           exerciseName: cs[0]?.program_items?.custom_name ?? "Exercise",
+          clientId: clientMsg?.author_id ?? null,
           clientName: clientMsg?.profiles?.first_name ?? "Client",
           lastBody: last.body,
           lastAt: last.created_at,
@@ -124,7 +177,9 @@ const AdminFormChecks = () => {
           needsReply: last.author_role === "client",
         });
       }
-      threadsOut.sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime());
+      threadsOut.sort(
+        (a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime()
+      );
       setThreads(threadsOut);
 
       const sigs: Record<string, string> = {};
@@ -146,15 +201,87 @@ const AdminFormChecks = () => {
     load();
   }, []);
 
-  // Scroll to the section indicated by the URL hash (#comments or #form-checks)
-  // once data is loaded and sections are rendered.
+  // Build per-client sections from pending form checks + unanswered
+  // threads. Sections sort by age of oldest item; items within each
+  // section sort oldest first too — coach works top-down.
+  const sections: ClientSection[] = useMemo(() => {
+    const map = new Map<string, ClientSection>();
+    for (const c of checks) {
+      if (c.status !== "pending") continue;
+      const id = c.client_id;
+      const name = c.profiles?.first_name ?? "Client";
+      if (!map.has(id)) {
+        map.set(id, {
+          clientId: id,
+          clientName: name,
+          items: [],
+          oldestDate: c.created_at,
+          totalCount: 0,
+        });
+      }
+      const sec = map.get(id)!;
+      sec.items.push({ kind: "form_check", date: c.created_at, check: c });
+      sec.totalCount++;
+      if (c.created_at < sec.oldestDate) sec.oldestDate = c.created_at;
+    }
+    for (const t of threads) {
+      if (!t.needsReply) continue;
+      if (!t.clientId) continue;
+      if (!map.has(t.clientId)) {
+        map.set(t.clientId, {
+          clientId: t.clientId,
+          clientName: t.clientName,
+          items: [],
+          oldestDate: t.lastAt,
+          totalCount: 0,
+        });
+      }
+      const sec = map.get(t.clientId)!;
+      sec.items.push({ kind: "thread", date: t.lastAt, thread: t });
+      sec.totalCount++;
+      if (t.lastAt < sec.oldestDate) sec.oldestDate = t.lastAt;
+    }
+    const out = Array.from(map.values());
+    for (const s of out) {
+      s.items.sort((a, b) => a.date.localeCompare(b.date));
+    }
+    out.sort((a, b) => a.oldestDate.localeCompare(b.oldestDate));
+    return out;
+  }, [checks, threads]);
+
+  // The URL hash can deep-link to a specific client section (e.g.
+  // #client-uuid). Auto-expand that section and scroll to it once
+  // sections render. Without a hash we open every section by default
+  // so the inbox shows everything at first paint.
   useLayoutEffect(() => {
     if (loading) return;
     const hash = window.location.hash.replace("#", "");
     if (!hash) return;
+    if (hash.startsWith("client-")) {
+      const target = hash.slice("client-".length);
+      // Collapse all except the target.
+      const next = new Set<string>();
+      for (const s of sections) {
+        if (s.clientId !== target) next.add(s.clientId);
+      }
+      setCollapsed(next);
+      const el = document.getElementById(hash);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    // Legacy anchors from old links — just scroll there.
     const el = document.getElementById(hash);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [loading]);
+  }, [loading, sections]);
+
+  const toggleSection = (id: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   if (loading) return <div className="text-muted-foreground">Loading…</div>;
   if (error)
@@ -164,70 +291,111 @@ const AdminFormChecks = () => {
       </div>
     );
 
-  const pendingChecks = checks.filter((c) => c.status === "pending");
   const reviewedChecks = checks.filter((c) => c.status === "reviewed");
-  const unansweredThreads = threads.filter((t) => t.needsReply);
   const answeredThreads = threads.filter((t) => !t.needsReply);
+  const totalPending = sections.reduce((sum, s) => sum + s.totalCount, 0);
+  const now = Date.now();
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 max-w-3xl">
       <BackToDashboard />
       <div>
-        <h1 className="font-heading text-3xl md:text-4xl font-bold">Inbox</h1>
+        <h1 className="font-heading text-3xl md:text-4xl font-bold flex items-center gap-2">
+          <InboxIcon size={26} /> Inbox
+        </h1>
         <p className="text-muted-foreground text-sm">
-          Client activity that needs your attention.
+          Form checks and comments waiting for you, grouped by client.
+          Oldest at the top.
         </p>
       </div>
 
-      {/* === COMMENTS === */}
-      <section id="comments" className="space-y-3 scroll-mt-4">
-        <div className="flex items-center gap-2">
-          <MessageCircle size={20} className="text-accent" />
-          <h2 className="font-heading text-2xl font-bold">Comments</h2>
-          {unansweredThreads.length > 0 && (
-            <span className="inline-flex items-center justify-center min-w-[24px] h-[24px] px-2 rounded-full bg-red-500 text-white text-xs font-bold">
-              {unansweredThreads.length}
-            </span>
-          )}
-        </div>
-
-        {unansweredThreads.length === 0 ? (
-          <p className="text-sm text-muted-foreground bg-white border border-border rounded-xl p-5">
-            No client comments awaiting your reply.
+      {sections.length === 0 ? (
+        <div className="bg-white border border-border rounded-2xl p-8 text-center space-y-2">
+          <CheckCircle2 className="mx-auto text-green-600" size={28} />
+          <h2 className="font-heading text-xl font-bold">All caught up</h2>
+          <p className="text-sm text-muted-foreground">
+            No pending form checks or unanswered messages. Nice work.
           </p>
-        ) : (
-          <div className="space-y-3">
-            {unansweredThreads.map((t) => (
-              <ThreadCard key={t.item_id} thread={t} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* === FORM CHECKS === */}
-      <section id="form-checks" className="space-y-3 scroll-mt-4">
-        <div className="flex items-center gap-2">
-          <Video size={20} className="text-accent" />
-          <h2 className="font-heading text-2xl font-bold">Form checks</h2>
-          {pendingChecks.length > 0 && (
-            <span className="inline-flex items-center justify-center min-w-[24px] h-[24px] px-2 rounded-full bg-red-500 text-white text-xs font-bold">
-              {pendingChecks.length}
-            </span>
-          )}
         </div>
-
-        {pendingChecks.length === 0 ? (
-          <p className="text-sm text-muted-foreground bg-white border border-border rounded-xl p-5">
-            No pending videos.
+      ) : (
+        <>
+          <p className="text-xs text-muted-foreground">
+            {totalPending} item{totalPending !== 1 ? "s" : ""} across{" "}
+            {sections.length} client{sections.length !== 1 ? "s" : ""}
           </p>
-        ) : (
+
           <div className="space-y-3">
-            {pendingChecks.map((c) => (
-              <CheckCard key={c.id} check={c} videoSrc={signedUrls[c.id]} onUpdated={load} />
-            ))}
+            {sections.map((s) => {
+              const isCollapsed = collapsed.has(s.clientId);
+              const tone = waitingTone(s.oldestDate, now);
+              return (
+                <section
+                  key={s.clientId}
+                  id={`client-${s.clientId}`}
+                  className="bg-white border border-border rounded-2xl overflow-hidden scroll-mt-4"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(s.clientId)}
+                    className="w-full text-left p-4 flex items-center gap-3 hover:bg-muted/30 transition-colors"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-muted text-muted-foreground flex items-center justify-center font-bold shrink-0">
+                      {(s.clientName || "?").charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-heading font-bold text-base">
+                          {s.clientName}
+                        </p>
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${waitingBadgeClass[tone]}`}
+                        >
+                          {formatRelativeShort(s.oldestDate, now)} waiting
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {s.totalCount} item{s.totalCount !== 1 ? "s" : ""}{" "}
+                        pending
+                      </p>
+                    </div>
+                    {isCollapsed ? (
+                      <ChevronDown
+                        size={18}
+                        className="text-muted-foreground shrink-0"
+                      />
+                    ) : (
+                      <ChevronUp
+                        size={18}
+                        className="text-muted-foreground shrink-0"
+                      />
+                    )}
+                  </button>
+
+                  {!isCollapsed && (
+                    <div className="border-t border-border p-4 space-y-3 bg-muted/20">
+                      {s.items.map((it) =>
+                        it.kind === "form_check" ? (
+                          <CheckCard
+                            key={`fc-${it.check.id}`}
+                            check={it.check}
+                            videoSrc={signedUrls[it.check.id]}
+                            onUpdated={load}
+                          />
+                        ) : (
+                          <ThreadCard
+                            key={`th-${it.thread.item_id}`}
+                            thread={it.thread}
+                          />
+                        )
+                      )}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
           </div>
-        )}
-      </section>
+        </>
+      )}
 
       {/* === ARCHIVED === */}
       {(reviewedChecks.length > 0 || answeredThreads.length > 0) && (
@@ -267,7 +435,12 @@ const AdminFormChecks = () => {
                   </p>
                   <div className="space-y-3">
                     {reviewedChecks.map((c) => (
-                      <CheckCard key={c.id} check={c} videoSrc={signedUrls[c.id]} onUpdated={load} />
+                      <CheckCard
+                        key={c.id}
+                        check={c}
+                        videoSrc={signedUrls[c.id]}
+                        onUpdated={load}
+                      />
                     ))}
                   </div>
                 </div>
@@ -280,22 +453,33 @@ const AdminFormChecks = () => {
   );
 };
 
-const ThreadCard = ({ thread, compact = false }: { thread: Thread; compact?: boolean }) => {
-  const [open, setOpen] = useState(false);
+const ThreadCard = ({
+  thread,
+  compact = false,
+}: {
+  thread: Thread;
+  compact?: boolean;
+}) => {
+  const [open, setOpen] = useState(!compact);
   return (
     <div
       className={`bg-white border rounded-xl p-4 ${
-        thread.needsReply ? "border-red-200" : "border-border"
+        thread.needsReply ? "border-accent/30" : "border-border"
       }`}
     >
-      <button type="button" onClick={() => setOpen(!open)} className="w-full text-left">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full text-left"
+      >
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 text-sm flex-wrap">
-              <User size={14} className="text-muted-foreground shrink-0" />
-              <span className="font-semibold">{thread.clientName}</span>
-              <span className="text-muted-foreground">·</span>
-              <span className="text-muted-foreground">{thread.exerciseName}</span>
+              <MessageCircle
+                size={14}
+                className="text-muted-foreground shrink-0"
+              />
+              <span className="font-semibold">{thread.exerciseName}</span>
             </div>
             <p className="text-sm text-muted-foreground mt-1 truncate inline-flex items-center gap-1.5">
               {thread.needsReply ? (
@@ -347,7 +531,8 @@ const CheckCard = ({
       const nextStatus = check.status === "reviewed" ? "pending" : "reviewed";
       await sbPatch(`form_check_submissions?id=eq.${check.id}`, {
         status: nextStatus,
-        reviewed_at: nextStatus === "reviewed" ? new Date().toISOString() : null,
+        reviewed_at:
+          nextStatus === "reviewed" ? new Date().toISOString() : null,
       });
       onUpdated();
     } catch (e) {
@@ -394,20 +579,15 @@ const CheckCard = ({
       <div className="flex items-start justify-between gap-3 mb-2">
         <div>
           <div className="flex items-center gap-2 text-sm">
-            <User size={14} className="text-muted-foreground" />
+            <Video size={14} className="text-muted-foreground" />
             <span className="font-semibold">
-              {check.profiles?.first_name} {check.profiles?.last_name}
+              {check.program_items?.custom_name ?? "Exercise"}
             </span>
             <Clock size={12} className="text-muted-foreground ml-2" />
             <span className="text-xs text-muted-foreground">
               {new Date(check.created_at).toLocaleDateString("en-US")}
             </span>
           </div>
-          {check.program_items?.custom_name && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Exercise: {check.program_items.custom_name}
-            </p>
-          )}
         </div>
         <span
           className={`text-xs font-semibold px-2 py-1 rounded-full ${
@@ -430,9 +610,15 @@ const CheckCard = ({
       )}
 
       {videoSrc ? (
-        <video src={videoSrc} controls className="w-full rounded-lg max-h-[400px]" />
+        <video
+          src={videoSrc}
+          controls
+          className="w-full rounded-lg max-h-[400px]"
+        />
       ) : (
-        <p className="text-xs text-muted-foreground italic">Video unavailable.</p>
+        <p className="text-xs text-muted-foreground italic">
+          Video unavailable.
+        </p>
       )}
 
       <div className="mt-3 flex flex-wrap gap-2">
@@ -447,8 +633,8 @@ const CheckCard = ({
           {saving
             ? "…"
             : check.status === "reviewed"
-            ? "Mark as pending again"
-            : "Mark as reviewed"}
+              ? "Mark as pending again"
+              : "Mark as reviewed"}
         </Button>
         {check.archived_as_progress ? (
           <Button
@@ -489,7 +675,12 @@ const CheckCard = ({
             maxLength={200}
           />
           <div className="flex gap-2">
-            <Button size="sm" onClick={archive} disabled={saving} className="gap-1.5">
+            <Button
+              size="sm"
+              onClick={archive}
+              disabled={saving}
+              className="gap-1.5"
+            >
               <Archive size={14} />
               {saving ? "Saving…" : "Archive"}
             </Button>

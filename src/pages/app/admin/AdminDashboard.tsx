@@ -572,7 +572,7 @@ const AdminDashboard = () => {
               return (
                 <li key={clientId}>
                   <Link
-                    to={`/app/admin/clients/${clientId}`}
+                    to={`/app/admin/form-checks#client-${clientId}`}
                     className="flex items-center gap-3 px-5 py-3 hover:bg-muted/30 transition"
                   >
                     <div className="flex-1 min-w-0">
