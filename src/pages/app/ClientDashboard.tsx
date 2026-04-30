@@ -291,7 +291,7 @@ const ClientDashboard = () => {
       {currentProgram ? (
         <div className="bg-foreground text-background rounded-2xl p-6">
           <p className="text-xs uppercase tracking-wider opacity-70 font-semibold mb-1">
-            Today's workout
+            Next session
           </p>
           <h2 className="font-heading text-2xl md:text-3xl font-bold mb-4">
             {currentProgram.title}
@@ -344,7 +344,8 @@ const ClientDashboard = () => {
               to="/app/today"
               className="inline-flex items-center gap-2 bg-accent text-white font-semibold rounded-full px-4 py-2 text-sm hover:opacity-95 transition"
             >
-              Start today's workout <ArrowRight size={16} />
+              Start Session {totalSessionsCompleted + 1}
+              <ArrowRight size={16} />
             </Link>
             <Link
               to={`/app/programs/${currentProgram.slug}`}
