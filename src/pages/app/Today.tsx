@@ -93,9 +93,8 @@ const Today = () => {
             )
           : Promise.resolve([] as ProgramItem[]),
         sbGet<CompletedLog[]>(
-          `workout_logs?select=program_item_id,session_date,completed_at` +
-            `&client_id=eq.${user.id}` +
-            `&completed_at=not.is.null`
+          `workout_logs?select=program_item_id,session_run_id,session_date,completed_at` +
+            `&client_id=eq.${user.id}`
         ),
       ]);
 
