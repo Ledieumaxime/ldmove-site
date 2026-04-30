@@ -55,6 +55,13 @@ type Notification = {
   created_at: string;
 };
 
+type ProgramWeekRef = { id: string; program_id: string };
+
+type CompletionLog = {
+  program_item_id: string;
+  session_date: string;
+};
+
 const ClientDashboard = () => {
   const { profile, user } = useAuth();
   const navigate = useNavigate();
@@ -67,6 +74,11 @@ const ClientDashboard = () => {
   const [onboardingLocked, setOnboardingLocked] = useState(false);
   const [assessmentCount, setAssessmentCount] = useState(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [programWeeks, setProgramWeeks] = useState<ProgramWeekRef[]>([]);
+  const [programItemsByWeek, setProgramItemsByWeek] = useState<
+    Record<string, string>
+  >({}); // item_id → week_id
+  const [completedLogs, setCompletedLogs] = useState<CompletionLog[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -93,8 +105,17 @@ const ClientDashboard = () => {
       sbGet<Notification[]>(
         `notifications?user_id=eq.${user.id}&read=eq.false&select=id,type,title,body,link_url,read,created_at&order=created_at.desc`
       ),
+      sbGet<ProgramWeekRef[]>(
+        `program_weeks?select=id,program_id`
+      ),
+      sbGet<{ id: string; week_id: string }[]>(
+        `program_items?select=id,week_id`
+      ),
+      sbGet<CompletionLog[]>(
+        `workout_logs?client_id=eq.${user.id}&completed_at=not.is.null&select=program_item_id,session_date`
+      ),
     ])
-      .then(([p, co, r, fc, intake, av, notifs]) => {
+      .then(([p, co, r, fc, intake, av, notifs, weeks, items, logs]) => {
         setPrograms(p);
         setComments(co);
         setReads(r);
@@ -104,6 +125,11 @@ const ClientDashboard = () => {
         setOnboardingLocked(!!intake[0]?.locked_at);
         setAssessmentCount(av.length);
         setNotifications(notifs);
+        setProgramWeeks(weeks);
+        setProgramItemsByWeek(
+          Object.fromEntries(items.map((i) => [i.id, i.week_id]))
+        );
+        setCompletedLogs(logs);
       })
       .finally(() => setLoading(false));
   }, [user]);
@@ -146,15 +172,42 @@ const ClientDashboard = () => {
     return new Date(c.created_at).getTime() > new Date(lastRead).getTime();
   });
 
-  // Progress of current program
+  // Progress of current program: based on workout completions, not calendar.
+  // Block loops, so the bar shows progress within the CURRENT loop:
+  //   T = total sessions ever completed for this program
+  //   N = number of sessions in the block (program_weeks count)
+  //   progress = (T mod N) / N × 100
+  // The calendar deadline (duration_weeks since program start) stays as
+  // a secondary subtitle — useful to know when the coach should hand
+  // over a new block.
   let progress = 0;
   let daysLeft = 0;
   let isOverdue = false;
+  let totalSessionsCompleted = 0;
+  let sessionsPerLoop = 0;
   if (currentProgram) {
+    const programWeekIds = new Set(
+      programWeeks.filter((w) => w.program_id === currentProgram.id).map((w) => w.id)
+    );
+    sessionsPerLoop = programWeekIds.size;
+
+    // Distinct (week_id, session_date) tuples that were completed.
+    const completionsKey = new Set<string>();
+    for (const log of completedLogs) {
+      const weekId = programItemsByWeek[log.program_item_id];
+      if (!weekId || !programWeekIds.has(weekId)) continue;
+      completionsKey.add(`${weekId}|${log.session_date}`);
+    }
+    totalSessionsCompleted = completionsKey.size;
+
+    if (sessionsPerLoop > 0) {
+      const inCurrentLoop = totalSessionsCompleted % sessionsPerLoop;
+      progress = (inCurrentLoop / sessionsPerLoop) * 100;
+    }
+
     const start = new Date(currentProgram.created_at).getTime();
-    const weeks = currentProgram.duration_weeks ?? 4;
+    const weeks = currentProgram.duration_weeks ?? 5;
     const end = start + weeks * 7 * 86_400_000;
-    progress = Math.max(0, Math.min(100, ((now - start) / (end - start)) * 100));
     daysLeft = Math.ceil((end - now) / 86_400_000);
     isOverdue = daysLeft < 0;
   }
@@ -237,21 +290,28 @@ const ClientDashboard = () => {
           </h2>
 
           <div className="flex items-baseline justify-between mb-2">
-            <span className="font-heading text-3xl font-bold">{Math.round(progress)}%</span>
+            <span className="font-heading text-3xl font-bold">
+              {Math.round(progress)}%
+            </span>
             <span className="text-sm opacity-80">
               {isOverdue
-                ? `Overdue by ${Math.abs(daysLeft)} day${Math.abs(daysLeft) > 1 ? "s" : ""}`
-                : `${daysLeft} day${daysLeft > 1 ? "s" : ""} left`}
+                ? `Block expired ${Math.abs(daysLeft)} day${Math.abs(daysLeft) > 1 ? "s" : ""} ago`
+                : `${daysLeft} day${daysLeft > 1 ? "s" : ""} left in block`}
             </span>
           </div>
-          <div className="h-2 bg-background/20 rounded-full overflow-hidden mb-4">
+          <div className="h-2 bg-background/20 rounded-full overflow-hidden mb-2">
             <div
               className={`h-full transition-all ${
-                isOverdue ? "bg-red-400" : progress > 80 ? "bg-amber-400" : "bg-green-400"
+                isOverdue ? "bg-red-400" : "bg-green-400"
               }`}
               style={{ width: `${progress}%` }}
             />
           </div>
+          <p className="text-xs opacity-70 mb-4">
+            {sessionsPerLoop > 0
+              ? `${totalSessionsCompleted % sessionsPerLoop}/${sessionsPerLoop} session${sessionsPerLoop > 1 ? "s" : ""} in current loop · ${totalSessionsCompleted} workout${totalSessionsCompleted > 1 ? "s" : ""} done total`
+              : "No sessions in this block yet"}
+          </p>
 
           <div className="flex items-center gap-3 flex-wrap">
             <Link
