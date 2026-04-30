@@ -475,139 +475,136 @@ const AdminDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <p className="text-sm text-muted-foreground uppercase tracking-wider">
-            Coach Dashboard
-          </p>
-          <h1 className="font-heading text-3xl md:text-4xl font-bold">
-            Hi {profile?.first_name ?? "Coach"}
-          </h1>
-        </div>
-        <Link
-          to="/app/admin/form-checks"
-          className={`inline-flex items-center gap-1.5 text-sm font-semibold border rounded-full px-3 py-2 transition ${
-            totalPendingChecks.length + totalUnansweredComments > 0
-              ? "border-accent bg-accent/10 text-accent hover:bg-accent/15"
-              : "border-border hover:bg-muted/50"
-          }`}
-        >
-          <Inbox size={14} /> Inbox
-          {totalPendingChecks.length + totalUnansweredComments > 0 && (
-            <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-white text-[10px] font-bold">
-              {totalPendingChecks.length + totalUnansweredComments}
-            </span>
-          )}
-        </Link>
+      <div>
+        <p className="text-sm text-muted-foreground uppercase tracking-wider">
+          Coach Dashboard
+        </p>
+        <h1 className="font-heading text-3xl md:text-4xl font-bold">
+          Hi {profile?.first_name ?? "Coach"}
+        </h1>
       </div>
 
-      {/* ============ ACTION BANNERS ============ */}
-      <div className="space-y-2">
-        {pendingAssessmentClients.length > 0 && (
-          <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-                <Bell size={18} className="text-amber-700" />
-              </div>
-              <div>
-                <p className="font-heading font-bold">
-                  {pendingAssessmentClients.length} assessment
-                  {pendingAssessmentClients.length > 1 ? "s" : ""} waiting for
-                  your review
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {pendingAssessmentClients
-                    .slice(0, 3)
-                    .map(
-                      (c) =>
-                        `${c.firstName ?? "Client"} (${c.videoCount} video${
-                          c.videoCount > 1 ? "s" : ""
-                        })`
-                    )
-                    .join(" · ")}
-                  {pendingAssessmentClients.length > 3 &&
-                    ` · +${pendingAssessmentClients.length - 3} more`}
-                </p>
-              </div>
+      {/* ============ ASSESSMENT REVIEW (onboarding-level alert) ============ */}
+      {pendingAssessmentClients.length > 0 && (
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+              <Bell size={18} className="text-amber-700" />
             </div>
-            {pendingAssessmentClients.length === 1 ? (
-              <Link
-                to={`/app/admin/clients/${pendingAssessmentClients[0].client_id}/intake`}
-                className="inline-flex items-center gap-1 text-sm font-semibold bg-amber-700 text-white rounded-full px-4 py-2 hover:bg-amber-800"
-              >
-                Review now <ArrowRight size={14} />
-              </Link>
-            ) : (
-              <Link
-                to="/app/admin/clients"
-                className="inline-flex items-center gap-1 text-sm font-semibold bg-amber-700 text-white rounded-full px-4 py-2 hover:bg-amber-800"
-              >
-                Open clients <ArrowRight size={14} />
-              </Link>
-            )}
+            <div>
+              <p className="font-heading font-bold">
+                {pendingAssessmentClients.length} assessment
+                {pendingAssessmentClients.length > 1 ? "s" : ""} waiting for
+                your review
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {pendingAssessmentClients
+                  .slice(0, 3)
+                  .map(
+                    (c) =>
+                      `${c.firstName ?? "Client"} (${c.videoCount} video${
+                        c.videoCount > 1 ? "s" : ""
+                      })`
+                  )
+                  .join(" · ")}
+                {pendingAssessmentClients.length > 3 &&
+                  ` · +${pendingAssessmentClients.length - 3} more`}
+              </p>
+            </div>
           </div>
-        )}
+          {pendingAssessmentClients.length === 1 ? (
+            <Link
+              to={`/app/admin/clients/${pendingAssessmentClients[0].client_id}/intake`}
+              className="inline-flex items-center gap-1 text-sm font-semibold bg-amber-700 text-white rounded-full px-4 py-2 hover:bg-amber-800"
+            >
+              Review now <ArrowRight size={14} />
+            </Link>
+          ) : (
+            <Link
+              to="/app/admin/clients"
+              className="inline-flex items-center gap-1 text-sm font-semibold bg-amber-700 text-white rounded-full px-4 py-2 hover:bg-amber-800"
+            >
+              Open clients <ArrowRight size={14} />
+            </Link>
+          )}
+        </div>
+      )}
 
-        {totalPendingChecks.length > 0 && (
-          <Link
-            to="/app/admin/form-checks#form-checks"
-            className="bg-white border-2 border-accent/40 rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap hover:bg-accent/5 transition"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
-                <Video size={18} className="text-accent" />
-              </div>
-              <div>
-                <p className="font-heading font-bold">
-                  {totalPendingChecks.length} form check
-                  {totalPendingChecks.length > 1 ? "s" : ""} to review
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {Array.from(
-                    new Set(
-                      totalPendingChecks
-                        .slice(0, 5)
-                        .map(
-                          (c) => c.profiles?.first_name ?? "Client"
-                        )
-                    )
-                  ).join(" · ")}
-                </p>
-              </div>
+      {/* ============ INBOX PANEL ============ */}
+      {/* Per-client breakdown of form checks + unanswered comments. One
+          line per client with something pending; click to open their
+          page (where the actual reply UI lives). When empty we hide
+          the panel entirely — no point taking up space. */}
+      {(totalPendingChecks.length > 0 || totalUnansweredComments > 0) && (
+        <section className="bg-white border-2 border-accent/40 rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between gap-3 px-5 py-3 bg-accent/5 border-b border-accent/20">
+            <div className="flex items-center gap-2">
+              <Inbox size={16} className="text-accent" />
+              <p className="font-heading font-bold">
+                Inbox ·{" "}
+                {totalPendingChecks.length + totalUnansweredComments} item
+                {totalPendingChecks.length + totalUnansweredComments > 1
+                  ? "s"
+                  : ""}{" "}
+                waiting
+              </p>
             </div>
-            <span className="inline-flex items-center gap-1 text-sm font-semibold bg-accent text-white rounded-full px-4 py-2">
-              Review <ArrowRight size={14} />
-            </span>
-          </Link>
-        )}
-
-        {totalUnansweredComments > 0 && (
-          <Link
-            to="/app/admin/form-checks#comments"
-            className="bg-white border border-border rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap hover:bg-muted/30 transition"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                <MessageCircle size={18} className="text-muted-foreground" />
-              </div>
-              <div>
-                <p className="font-heading font-bold text-sm">
-                  {totalUnansweredComments} unanswered message
-                  {totalUnansweredComments > 1 ? "s" : ""}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Across{" "}
-                  {unansweredCommentsByClient.size} client
-                  {unansweredCommentsByClient.size > 1 ? "s" : ""}
-                </p>
-              </div>
-            </div>
-            <span className="text-sm text-muted-foreground">
-              Open inbox →
-            </span>
-          </Link>
-        )}
-      </div>
+            <Link
+              to="/app/admin/form-checks"
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Open full inbox →
+            </Link>
+          </div>
+          <ul className="divide-y divide-border">
+            {Array.from(
+              new Set([
+                ...pendingChecksByClient.keys(),
+                ...unansweredCommentsByClient.keys(),
+              ])
+            ).map((clientId) => {
+              const client = clients.find((c) => c.id === clientId);
+              if (!client) return null;
+              const formCheckCount =
+                pendingChecksByClient.get(clientId)?.length ?? 0;
+              const commentCount =
+                unansweredCommentsByClient.get(clientId)?.length ?? 0;
+              return (
+                <li key={clientId}>
+                  <Link
+                    to={`/app/admin/clients/${clientId}`}
+                    className="flex items-center gap-3 px-5 py-3 hover:bg-muted/30 transition"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate">
+                        {client.first_name ?? client.email}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      {formCheckCount > 0 && (
+                        <span className="inline-flex items-center gap-1 bg-accent/10 text-accent font-semibold px-2 py-1 rounded">
+                          <Video size={11} /> {formCheckCount} form check
+                          {formCheckCount > 1 ? "s" : ""}
+                        </span>
+                      )}
+                      {commentCount > 0 && (
+                        <span className="inline-flex items-center gap-1 bg-muted font-semibold px-2 py-1 rounded">
+                          <MessageCircle size={11} /> {commentCount} message
+                          {commentCount > 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </div>
+                    <ArrowRight
+                      size={14}
+                      className="text-muted-foreground shrink-0"
+                    />
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {/* ============ ACTIVE CLIENTS ============ */}
       <section>
@@ -682,19 +679,11 @@ const AdminDashboard = () => {
                   />
                 </div>
 
+                {/* Inbox counts intentionally moved to the unified Inbox
+                    panel above; these cards stay focused on training
+                    signal so the screen has one source of truth per
+                    concern. */}
                 <div className="flex items-center gap-3 mt-2 text-xs flex-wrap">
-                  {e.pendingFormChecks > 0 && (
-                    <span className="inline-flex items-center gap-1 bg-accent/10 text-accent font-semibold px-2 py-0.5 rounded">
-                      <Video size={11} /> {e.pendingFormChecks} form check
-                      {e.pendingFormChecks > 1 ? "s" : ""}
-                    </span>
-                  )}
-                  {e.unansweredComments > 0 && (
-                    <span className="inline-flex items-center gap-1 bg-muted font-semibold px-2 py-0.5 rounded">
-                      <MessageCircle size={11} /> {e.unansweredComments}{" "}
-                      message{e.unansweredComments > 1 ? "s" : ""}
-                    </span>
-                  )}
                   <span className="inline-flex items-center gap-1 text-muted-foreground">
                     {describeLastTraining(e)}
                   </span>
