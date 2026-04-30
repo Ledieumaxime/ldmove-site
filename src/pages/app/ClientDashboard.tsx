@@ -173,25 +173,28 @@ const ClientDashboard = () => {
   });
 
   // Progress of current program: based on workout completions, not calendar.
-  // Block loops, so the bar shows progress within the CURRENT loop:
-  //   T = total sessions ever completed for this program
+  //   T = total sessions ever completed for this block (distinct
+  //       (week_id, session_date) tuples in workout_logs.completed_at)
   //   N = number of sessions in the block (program_weeks count)
-  //   progress = (T mod N) / N × 100
-  // The calendar deadline (duration_weeks since program start) stays as
-  // a secondary subtitle — useful to know when the coach should hand
-  // over a new block.
+  //   D = block calendar duration in weeks (programs.duration_weeks)
+  //   expectedTotal = N × D                    (1 loop per week assumption)
+  //   expectedByNow = N × (days_elapsed / 7)   (linear pace)
+  //   progress = min(100, T / expectedTotal × 100)
+  // If the client skips, T stagnates and the bar simply doesn't move —
+  // the "behind by X workouts" subtitle nudges them.
   let progress = 0;
   let daysLeft = 0;
   let isOverdue = false;
   let totalSessionsCompleted = 0;
   let sessionsPerLoop = 0;
+  let expectedTotal = 0;
+  let workoutsBehind = 0; // positive = behind, negative = ahead
   if (currentProgram) {
     const programWeekIds = new Set(
       programWeeks.filter((w) => w.program_id === currentProgram.id).map((w) => w.id)
     );
     sessionsPerLoop = programWeekIds.size;
 
-    // Distinct (week_id, session_date) tuples that were completed.
     const completionsKey = new Set<string>();
     for (const log of completedLogs) {
       const weekId = programItemsByWeek[log.program_item_id];
@@ -200,13 +203,18 @@ const ClientDashboard = () => {
     }
     totalSessionsCompleted = completionsKey.size;
 
-    if (sessionsPerLoop > 0) {
-      const inCurrentLoop = totalSessionsCompleted % sessionsPerLoop;
-      progress = (inCurrentLoop / sessionsPerLoop) * 100;
-    }
-
     const start = new Date(currentProgram.created_at).getTime();
     const weeks = currentProgram.duration_weeks ?? 5;
+    expectedTotal = sessionsPerLoop * weeks;
+
+    if (expectedTotal > 0) {
+      progress = Math.min(100, (totalSessionsCompleted / expectedTotal) * 100);
+    }
+
+    const daysElapsed = Math.max(0, (now - start) / 86_400_000);
+    const expectedByNow = (sessionsPerLoop * daysElapsed) / 7;
+    workoutsBehind = Math.round(expectedByNow - totalSessionsCompleted);
+
     const end = start + weeks * 7 * 86_400_000;
     daysLeft = Math.ceil((end - now) / 86_400_000);
     isOverdue = daysLeft < 0;
@@ -308,9 +316,20 @@ const ClientDashboard = () => {
             />
           </div>
           <p className="text-xs opacity-70 mb-4">
-            {sessionsPerLoop > 0
-              ? `${totalSessionsCompleted % sessionsPerLoop}/${sessionsPerLoop} session${sessionsPerLoop > 1 ? "s" : ""} in current loop · ${totalSessionsCompleted} workout${totalSessionsCompleted > 1 ? "s" : ""} done total`
-              : "No sessions in this block yet"}
+            {expectedTotal > 0 ? (
+              <>
+                {totalSessionsCompleted}/{expectedTotal} workouts done ·{" "}
+                {workoutsBehind > 1
+                  ? `behind by ${workoutsBehind} workouts`
+                  : workoutsBehind === 1
+                    ? "behind by 1 workout"
+                    : workoutsBehind <= -1
+                      ? `${Math.abs(workoutsBehind)} ahead of schedule`
+                      : "on track"}
+              </>
+            ) : (
+              "No sessions in this block yet"
+            )}
           </p>
 
           <div className="flex items-center gap-3 flex-wrap">
