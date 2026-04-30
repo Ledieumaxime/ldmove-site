@@ -494,7 +494,7 @@ const AdminDashboard = () => {
         <button
           type="button"
           onClick={() => setInviteOpen(true)}
-          className="inline-flex items-center gap-1.5 text-sm font-semibold border border-border rounded-full px-3 py-2 hover:bg-muted/50 transition"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold bg-foreground text-background rounded-full px-3 py-2 hover:bg-foreground/90 transition"
         >
           <UserPlus size={14} /> Invite client
         </button>
