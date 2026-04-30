@@ -3,6 +3,12 @@ import { Link } from "react-router-dom";
 import { Video, MessageCircle, Users, Dumbbell, Bell, ArrowRight } from "lucide-react";
 import { sbGet } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  CompletedLog,
+  countCompletedSessions,
+  listProgramDays,
+  ProgramWeekLite,
+} from "@/lib/workoutDay";
 
 type Program = {
   id: string;
@@ -52,6 +58,15 @@ const AdminDashboard = () => {
   const [pendingAssessmentClients, setPendingAssessmentClients] = useState<
     { client_id: string; videoCount: number; firstName: string | null }[]
   >([]);
+  const [weeksByProgram, setWeeksByProgram] = useState<
+    Map<string, ProgramWeekLite[]>
+  >(new Map());
+  const [itemsByWeek, setItemsByWeek] = useState<
+    Map<string, { id: string; week_id: string; order_index: number }[]>
+  >(new Map());
+  const [logsByClient, setLogsByClient] = useState<Map<string, CompletedLog[]>>(
+    new Map()
+  );
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -74,12 +89,52 @@ const AdminDashboard = () => {
       sbGet<Array<{ client_id: string }>>(
         "client_level_assessments?select=client_id"
       ),
+      sbGet<Array<ProgramWeekLite & { program_id: string }>>(
+        "program_weeks?select=id,week_number,title,program_id"
+      ),
+      sbGet<Array<{ id: string; week_id: string; order_index: number }>>(
+        "program_items?select=id,week_id,order_index"
+      ),
+      sbGet<Array<CompletedLog & { client_id: string }>>(
+        "workout_logs?select=client_id,program_item_id,session_run_id,session_date,completed_at&completed_at=not.is.null"
+      ),
     ])
-      .then(([p, c, f, co, videos, reviews]) => {
+      .then(([p, c, f, co, videos, reviews, weeks, items, logs]) => {
         setPrograms(p);
         setClients(c);
         setChecks(f);
         setComments(co);
+
+        // Index weeks by program for fast lookup in the progress calc.
+        const wByProg = new Map<string, ProgramWeekLite[]>();
+        for (const w of weeks) {
+          if (!wByProg.has(w.program_id)) wByProg.set(w.program_id, []);
+          wByProg.get(w.program_id)!.push({
+            id: w.id,
+            week_number: w.week_number,
+            title: w.title,
+          });
+        }
+        setWeeksByProgram(wByProg);
+
+        const iByWeek = new Map<string, typeof items>();
+        for (const it of items) {
+          if (!iByWeek.has(it.week_id)) iByWeek.set(it.week_id, []);
+          iByWeek.get(it.week_id)!.push(it);
+        }
+        setItemsByWeek(iByWeek);
+
+        const lByClient = new Map<string, CompletedLog[]>();
+        for (const l of logs) {
+          if (!lByClient.has(l.client_id)) lByClient.set(l.client_id, []);
+          lByClient.get(l.client_id)!.push({
+            program_item_id: l.program_item_id,
+            session_run_id: l.session_run_id,
+            session_date: l.session_date,
+            completed_at: l.completed_at,
+          });
+        }
+        setLogsByClient(lByClient);
 
         // Count assessment videos per client and flag those with no
         // coach validation rows yet as "pending review".
@@ -119,26 +174,64 @@ const AdminDashboard = () => {
     (c) => c.author_role === "client"
   ).length;
 
-  // Progress per client program
+  // Progress per client program. Now driven by actual completions, not
+  // calendar: progress = sessions_done / (sessions_per_loop × duration_weeks).
+  // Calendar still drives "days left" / "behind by" so the coach sees both
+  // the work signal and the schedule signal at once.
   type ProgressEntry = {
     program: Program;
     client: Profile | undefined;
     progress: number;
     daysLeft: number;
     status: "active" | "ending" | "overdue";
+    sessionsDone: number;
+    expectedTotal: number;
+    workoutsBehind: number;
   };
   const progressList: ProgressEntry[] = programs.map((p) => {
     const client = clients.find((c) => c.id === p.assigned_client_id);
     const start = new Date(p.created_at).getTime();
     const weeks = p.duration_weeks ?? 4;
     const end = start + weeks * 7 * 86_400_000;
-    const progress = Math.max(0, Math.min(100, ((now - start) / (end - start)) * 100));
     const daysLeft = Math.ceil((end - now) / 86_400_000);
     const status: ProgressEntry["status"] =
       daysLeft < 0 ? "overdue" : daysLeft <= 7 ? "ending" : "active";
-    return { program: p, client, progress, daysLeft, status };
+
+    // Build the program's day list and count this client's completions.
+    const programWeeks = weeksByProgram.get(p.id) ?? [];
+    const itemsForProgram = programWeeks.flatMap(
+      (w) => itemsByWeek.get(w.id) ?? []
+    );
+    const days = listProgramDays(programWeeks, itemsForProgram);
+    const clientLogs = p.assigned_client_id
+      ? logsByClient.get(p.assigned_client_id) ?? []
+      : [];
+    const sessionsDone = countCompletedSessions(days, clientLogs);
+    const sessionsPerLoop = days.length;
+    const expectedTotal = sessionsPerLoop * weeks;
+    const progress =
+      expectedTotal > 0
+        ? Math.min(100, (sessionsDone / expectedTotal) * 100)
+        : 0;
+
+    const daysElapsed = Math.max(0, (now - start) / 86_400_000);
+    const expectedByNow = (sessionsPerLoop * daysElapsed) / 7;
+    const workoutsBehind = Math.round(expectedByNow - sessionsDone);
+
+    return {
+      program: p,
+      client,
+      progress,
+      daysLeft,
+      status,
+      sessionsDone,
+      expectedTotal,
+      workoutsBehind,
+    };
   });
-  progressList.sort((a, b) => b.progress - a.progress);
+  // Surface the clients who are behind first — that's where the coach
+  // actually needs to act.
+  progressList.sort((a, b) => b.workoutsBehind - a.workoutsBehind);
 
   // Activity feed
   type Event = {
@@ -256,17 +349,30 @@ const AdminDashboard = () => {
                 className="block border border-border rounded-xl p-3 hover:border-accent/50 hover:shadow-sm transition"
               >
                 <div className="flex items-center justify-between gap-3 mb-2">
-                  <div>
-                    <p className="font-semibold text-sm">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm truncate">
                       {e.client?.first_name ?? "Unknown"} · {e.program.title}
                     </p>
                     <p className="text-xs text-muted-foreground">
+                      {e.expectedTotal > 0
+                        ? `${e.sessionsDone}/${e.expectedTotal} workouts done`
+                        : "No sessions in this block yet"}
+                      {e.expectedTotal > 0 &&
+                        (e.workoutsBehind > 1
+                          ? ` · behind by ${e.workoutsBehind}`
+                          : e.workoutsBehind === 1
+                            ? " · behind by 1"
+                            : e.workoutsBehind <= -1
+                              ? ` · ${Math.abs(e.workoutsBehind)} ahead`
+                              : " · on track")}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
                       {e.status === "overdue"
-                        ? `⚠ Overdue by ${Math.abs(e.daysLeft)} day${Math.abs(e.daysLeft) > 1 ? "s" : ""}, time to renew`
+                        ? `Block expired ${Math.abs(e.daysLeft)} day${Math.abs(e.daysLeft) > 1 ? "s" : ""} ago`
                         : `${e.daysLeft} day${e.daysLeft > 1 ? "s" : ""} left · ${e.program.duration_weeks ?? "—"} weeks total`}
                     </p>
                   </div>
-                  <span className="font-heading text-2xl font-bold">
+                  <span className="font-heading text-2xl font-bold shrink-0">
                     {Math.round(e.progress)}%
                   </span>
                 </div>
@@ -275,9 +381,9 @@ const AdminDashboard = () => {
                     className={`h-full transition-all ${
                       e.status === "overdue"
                         ? "bg-red-500"
-                        : e.status === "ending"
-                        ? "bg-amber-500"
-                        : "bg-green-500"
+                        : e.workoutsBehind >= 2
+                          ? "bg-amber-500"
+                          : "bg-green-500"
                     }`}
                     style={{ width: `${e.progress}%` }}
                   />
