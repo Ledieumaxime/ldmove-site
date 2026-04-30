@@ -244,7 +244,7 @@ const WorkoutLogger = ({
             Today
           </p>
           <p className="text-[10px] font-semibold tracking-wide text-muted-foreground">
-            {todayLogs.length}/{prescribedSets} done
+            {currentRunLogs.length}/{prescribedSets} done
           </p>
         </div>
         {setsArray.map((n) => {
