@@ -130,6 +130,9 @@ type Props = {
    *  form, no delete button, no toggle. Used on archived programs so
    *  the past stays consultable but immutable. */
   commentsReadOnly?: boolean;
+  /** Forwarded to ExerciseComments — fires after a comment is sent
+   *  so a parent inbox can refetch and drop the resolved entry. */
+  onCommentReplied?: () => void;
   /** Shows the "send a form check video" UI. Default false — only
    *  the client doing their own session should see it (coaches don't
    *  upload form checks, and most overview pages aren't the right
@@ -153,6 +156,7 @@ const ProgramItemCard = ({
   compact = false,
   canComment = true,
   commentsReadOnly = false,
+  onCommentReplied,
   canUploadFormCheck = false,
   accent = "",
   inSuperset = false,
@@ -241,7 +245,11 @@ const ProgramItemCard = ({
 
       {canUploadFormCheck && <FormCheckUpload itemId={item.id} />}
       {canComment && (
-        <ExerciseComments itemId={item.id} readOnly={commentsReadOnly} />
+        <ExerciseComments
+          itemId={item.id}
+          readOnly={commentsReadOnly}
+          onReplied={onCommentReplied}
+        />
       )}
     </div>
   );

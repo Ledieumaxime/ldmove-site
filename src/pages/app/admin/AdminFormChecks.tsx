@@ -392,6 +392,7 @@ const AdminFormChecks = () => {
                           <ThreadCard
                             key={`th-${it.thread.item_id}`}
                             thread={it.thread}
+                            onReplied={load}
                           />
                         )
                       )}
@@ -463,9 +464,11 @@ const AdminFormChecks = () => {
 const ThreadCard = ({
   thread,
   compact = false,
+  onReplied,
 }: {
   thread: Thread;
   compact?: boolean;
+  onReplied?: () => void;
 }) => {
   const [open, setOpen] = useState(!compact);
   return (
@@ -512,7 +515,7 @@ const ThreadCard = ({
       </button>
       {open && (
         <div className="mt-3 pt-3 border-t border-border">
-          <ExerciseComments itemId={thread.item_id} />
+          <ExerciseComments itemId={thread.item_id} onReplied={onReplied} />
         </div>
       )}
     </div>
@@ -720,7 +723,7 @@ const CheckCard = ({
 
       {check.item_id && (
         <div className="mt-4 pt-3 border-t border-border">
-          <ExerciseComments itemId={check.item_id} />
+          <ExerciseComments itemId={check.item_id} onReplied={onUpdated} />
         </div>
       )}
     </div>

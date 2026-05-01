@@ -64,13 +64,20 @@ async function markRead(userId: string, itemId: string) {
  * no delete buttons, no toggle. The thread stays open so the coaching
  * history can be skimmed like a transcript. Used on archived programs
  * to keep the past consultable but immutable.
+ *
+ * `onReplied` lets the parent refetch its own state after the coach
+ * (or client) posts a comment — needed because a coach reply also
+ * auto-marks pending form checks as reviewed, and the inbox upstream
+ * has to re-read to drop the entry that no longer applies.
  */
 const ExerciseComments = ({
   itemId,
   readOnly = false,
+  onReplied,
 }: {
   itemId: string;
   readOnly?: boolean;
+  onReplied?: () => void;
 }) => {
   const { user, profile } = useAuth();
   const [open, setOpen] = useState(readOnly);
@@ -144,20 +151,26 @@ const ExerciseComments = ({
       // The "Mark as reviewed" button stays available for the rare
       // silent-approval case (video looks fine, no comment needed).
       if (profile.role === "coach") {
-        sbPatch(
-          `form_check_submissions?item_id=eq.${itemId}&status=eq.pending`,
-          {
-            status: "reviewed",
-            reviewed_at: new Date().toISOString(),
-          }
-        ).catch(() => {
+        try {
+          await sbPatch(
+            `form_check_submissions?item_id=eq.${itemId}&status=eq.pending`,
+            {
+              status: "reviewed",
+              reviewed_at: new Date().toISOString(),
+            }
+          );
+        } catch {
           // Non-fatal: comment is posted, coach can mark manually if
           // the auto-update silently failed.
-        });
+        }
       }
       setBody("");
       if (user) await markRead(user.id, itemId);
       await load();
+      // Tell the parent surface (Inbox / client detail) to refetch so
+      // the just-replied thread and any auto-reviewed form check drop
+      // out of the pending lists immediately.
+      onReplied?.();
     } catch (e) {
       console.error(e);
     } finally {
