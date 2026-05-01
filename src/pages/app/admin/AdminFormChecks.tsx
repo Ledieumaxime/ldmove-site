@@ -186,12 +186,16 @@ const AdminFormChecks = () => {
       );
       setThreads(threadsOut);
 
+      // Sign every video URL in parallel — sequential awaits used to
+      // multiply ~250 ms by the number of pending videos and made the
+      // first paint of the Inbox visibly slow.
+      const withVideos = rows.filter((r) => r.video_url);
+      const signed = await Promise.all(
+        withVideos.map(async (r) => [r.id, await signUrl(r.video_url!)] as const)
+      );
       const sigs: Record<string, string> = {};
-      for (const r of rows) {
-        if (r.video_url) {
-          const s = await signUrl(r.video_url);
-          if (s) sigs[r.id] = s;
-        }
+      for (const [id, url] of signed) {
+        if (url) sigs[id] = url;
       }
       setSignedUrls(sigs);
     } catch (e) {
