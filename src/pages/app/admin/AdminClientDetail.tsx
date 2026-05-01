@@ -17,6 +17,7 @@ import {
   Send,
 } from "lucide-react";
 import { sbGet, sbGetAll, sbPatch } from "@/integrations/supabase/api";
+import { cleanupArchivedVideos } from "@/integrations/supabase/notify";
 import {
   CompletedLog,
   countCompletedSessions,
@@ -393,6 +394,13 @@ const AdminClientDetail = () => {
       await sbPatch(`programs?id=eq.${currentProgram.id}`, {
         is_archived: true,
       });
+      // Mirror the cleanup the program editor runs when its archive
+      // toggle flips: form check videos for this block aren't useful
+      // anymore and their storage cost adds up. Comments stay so the
+      // coaching history remains consultable on the archived program.
+      // Fire-and-forget — failure is non-blocking, the cleanup can
+      // be retried from the editor if needed.
+      cleanupArchivedVideos(currentProgram.id).catch(() => {});
       setPrograms((prev) =>
         prev.map((p) =>
           p.id === currentProgram.id ? { ...p, is_archived: true } : p
