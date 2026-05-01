@@ -65,6 +65,12 @@ async function markRead(userId: string, itemId: string) {
  * history can be skimmed like a transcript. Used on archived programs
  * to keep the past consultable but immutable.
  *
+ * `previewLastOnly` is the workout-page mode: thread stays collapsed,
+ * but the most recent message is shown inline as a preview so the
+ * client lands on the latest coach feedback they need to apply
+ * without scrolling through the full history. The toggle still
+ * exposes the rest of the conversation on demand.
+ *
  * `onReplied` lets the parent refetch its own state after the coach
  * (or client) posts a comment — needed because a coach reply also
  * auto-marks pending form checks as reviewed, and the inbox upstream
@@ -73,10 +79,12 @@ async function markRead(userId: string, itemId: string) {
 const ExerciseComments = ({
   itemId,
   readOnly = false,
+  previewLastOnly = false,
   onReplied,
 }: {
   itemId: string;
   readOnly?: boolean;
+  previewLastOnly?: boolean;
   onReplied?: () => void;
 }) => {
   const { user, profile } = useAuth();
@@ -128,11 +136,14 @@ const ExerciseComments = ({
 
   // Auto-open once we know there are existing comments, so the thread is
   // visible in a single click. The user can still collapse manually.
+  // In preview mode we keep the thread collapsed and rely on the
+  // preview card below to surface the latest message instead.
   useEffect(() => {
+    if (previewLastOnly) return;
     if (loaded && !userToggled && comments.length > 0) {
       setOpen(true);
     }
-  }, [loaded, comments.length, userToggled]);
+  }, [loaded, comments.length, userToggled, previewLastOnly]);
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
@@ -278,13 +289,58 @@ const ExerciseComments = ({
         className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 relative"
       >
         <MessageCircle size={12} />
-        {open ? "Hide" : loaded && count > 0 ? `${count} comment${count > 1 ? "s" : ""}` : "Comment"}
+        {open
+          ? "Hide"
+          : loaded && count > 0
+            ? previewLastOnly
+              ? count > 1
+                ? `View full thread (${count})`
+                : "View thread"
+              : `${count} comment${count > 1 ? "s" : ""}`
+            : "Comment"}
         {!open && unread > 0 && (
           <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">
             {unread}
           </span>
         )}
       </button>
+
+      {/* Latest-message preview when collapsed in preview mode. The
+          client lands on the most recent feedback to apply without
+          having to expand the whole conversation. */}
+      {previewLastOnly && !open && loaded && comments.length > 0 && (() => {
+        const last = comments[comments.length - 1];
+        const name =
+          last.profiles?.first_name ??
+          (last.author_role === "coach" ? "Coach" : "Client");
+        return (
+          <div
+            className={`mt-2 text-xs rounded-md px-3 py-2 border ${
+              last.author_role === "coach"
+                ? "bg-accent/5 border-accent/20"
+                : "bg-muted/40 border-border"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-semibold">
+                {name}
+                <span className="ml-1 text-[10px] text-muted-foreground uppercase">
+                  {last.author_role}
+                </span>
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {new Date(last.created_at).toLocaleString("en-US", {
+                  day: "numeric",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
+            <p className="whitespace-pre-wrap">{last.body}</p>
+          </div>
+        );
+      })()}
 
       {open && (
         <div className="mt-2 space-y-2">

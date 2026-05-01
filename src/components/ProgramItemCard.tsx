@@ -248,6 +248,11 @@ const ProgramItemCard = ({
         <ExerciseComments
           itemId={item.id}
           readOnly={commentsReadOnly}
+          /* Workout / overview surfaces collapse the thread by default
+             and surface only the last message as a preview. Readers
+             can still expand the full conversation on demand. The
+             archive (readOnly) view keeps the full transcript open. */
+          previewLastOnly={!commentsReadOnly}
           onReplied={onCommentReplied}
         />
       )}
