@@ -142,8 +142,12 @@ const AdminFormChecks = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
-  const load = async () => {
-    setLoading(true);
+  /** `silent` skips the global loading spinner so a background
+   *  refetch (e.g. after the coach posts a reply) doesn't flash the
+   *  whole page back to "Loading…". The first call from useEffect
+   *  needs the spinner; everything triggered by user action doesn't. */
+  const load = async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const [rows, allComments] = await Promise.all([
         sbGet<FormCheck[]>(
@@ -193,9 +197,11 @@ const AdminFormChecks = () => {
     } catch (e) {
       setError(String(e));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
+
+  const reloadSilently = () => load({ silent: true });
 
   useEffect(() => {
     load();
@@ -386,13 +392,13 @@ const AdminFormChecks = () => {
                             key={`fc-${it.check.id}`}
                             check={it.check}
                             videoSrc={signedUrls[it.check.id]}
-                            onUpdated={load}
+                            onUpdated={reloadSilently}
                           />
                         ) : (
                           <ThreadCard
                             key={`th-${it.thread.item_id}`}
                             thread={it.thread}
-                            onReplied={load}
+                            onReplied={reloadSilently}
                           />
                         )
                       )}
