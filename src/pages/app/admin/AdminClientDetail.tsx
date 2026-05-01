@@ -426,16 +426,30 @@ const AdminClientDetail = () => {
     [comments, clientCommentItems]
   );
 
-  // Unanswered threads = latest message in thread is from client.
+  // Items that already have a pending form check waiting. Comment
+  // threads on these items are folded into the form check entry to
+  // avoid double-counting (the coach reviews the comment alongside
+  // the video).
+  const itemsWithPendingCheck = useMemo(
+    () =>
+      new Set(
+        pendingChecks.map((c) => c.item_id).filter((x): x is string => !!x)
+      ),
+    [pendingChecks]
+  );
+
+  // Unanswered threads = latest message in thread is from client,
+  // and no pending form check is queued on the same exercise.
   const unansweredThreads = useMemo(() => {
     const latestByItem = new Map<string, Comment>();
     for (const c of clientComments) {
       if (!latestByItem.has(c.item_id)) latestByItem.set(c.item_id, c);
     }
     return Array.from(latestByItem.values()).filter(
-      (c) => c.author_role === "client"
+      (c) =>
+        c.author_role === "client" && !itemsWithPendingCheck.has(c.item_id)
     );
-  }, [clientComments]);
+  }, [clientComments, itemsWithPendingCheck]);
 
   // Group completed logs into sessions, most recent first.
   const recentSessions = useMemo(() => {

@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from "react";
 import { MessageCircle, Send, Trash2 } from "lucide-react";
-import { sbGet, sbPost, sbDelete } from "@/integrations/supabase/api";
+import { sbGet, sbPost, sbPatch, sbDelete } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -138,6 +138,23 @@ const ExerciseComments = ({
         author_role: profile.role,
         body: body.trim(),
       });
+      // Replying as the coach IS the review for any pending form
+      // check on this exercise — flip them to reviewed in one shot
+      // so the inbox doesn't surface the same exercise twice.
+      // The "Mark as reviewed" button stays available for the rare
+      // silent-approval case (video looks fine, no comment needed).
+      if (profile.role === "coach") {
+        sbPatch(
+          `form_check_submissions?item_id=eq.${itemId}&status=eq.pending`,
+          {
+            status: "reviewed",
+            reviewed_at: new Date().toISOString(),
+          }
+        ).catch(() => {
+          // Non-fatal: comment is posted, coach can mark manually if
+          // the auto-update silently failed.
+        });
+      }
       setBody("");
       if (user) await markRead(user.id, itemId);
       await load();

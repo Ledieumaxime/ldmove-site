@@ -295,9 +295,23 @@ const AdminDashboard = () => {
     return map;
   }, [checks]);
 
+  // Items that already have a pending form check waiting. Comment
+  // threads on the same items are dedup'd out of the inbox count
+  // because the coach reviews the comment alongside the video — no
+  // need to surface it as a second notification.
+  const itemsWithPendingCheck = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of checks) {
+      if (c.status === "pending" && c.item_id) set.add(c.item_id);
+    }
+    return set;
+  }, [checks]);
+
   // Unanswered comment threads. A thread is unanswered when the most
   // recent message in it is from the client. We attribute the thread
   // to the client via author_id of the latest client comment.
+  // Threads on items that already have a pending form check are
+  // skipped so the same exercise doesn't generate two notifications.
   const unansweredCommentsByClient = useMemo(() => {
     const latestByItem = new Map<string, Comment>();
     for (const c of comments) {
@@ -306,11 +320,12 @@ const AdminDashboard = () => {
     const map = new Map<string, Comment[]>();
     for (const c of latestByItem.values()) {
       if (c.author_role !== "client" || !c.author_id) continue;
+      if (itemsWithPendingCheck.has(c.item_id)) continue;
       if (!map.has(c.author_id)) map.set(c.author_id, []);
       map.get(c.author_id)!.push(c);
     }
     return map;
-  }, [comments]);
+  }, [comments, itemsWithPendingCheck]);
 
   const totalPendingChecks = useMemo(
     () => checks.filter((c) => c.status === "pending"),

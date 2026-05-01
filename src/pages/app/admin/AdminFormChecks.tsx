@@ -204,8 +204,13 @@ const AdminFormChecks = () => {
   // Build per-client sections from pending form checks + unanswered
   // threads. Sections sort by age of oldest item; items within each
   // section sort oldest first too — coach works top-down.
+  // Comment threads on items that already have a pending form check
+  // are folded into the form check entry so the coach doesn't see
+  // the same exercise twice — replying inside the form check card
+  // covers both.
   const sections: ClientSection[] = useMemo(() => {
     const map = new Map<string, ClientSection>();
+    const itemsWithPendingCheck = new Set<string>();
     for (const c of checks) {
       if (c.status !== "pending") continue;
       const id = c.client_id;
@@ -223,10 +228,12 @@ const AdminFormChecks = () => {
       sec.items.push({ kind: "form_check", date: c.created_at, check: c });
       sec.totalCount++;
       if (c.created_at < sec.oldestDate) sec.oldestDate = c.created_at;
+      if (c.item_id) itemsWithPendingCheck.add(c.item_id);
     }
     for (const t of threads) {
       if (!t.needsReply) continue;
       if (!t.clientId) continue;
+      if (itemsWithPendingCheck.has(t.item_id)) continue;
       if (!map.has(t.clientId)) {
         map.set(t.clientId, {
           clientId: t.clientId,
