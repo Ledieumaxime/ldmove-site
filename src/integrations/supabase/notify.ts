@@ -36,6 +36,35 @@ export async function notifyProgramPublished(programId: string): Promise<{ ok: b
   }
 }
 
+export async function deleteClient(clientId: string): Promise<{
+  ok: boolean;
+  programs_deleted?: number;
+  orphan_comments_deleted?: number;
+  form_check_files_deleted?: number;
+  assessment_files_deleted?: number;
+  error?: string;
+}> {
+  const token = getToken();
+  if (!token) return { ok: false, error: "Not signed in" };
+  try {
+    const res = await fetch(`${URL}/functions/v1/delete-client`, {
+      method: "POST",
+      headers: {
+        apikey: KEY,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ client_id: clientId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok)
+      return { ok: false, error: data.error || `HTTP ${res.status}` };
+    return { ok: true, ...data };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
 export async function cleanupArchivedVideos(programId: string): Promise<{ ok: boolean; deleted?: number; error?: string }> {
   const token = getToken();
   if (!token) return { ok: false, error: "Not signed in" };

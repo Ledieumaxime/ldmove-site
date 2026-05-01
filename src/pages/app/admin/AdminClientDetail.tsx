@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Archive,
   ArrowLeft,
@@ -12,6 +12,7 @@ import {
   Loader2,
   MessageCircle,
   PlusCircle,
+  Trash2,
   Video,
   ArrowRight,
   Send,
@@ -25,6 +26,7 @@ import {
   ProgramWeekLite,
 } from "@/lib/workoutDay";
 import { detectTracking, stripSection } from "@/components/ProgramItemCard";
+import DeleteClientDialog from "@/components/DeleteClientDialog";
 
 /**
  * Coach's per-client workspace. Combines everything the coach needs
@@ -181,7 +183,9 @@ const formatRelative = (iso: string, now: number) => {
 
 const AdminClientDetail = () => {
   const { id: clientId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [client, setClient] = useState<Client | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [programs, setPrograms] = useState<Program[]>([]);
   const [intake, setIntake] = useState<IntakeRow | null>(null);
   const [checks, setChecks] = useState<FormCheck[]>([]);
@@ -605,12 +609,33 @@ const AdminClientDetail = () => {
 
   return (
     <div className="space-y-6">
-      <Link
-        to="/app/home"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft size={16} /> Back to dashboard
-      </Link>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <Link
+          to="/app/home"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft size={16} /> Back to dashboard
+        </Link>
+        <button
+          type="button"
+          onClick={() => setDeleteOpen(true)}
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-red-700 transition-colors"
+        >
+          <Trash2 size={12} /> Delete client
+        </button>
+      </div>
+
+      <DeleteClientDialog
+        open={deleteOpen}
+        clientId={client.id}
+        clientFirstName={client.first_name}
+        clientEmail={client.email}
+        onClose={() => setDeleteOpen(false)}
+        onDeleted={() => {
+          setDeleteOpen(false);
+          navigate("/app/home");
+        }}
+      />
 
       {/* ============ HEADER ============ */}
       <section className="bg-white border border-border rounded-2xl p-5">
