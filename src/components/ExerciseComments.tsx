@@ -397,7 +397,16 @@ const ExerciseComments = ({
             <Textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="Write a comment…"
+              onKeyDown={(e) => {
+                // Chat-style: Enter sends, Shift+Enter adds a newline.
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (body.trim() && !sending) {
+                    void send(e as unknown as FormEvent);
+                  }
+                }
+              }}
+              placeholder="Write a comment…  (Shift+Enter for new line)"
               rows={2}
               className="text-xs flex-1"
             />
