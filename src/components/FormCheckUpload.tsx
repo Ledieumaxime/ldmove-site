@@ -211,14 +211,24 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
 
   return (
     <div className="border-t border-border mt-2 pt-2">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-      >
-        <Video size={12} />
-        {open ? "Hide" : "Send a form check"}
-      </button>
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+        >
+          <Video size={12} />
+          {open ? "Hide" : "Send a form check"}
+        </button>
+        <button
+          type="button"
+          onClick={toggleHistory}
+          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+        >
+          <Video size={12} />
+          {historyOpen ? "Hide past videos" : "View past videos"}
+        </button>
+      </div>
 
       {open && (
         <div className="mt-2 space-y-3">
@@ -290,78 +300,67 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
               <span>{error}</span>
             </div>
           )}
+        </div>
+      )}
 
-          {/* Past videos: hidden by default, loaded on demand. */}
-          <div className="pt-1">
-            <button
-              type="button"
-              onClick={toggleHistory}
-              className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
-            >
-              {historyOpen ? "Hide past videos" : "View past videos"}
-            </button>
-          </div>
-
-          {historyOpen && (
-            <div className="space-y-2">
-              {historyLoading && (
-                <p className="text-[11px] text-muted-foreground inline-flex items-center gap-1.5">
-                  <Loader2 size={12} className="animate-spin" /> Loading…
-                </p>
-              )}
-              {!historyLoading && historyChecks.length === 0 && (
-                <p className="text-[11px] text-muted-foreground italic">
-                  No past videos for this exercise.
-                </p>
-              )}
-              {historyChecks.map((c) => (
-                <div
-                  key={c.id}
-                  className={`border rounded-lg p-3 text-xs ${
-                    c.status === "reviewed"
-                      ? "bg-green-50 border-green-200"
-                      : "bg-amber-50 border-amber-200"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1 gap-2">
-                    <span className="font-semibold">
-                      {c.status === "reviewed" ? (
-                        <span className="text-green-700 inline-flex items-center gap-1">
-                          <CheckCircle2 size={12} /> Reviewed
-                        </span>
-                      ) : (
-                        <span className="text-amber-700">Awaiting review</span>
-                      )}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground">
-                        {new Date(c.created_at).toLocaleDateString("en-US")}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removeFromHistory(c)}
-                        aria-label="Delete video"
-                        title="Delete video"
-                        className="text-muted-foreground hover:text-destructive transition-colors"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                  {c.client_note && (
-                    <p className="mb-1 italic">Your note: {c.client_note}</p>
-                  )}
-                  {historySigned[c.id] && (
-                    <video
-                      src={historySigned[c.id]}
-                      controls
-                      className="w-full rounded mt-1"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
+      {historyOpen && (
+        <div className="mt-2 space-y-2">
+          {historyLoading && (
+            <p className="text-[11px] text-muted-foreground inline-flex items-center gap-1.5">
+              <Loader2 size={12} className="animate-spin" /> Loading…
+            </p>
           )}
+          {!historyLoading && historyChecks.length === 0 && (
+            <p className="text-[11px] text-muted-foreground italic">
+              No past videos for this exercise.
+            </p>
+          )}
+          {historyChecks.map((c) => (
+            <div
+              key={c.id}
+              className={`border rounded-lg p-3 text-xs ${
+                c.status === "reviewed"
+                  ? "bg-green-50 border-green-200"
+                  : "bg-amber-50 border-amber-200"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1 gap-2">
+                <span className="font-semibold">
+                  {c.status === "reviewed" ? (
+                    <span className="text-green-700 inline-flex items-center gap-1">
+                      <CheckCircle2 size={12} /> Reviewed
+                    </span>
+                  ) : (
+                    <span className="text-amber-700">Awaiting review</span>
+                  )}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground">
+                    {new Date(c.created_at).toLocaleDateString("en-US")}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeFromHistory(c)}
+                    aria-label="Delete video"
+                    title="Delete video"
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+              {c.client_note && (
+                <p className="mb-1 italic">Your note: {c.client_note}</p>
+              )}
+              {historySigned[c.id] && (
+                <video
+                  src={historySigned[c.id]}
+                  controls
+                  className="w-full rounded mt-1"
+                />
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
