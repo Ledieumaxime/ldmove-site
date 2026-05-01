@@ -136,44 +136,67 @@ const ExerciseComments = ({
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
-    if (!body.trim() || !user || !profile) return;
+    const trimmed = body.trim();
+    if (!trimmed || !user || !profile) return;
+
+    // Optimistic update: the comment lands in the thread instantly.
+    // The form clears, the user sees their message right away, and
+    // every network call runs in the background. If the POST fails
+    // we roll back and put the text back in the input so they can
+    // retry without retyping.
+    const tempId = `temp-${Date.now()}`;
+    const optimistic: Comment = {
+      id: tempId,
+      item_id: itemId,
+      author_id: user.id,
+      author_role: profile.role,
+      body: trimmed,
+      parent_id: null,
+      created_at: new Date().toISOString(),
+      profiles: {
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+      },
+    };
+    setComments((cs) => [...cs, optimistic]);
+    setBody("");
     setSending(true);
+
     try {
       await sbPost("exercise_comments", {
         item_id: itemId,
         author_id: user.id,
         author_role: profile.role,
-        body: body.trim(),
+        body: trimmed,
       });
-      // Replying as the coach IS the review for any pending form
-      // check on this exercise — flip them to reviewed in one shot
-      // so the inbox doesn't surface the same exercise twice.
-      // The "Mark as reviewed" button stays available for the rare
-      // silent-approval case (video looks fine, no comment needed).
+      setSending(false);
+
+      // The slower follow-up writes don't block the UI: the comment
+      // is already on screen, the user has moved on.
       if (profile.role === "coach") {
-        try {
-          await sbPatch(
-            `form_check_submissions?item_id=eq.${itemId}&status=eq.pending`,
-            {
-              status: "reviewed",
-              reviewed_at: new Date().toISOString(),
-            }
-          );
-        } catch {
+        // Replying as the coach IS the review for any pending form
+        // check on this exercise — flip them to reviewed in one shot
+        // so the inbox doesn't surface the same exercise twice.
+        sbPatch(
+          `form_check_submissions?item_id=eq.${itemId}&status=eq.pending`,
+          {
+            status: "reviewed",
+            reviewed_at: new Date().toISOString(),
+          }
+        ).catch(() => {
           // Non-fatal: comment is posted, coach can mark manually if
           // the auto-update silently failed.
-        }
+        });
       }
-      setBody("");
-      if (user) await markRead(user.id, itemId);
-      await load();
-      // Tell the parent surface (Inbox / client detail) to refetch so
-      // the just-replied thread and any auto-reviewed form check drop
-      // out of the pending lists immediately.
+      markRead(user.id, itemId);
+      // Replace the temp row with the canonical one from the server.
+      load();
+      // Let the parent inbox refetch so the resolved entry drops out.
       onReplied?.();
     } catch (e) {
       console.error(e);
-    } finally {
+      setComments((cs) => cs.filter((c) => c.id !== tempId));
+      setBody(trimmed);
       setSending(false);
     }
   };
