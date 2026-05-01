@@ -1,4 +1,4 @@
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useRef, useState, FormEvent } from "react";
 import { MessageCircle, Send, Trash2 } from "lucide-react";
 import { sbGet, sbPost, sbPatch, sbDelete } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -96,6 +96,11 @@ const ExerciseComments = ({
   const [sending, setSending] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [lastReadAt, setLastReadAt] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // When set, focus the textarea on the next render that has it
+  // mounted. We can't focus directly inside the click handler because
+  // the textarea is rendered conditionally on `open`.
+  const focusOnOpenRef = useRef(false);
 
   const load = async () => {
     setLoading(true);
@@ -144,6 +149,15 @@ const ExerciseComments = ({
       setOpen(true);
     }
   }, [loaded, comments.length, userToggled, previewLastOnly]);
+
+  // Land the cursor in the compose field as soon as the user clicks
+  // Reply, so they can type without an extra click.
+  useEffect(() => {
+    if (open && focusOnOpenRef.current && textareaRef.current) {
+      textareaRef.current.focus();
+      focusOnOpenRef.current = false;
+    }
+  }, [open]);
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
@@ -284,19 +298,18 @@ const ExerciseComments = ({
         type="button"
         onClick={() => {
           setUserToggled(true);
+          // Opening = the user wants to type. Closing = no focus
+          // request needed.
+          if (!open) focusOnOpenRef.current = true;
           setOpen(!open);
         }}
-        className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 relative"
+        className="text-xs font-semibold text-accent hover:opacity-80 inline-flex items-center gap-1 relative"
       >
         <MessageCircle size={12} />
         {open
           ? "Hide"
-          : loaded && count > 0
-            ? previewLastOnly
-              ? count > 1
-                ? `View full thread (${count})`
-                : "View thread"
-              : `${count} comment${count > 1 ? "s" : ""}`
+          : count > 0
+            ? `Reply${loaded ? ` (${count})` : ""}`
             : "Comment"}
         {!open && unread > 0 && (
           <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">
@@ -395,6 +408,7 @@ const ExerciseComments = ({
 
           <form onSubmit={send} className="flex gap-2 pt-1">
             <Textarea
+              ref={textareaRef}
               value={body}
               onChange={(e) => setBody(e.target.value)}
               onKeyDown={(e) => {
