@@ -303,7 +303,7 @@ const ExerciseComments = ({
           if (!open) focusOnOpenRef.current = true;
           setOpen(!open);
         }}
-        className="text-xs font-semibold text-accent hover:opacity-80 inline-flex items-center gap-1 relative"
+        className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 relative"
       >
         <MessageCircle size={12} />
         {open ? "Hide" : "Add a comment"}
