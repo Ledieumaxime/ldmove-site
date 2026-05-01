@@ -276,6 +276,7 @@ const ProgramDetail = () => {
                                     key={b.item.id}
                                     item={b.item}
                                     canComment={program.type === "custom"}
+                                    commentsReadOnly={program.is_archived}
                                     accent={style.border}
                                     // Overview page: no interactive logger
                                     // for the client. The coach keeps a
@@ -326,6 +327,7 @@ const ProgramDetail = () => {
                                                 item={it}
                                                 compact
                                                 canComment={program.type === "custom"}
+                                    commentsReadOnly={program.is_archived}
                                                 inSuperset
                                                 loggerClientId={
                                                   isCoach

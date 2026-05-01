@@ -57,9 +57,23 @@ async function markRead(userId: string, itemId: string) {
   }
 }
 
-const ExerciseComments = ({ itemId }: { itemId: string }) => {
+/**
+ * Per-exercise discussion thread.
+ *
+ * `readOnly` flips the component into archive mode: no compose form,
+ * no delete buttons, no toggle. The thread stays open so the coaching
+ * history can be skimmed like a transcript. Used on archived programs
+ * to keep the past consultable but immutable.
+ */
+const ExerciseComments = ({
+  itemId,
+  readOnly = false,
+}: {
+  itemId: string;
+  readOnly?: boolean;
+}) => {
   const { user, profile } = useAuth();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(readOnly);
   const [userToggled, setUserToggled] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [body, setBody] = useState("");
@@ -152,6 +166,53 @@ const ExerciseComments = ({ itemId }: { itemId: string }) => {
   }).length;
 
   const count = comments.length;
+
+  // In archive mode the thread is just static reading material:
+  // no toggle, no delete, no compose. We also skip rendering anything
+  // when there's nothing to read so an empty exercise stays clean.
+  if (readOnly) {
+    if (loaded && comments.length === 0) return null;
+    return (
+      <div className="border-t border-border mt-2 pt-2 space-y-2">
+        {loading && (
+          <p className="text-xs text-muted-foreground">Loading…</p>
+        )}
+        {comments.map((c) => {
+          const name =
+            c.profiles?.first_name ??
+            (c.author_role === "coach" ? "Coach" : "Client");
+          return (
+            <div
+              key={c.id}
+              className={`text-xs rounded-md px-3 py-2 border ${
+                c.author_role === "coach"
+                  ? "bg-accent/5 border-accent/20"
+                  : "bg-muted/40 border-border"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-semibold">
+                  {name}
+                  <span className="ml-1 text-[10px] text-muted-foreground uppercase">
+                    {c.author_role}
+                  </span>
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {new Date(c.created_at).toLocaleString("en-US", {
+                    day: "numeric",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </div>
+              <p className="whitespace-pre-wrap">{c.body}</p>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className="border-t border-border mt-2 pt-2">

@@ -126,6 +126,10 @@ type Props = {
    *  Disable on catalogue / generic views where there's no
    *  client-coach relationship to discuss. */
   canComment?: boolean;
+  /** Renders the thread in archive mode: open by default, no compose
+   *  form, no delete button, no toggle. Used on archived programs so
+   *  the past stays consultable but immutable. */
+  commentsReadOnly?: boolean;
   /** Shows the "send a form check video" UI. Default false — only
    *  the client doing their own session should see it (coaches don't
    *  upload form checks, and most overview pages aren't the right
@@ -148,6 +152,7 @@ const ProgramItemCard = ({
   item,
   compact = false,
   canComment = true,
+  commentsReadOnly = false,
   canUploadFormCheck = false,
   accent = "",
   inSuperset = false,
@@ -235,7 +240,9 @@ const ProgramItemCard = ({
       })()}
 
       {canUploadFormCheck && <FormCheckUpload itemId={item.id} />}
-      {canComment && <ExerciseComments itemId={item.id} />}
+      {canComment && (
+        <ExerciseComments itemId={item.id} readOnly={commentsReadOnly} />
+      )}
     </div>
   );
 };
