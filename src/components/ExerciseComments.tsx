@@ -306,11 +306,7 @@ const ExerciseComments = ({
         className="text-xs font-semibold text-accent hover:opacity-80 inline-flex items-center gap-1 relative"
       >
         <MessageCircle size={12} />
-        {open
-          ? "Hide"
-          : count > 0
-            ? `Reply${loaded ? ` (${count})` : ""}`
-            : "Comment"}
+        {open ? "Hide" : "Add a comment"}
         {!open && unread > 0 && (
           <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">
             {unread}
