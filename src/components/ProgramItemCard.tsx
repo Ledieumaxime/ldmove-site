@@ -1,4 +1,5 @@
-import { Play } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Play, X } from "lucide-react";
 import ExerciseComments from "@/components/ExerciseComments";
 import FormCheckUpload from "@/components/FormCheckUpload";
 import WorkoutLogger from "@/components/WorkoutLogger";
@@ -169,6 +170,14 @@ const ProgramItemCard = ({
   const displayName = stripSection(item.custom_name);
   const hasLoad = !!load && load.trim() !== "" && load.trim() !== "-";
   const formattedReps = formatReps(item.reps);
+  const [videoOpen, setVideoOpen] = useState(false);
+
+  // Drive URLs aren't direct video files (they serve a preview page),
+  // so we still open them in a new tab. Anything else — Supabase
+  // signed URLs, MP4/MOV hosted directly — gets the inline player so
+  // Safari and friends stream instead of downloading.
+  const isExternalPreview =
+    !!item.video_url && /drive\.google\.com/.test(item.video_url);
 
   return (
     <div
@@ -184,16 +193,25 @@ const ProgramItemCard = ({
         >
           {displayName}
         </h4>
-        {item.video_url && (
-          <a
-            href={item.video_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold bg-accent text-white rounded-full px-2.5 py-1 hover:bg-accent/90"
-          >
-            <Play size={12} className="fill-current" /> Video
-          </a>
-        )}
+        {item.video_url &&
+          (isExternalPreview ? (
+            <a
+              href={item.video_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold bg-accent text-white rounded-full px-2.5 py-1 hover:bg-accent/90"
+            >
+              <Play size={12} className="fill-current" /> Video
+            </a>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setVideoOpen(true)}
+              className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold bg-accent text-white rounded-full px-2.5 py-1 hover:bg-accent/90"
+            >
+              <Play size={12} className="fill-current" /> Video
+            </button>
+          ))}
       </div>
 
       {(() => {
@@ -256,6 +274,66 @@ const ProgramItemCard = ({
           onReplied={onCommentReplied}
         />
       )}
+
+      {videoOpen && item.video_url && (
+        <VideoModal
+          src={item.video_url}
+          title={displayName}
+          onClose={() => setVideoOpen(false)}
+        />
+      )}
+    </div>
+  );
+};
+
+/** Inline video player. Stream-and-play instead of opening in a new
+ *  tab — the latter triggered Safari to download .mov files instead
+ *  of playing them inline. ESC and click-on-backdrop both close. */
+const VideoModal = ({
+  src,
+  title,
+  onClose,
+}: {
+  src: string;
+  title: string;
+  onClose: () => void;
+}) => {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-3xl bg-black rounded-2xl overflow-hidden shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 bg-black/60 backdrop-blur">
+          <p className="text-white font-semibold text-sm truncate">{title}</p>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            className="text-white/70 hover:text-white shrink-0"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <video
+          src={src}
+          controls
+          autoPlay
+          playsInline
+          className="w-full max-h-[75vh] bg-black"
+        />
+      </div>
     </div>
   );
 };
