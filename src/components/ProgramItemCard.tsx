@@ -174,6 +174,7 @@ const ProgramItemCard = ({
   const hasLoad = !!load && load.trim() !== "" && load.trim() !== "-";
   const formattedReps = formatReps(item.reps);
   const [videoOpen, setVideoOpen] = useState(false);
+  const [descriptionOpen, setDescriptionOpen] = useState(false);
 
   // Drive URLs aren't direct video files (they serve a preview page),
   // so we still open them in a new tab. Anything else — Supabase
@@ -196,25 +197,36 @@ const ProgramItemCard = ({
         >
           {displayName}
         </h4>
-        {item.video_url &&
-          (isExternalPreview ? (
-            <a
-              href={item.video_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold bg-accent text-white rounded-full px-2.5 py-1 hover:bg-accent/90"
-            >
-              <Play size={12} className="fill-current" /> Video
-            </a>
-          ) : (
+        <div className="shrink-0 flex flex-col items-end gap-1.5">
+          {item.video_url &&
+            (isExternalPreview ? (
+              <a
+                href={item.video_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs font-semibold bg-accent text-white rounded-full px-2.5 py-1 hover:bg-accent/90"
+              >
+                <Play size={12} className="fill-current" /> Video
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setVideoOpen(true)}
+                className="inline-flex items-center gap-1 text-xs font-semibold bg-accent text-white rounded-full px-2.5 py-1 hover:bg-accent/90"
+              >
+                <Play size={12} className="fill-current" /> Video
+              </button>
+            ))}
+          {item.description && (
             <button
               type="button"
-              onClick={() => setVideoOpen(true)}
-              className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold bg-accent text-white rounded-full px-2.5 py-1 hover:bg-accent/90"
+              onClick={() => setDescriptionOpen((v) => !v)}
+              className="inline-flex items-center gap-1 text-xs font-semibold bg-muted text-muted-foreground rounded-full px-2.5 py-1 hover:bg-muted/70 hover:text-foreground"
             >
-              <Play size={12} className="fill-current" /> Video
+              {descriptionOpen ? "Hide description" : "Show description"}
             </button>
-          ))}
+          )}
+        </div>
       </div>
 
       {(() => {
@@ -245,16 +257,10 @@ const ProgramItemCard = ({
         </p>
       )}
 
-      {item.description && (
-        <details className="mt-2 group">
-          <summary className="text-xs font-semibold text-muted-foreground cursor-pointer select-none hover:text-foreground inline-flex items-center gap-1">
-            <span className="group-open:hidden">Show description</span>
-            <span className="hidden group-open:inline">Hide description</span>
-          </summary>
-          <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed italic whitespace-pre-wrap">
-            {item.description}
-          </p>
-        </details>
+      {item.description && descriptionOpen && (
+        <p className="text-xs text-muted-foreground mt-2 leading-relaxed italic whitespace-pre-wrap">
+          {item.description}
+        </p>
       )}
 
       {(() => {
