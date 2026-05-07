@@ -77,10 +77,15 @@ const Today = () => {
       const weekIds = w.map((x) => x.id);
       const [it, lg] = await Promise.all([
         weekIds.length > 0
-          ? sbGet<ProgramItem[]>(
-              `program_items?select=id,week_id,order_index,custom_name,sets,reps,rest_seconds,notes,video_url,group_name` +
+          ? sbGet<Array<ProgramItem & { exercise: { description: string | null } | null }>>(
+              `program_items?select=id,week_id,order_index,custom_name,sets,reps,rest_seconds,notes,video_url,group_name,exercise:exercises(description)` +
                 `&week_id=in.(${weekIds.join(",")})` +
                 `&order=order_index.asc`
+            ).then((rows) =>
+              rows.map(({ exercise, ...rest }) => ({
+                ...rest,
+                description: exercise?.description ?? null,
+              }))
             )
           : Promise.resolve([] as ProgramItem[]),
         sbGet<CompletedLog[]>(

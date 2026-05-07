@@ -102,7 +102,7 @@ const History = () => {
         const rows = await sbGet<LogRow[]>(
           `workout_logs?` +
             `select=id,program_item_id,session_run_id,session_date,set_number,reps_done,weight_kg,completed_at,` +
-            `program_items(id,custom_name,sets,reps,rest_seconds,notes,video_url,group_name,week_id,order_index,` +
+            `program_items(id,custom_name,sets,reps,rest_seconds,notes,video_url,group_name,week_id,order_index,exercise:exercises(description),` +
             `program_weeks(title,week_number,program_id,programs(title,slug,is_archived)))` +
             `&client_id=eq.${user.id}` +
             `&completed_at=not.is.null` +

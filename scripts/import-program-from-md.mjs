@@ -101,6 +101,7 @@ function parseProgram(md) {
   const days = []; // { title, sections: { WARMUP|WORKOUT: items[] } }
   let currentDay = null;
   let currentSection = null;
+  let currentGroup = null; // tracks SUPERSET label inside a section
   const lines = md.split("\n");
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i];
@@ -111,6 +112,7 @@ function parseProgram(md) {
       currentDay = { title: m[1].trim(), sections: {} };
       days.push(currentDay);
       currentSection = null;
+      currentGroup = null;
       continue;
     }
     // Section header: WARM UP, WORKOUT
@@ -124,6 +126,7 @@ function parseProgram(md) {
             ? "WORKOUT"
             : tag;
       currentDay.sections[currentSection] = [];
+      currentGroup = null;
       continue;
     }
     // Table row: split by | and trim
@@ -135,6 +138,17 @@ function parseProgram(md) {
     if (cells.length < 2) continue;
     if (/^Exercise$/i.test(cells[0]) || /^[-: ]+$/.test(cells[0])) continue;
     if (!currentDay || !currentSection) continue;
+    // Group header row: first cell wrapped in **...** (markdown bold) and
+    // every other cell is empty/blank. Examples: "**SUPERSET 1**",
+    // "**SET 5 — Finisher**", "**SPINE MOBILITY**". These don't represent
+    // an exercise; they tag the rows that follow with a group_name.
+    const firstCell = cells[0];
+    const restEmpty = cells.slice(1).every((c) => !c);
+    const boldMatch = firstCell.match(/^\*\*(.+?)\*\*$/);
+    if (boldMatch && restEmpty) {
+      currentGroup = boldMatch[1].trim();
+      continue;
+    }
     // Columns: Exercise | SET | REP | TEMPO | LOAD | REST | VIDEO | COM
     // (some columns may be missing in newer outputs, so accept variable
     // length)
@@ -159,6 +173,7 @@ function parseProgram(md) {
         ? parseInt(String(rest).replace(/[^\d]/g, ""), 10) || null
         : null,
       notes: com || null,
+      group_name: currentGroup,
     });
   }
   return days;
@@ -274,6 +289,7 @@ for (const day of days) {
         notes: buildNotes(it),
         video_url: lib.video_url,
         exercise_id: lib.id,
+        group_name: it.group_name,
       });
     }
   }

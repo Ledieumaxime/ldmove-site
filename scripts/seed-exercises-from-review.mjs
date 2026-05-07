@@ -132,9 +132,15 @@ if (rows.length === 0) {
 }
 
 // --- Verify each file is on Supabase + sign URLs ---
+// GYM ANNEX rows use `—` as filename to mean "no video, gym exercise" —
+// skip the bucket check and leave signedUrl as null.
 console.log("Verifying files in bucket and signing URLs…");
 let missingInBucket = 0;
 for (const r of rows) {
+  if (r.filename === "—" || r.filename === "-") {
+    r.signedUrl = null;
+    continue;
+  }
   if (!(await fileExists(r.filename))) {
     console.error(`  MISSING in bucket: ${r.filename}`);
     missingInBucket++;

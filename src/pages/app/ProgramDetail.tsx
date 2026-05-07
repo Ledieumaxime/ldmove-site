@@ -38,6 +38,7 @@ type Item = {
   notes: string | null;
   video_url: string | null;
   group_name: string | null;
+  description?: string | null;
 };
 
 type Enrollment = {
@@ -85,10 +86,15 @@ const ProgramDetail = () => {
         setEnrollment(e[0] ?? null);
         if (w.length > 0) {
           const ids = w.map((x) => x.id).join(",");
-          const its = await sbGet<Item[]>(
-            `program_items?select=*&week_id=in.(${ids})&order=order_index.asc`
+          const its = await sbGet<Array<Item & { exercise: { description: string | null } | null }>>(
+            `program_items?select=*,exercise:exercises(description)&week_id=in.(${ids})&order=order_index.asc`
           );
-          setItems(its);
+          setItems(
+            its.map(({ exercise, ...rest }) => ({
+              ...rest,
+              description: exercise?.description ?? null,
+            }))
+          );
         }
       } catch (err) {
         setError(String(err));

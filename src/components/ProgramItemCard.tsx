@@ -15,6 +15,9 @@ export type ProgramItem = {
   notes: string | null;
   video_url: string | null;
   group_name: string | null;
+  /** Canonical description from the `exercises` library (joined). Stays
+   *  separate from `notes` (which is the coach's per-bloc COM). */
+  description?: string | null;
 };
 
 /** Notes are stored as "Tempo: 3s | Load: 20 kg | Keep back straight". */
@@ -240,6 +243,18 @@ const ProgramItemCard = ({
         <p className="text-xs text-muted-foreground mt-2 whitespace-pre-wrap leading-relaxed">
           {comment}
         </p>
+      )}
+
+      {item.description && (
+        <details className="mt-2 group">
+          <summary className="text-xs font-semibold text-muted-foreground cursor-pointer select-none hover:text-foreground inline-flex items-center gap-1">
+            <span className="group-open:hidden">Show description</span>
+            <span className="hidden group-open:inline">Hide description</span>
+          </summary>
+          <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed italic whitespace-pre-wrap">
+            {item.description}
+          </p>
+        </details>
       )}
 
       {(() => {
