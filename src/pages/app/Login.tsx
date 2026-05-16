@@ -44,14 +44,16 @@ const Login = () => {
     setInfo(null);
     setForgotLoading(true);
     try {
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
-        method: "POST",
-        headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: target,
-          options: { email_redirect_to: "https://www.ldmove.com/app/reset-password" },
-        }),
-      });
+      const res = await fetch(
+        `${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(
+          "https://www.ldmove.com/app/reset-password"
+        )}`,
+        {
+          method: "POST",
+          headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+          body: JSON.stringify({ email: target }),
+        }
+      );
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(json.msg || json.error_description || "Could not send reset email");
