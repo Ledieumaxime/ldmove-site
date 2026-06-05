@@ -187,7 +187,9 @@ const AdminDashboard = () => {
       sbGet<Array<{ client_id: string }>>(
         "client_level_assessments?select=client_id"
       ),
-      sbGet<Array<{ client_id: string }>>("client_intakes?select=client_id"),
+      sbGet<Array<{ client_id: string; locked_at: string | null }>>(
+        "client_intakes?select=client_id,locked_at"
+      ),
       // Cross-program / cross-client reads: paginate explicitly.
       // PostgREST's server-side max-rows (~1000 on Supabase) silently
       // caps any single request even when ?limit=50000 is passed,
@@ -244,14 +246,25 @@ const AdminDashboard = () => {
         setLogsByClient(lByClient);
 
         // Assessment videos waiting for review: client has uploaded but
-        // coach hasn't validated yet (no client_level_assessments row).
+        // coach hasn't validated yet. We consider an assessment reviewed
+        // when ANY of these are true:
+        //   - there is at least one row in client_level_assessments
+        //   - the coach used the "Mark as reviewed" button (placeholder
+        //     row with field_name="_reviewed")
+        //   - the intake was locked by the coach (locked_at not null)
+        //   The last one matters because locking is the last step of
+        //   the review workflow and implies the coach has gone through
+        //   everything even if no field was overridden.
         const counts = new Map<string, number>();
         for (const v of videos)
           counts.set(v.client_id, (counts.get(v.client_id) ?? 0) + 1);
         const reviewed = new Set(reviews.map((r) => r.client_id));
+        const lockedClientIds = new Set(
+          intakes.filter((i) => i.locked_at).map((i) => i.client_id)
+        );
         const pendingList: typeof pendingAssessmentClients = [];
         for (const [clientId, videoCount] of counts) {
-          if (!reviewed.has(clientId)) {
+          if (!reviewed.has(clientId) && !lockedClientIds.has(clientId)) {
             const clientProfile = c.find((x) => x.id === clientId);
             pendingList.push({
               client_id: clientId,
