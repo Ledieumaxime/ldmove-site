@@ -1,12 +1,55 @@
-import { useEffect, useState, FormEvent } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Save, Eye, Mail } from "lucide-react";
-import { sbGet, sbPatch, sbPost, sbDelete } from "@/integrations/supabase/api";
-import { notifyProgramPublished, cleanupArchivedVideos } from "@/integrations/supabase/notify";
+// Page 2 of the new program creation flow — the session editor.
+//
+// Layout:
+//   - Header: program name + status pills (assigned client, draft/published)
+//   - Session tabs (one per program_weeks row): switch between sessions
+//   - Active session pane:
+//       - Title (editable)
+//       - "Warmup" sub-section with sets + exercises
+//       - "Workout" sub-section with sets + exercises
+//   - Sticky footer: Prev / Next session (or "Publish" on the last one)
+//
+// A *set* groups one or more exercise rows sharing the same group_name.
+// Three types are supported:
+//   - Single        → group_name = null (each item is its own row)
+//   - Superset      → group_name = "Superset N"
+//   - Drop set      → group_name = "Drop set N"
+// Numbering is derived from the position of the set inside the section.
+//
+// Items keep the legacy `[WARMUP]` / `[WORKOUT]` prefix in custom_name
+// so consumers like ProgramItemCard / parseNotes keep working without a
+// db migration.
+//
+// Notes column packs Tempo / Load / Coach comment as "Tempo: X | Load:
+// Y | comment". The UI splits them back into three separate fields and
+// re-serialises on save.
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  Layers,
+  Loader2,
+  Plus,
+  Save,
+  Send,
+  Trash2,
+} from "lucide-react";
+import {
+  sbDelete,
+  sbGet,
+  sbGetAll,
+  sbPatch,
+  sbPost,
+} from "@/integrations/supabase/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import WeekExerciseEditor from "@/components/WeekExerciseEditor";
+import ExerciseSearchPopover, {
+  ExerciseSearchSelection,
+} from "@/components/ExerciseSearchPopover";
 
 type Program = {
   id: string;
@@ -14,467 +57,857 @@ type Program = {
   title: string;
   description: string | null;
   type: "catalogue" | "custom";
-  price_eur: number;
-  billing_type: "one_time" | "subscription";
-  subscription_months: number | null;
   duration_weeks: number | null;
+  assigned_client_id: string | null;
   is_published: boolean;
   is_archived: boolean;
-  assigned_client_id: string | null;
 };
 
 type Week = {
   id: string;
   program_id: string;
   week_number: number;
-  title: string | null;
+  title: string;
   notes: string | null;
 };
 
-type Client = {
+type Item = {
   id: string;
-  email: string;
-  first_name: string | null;
-  last_name: string | null;
+  week_id: string;
+  order_index: number;
+  custom_name: string | null;
+  sets: number | null;
+  reps: string | null;
+  rest_seconds: number | null;
+  notes: string | null;
+  video_url: string | null;
+  group_name: string | null;
+  exercise_id: string | null;
 };
 
+type Section = "WARMUP" | "WORKOUT";
+type SetType = "Single" | "Superset" | "Drop set";
+
+const SECTION_LABEL: Record<Section, string> = {
+  WARMUP: "Warm up",
+  WORKOUT: "Workout",
+};
+
+// ----- prefix / notes helpers -------------------------------------------
+
+const stripPrefix = (s: string | null) =>
+  s ? s.replace(/^\[[^\]]+\]\s*/, "") : "";
+
+const sectionOf = (custom_name: string | null): Section => {
+  if (!custom_name) return "WORKOUT";
+  const m = custom_name.match(/^\[([^\]]+)\]/);
+  if (m && /WARM/i.test(m[1])) return "WARMUP";
+  return "WORKOUT";
+};
+
+const withSectionPrefix = (section: Section, name: string) =>
+  `[${section}] ${name}`;
+
+type ParsedNotes = {
+  tempo: string;
+  load: string;
+  comment: string;
+};
+
+const parseNotesFields = (notes: string | null): ParsedNotes => {
+  if (!notes) return { tempo: "", load: "", comment: "" };
+  const parts = notes.split("|").map((p) => p.trim());
+  let tempo = "";
+  let load = "";
+  const others: string[] = [];
+  for (const p of parts) {
+    const t = p.match(/^Tempo:\s*(.+)$/i);
+    const l = p.match(/^Load:\s*(.+)$/i);
+    if (t) tempo = t[1];
+    else if (l) load = l[1];
+    else if (p) others.push(p);
+  }
+  return { tempo, load, comment: others.join(" · ") };
+};
+
+const serializeNotes = ({ tempo, load, comment }: ParsedNotes): string | null => {
+  const parts: string[] = [];
+  if (tempo.trim()) parts.push(`Tempo: ${tempo.trim()}`);
+  if (load.trim()) parts.push(`Load: ${load.trim()}`);
+  if (comment.trim()) parts.push(comment.trim());
+  return parts.length > 0 ? parts.join(" | ") : null;
+};
+
+// ----- set grouping ------------------------------------------------------
+
+type UISet = {
+  /** stable id used by React (composite of section + group_name + first item id) */
+  key: string;
+  type: SetType;
+  /** displayed label (e.g. "Superset 1") — only for Superset / Drop set */
+  label: string | null;
+  group_name: string | null;
+  items: Item[];
+};
+
+const buildSets = (items: Item[], section: Section): UISet[] => {
+  const filtered = items
+    .filter((it) => sectionOf(it.custom_name) === section)
+    .sort((a, b) => a.order_index - b.order_index);
+
+  const sets: UISet[] = [];
+  let currentGroupKey: string | null = null;
+  let currentSet: UISet | null = null;
+
+  for (const it of filtered) {
+    const gn = it.group_name?.trim() || null;
+    if (gn) {
+      if (gn !== currentGroupKey) {
+        currentSet = {
+          key: `${section}-${gn}-${it.id}`,
+          type: /drop/i.test(gn) ? "Drop set" : "Superset",
+          label: gn,
+          group_name: gn,
+          items: [],
+        };
+        sets.push(currentSet);
+        currentGroupKey = gn;
+      }
+      currentSet!.items.push(it);
+    } else {
+      sets.push({
+        key: `${section}-single-${it.id}`,
+        type: "Single",
+        label: null,
+        group_name: null,
+        items: [it],
+      });
+      currentGroupKey = null;
+      currentSet = null;
+    }
+  }
+  return sets;
+};
+
+// Used when creating a new Superset / Drop set to pick the next free
+// numeric suffix in this section.
+const nextGroupLabel = (
+  type: SetType,
+  existingSets: UISet[]
+): string | null => {
+  if (type === "Single") return null;
+  const stem = type === "Superset" ? "Superset" : "Drop set";
+  const taken = new Set(
+    existingSets
+      .filter((s) => s.group_name && new RegExp(`^${stem}\\s+\\d+$`, "i").test(s.group_name))
+      .map((s) => parseInt(s.group_name!.replace(/[^\d]/g, ""), 10))
+      .filter((n) => Number.isFinite(n))
+  );
+  let n = 1;
+  while (taken.has(n)) n++;
+  return `${stem} ${n}`;
+};
+
+// ============================================================ Page =====
+
 const AdminProgramEdit = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [program, setProgram] = useState<Program | null>(null);
   const [weeks, setWeeks] = useState<Week[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [notifying, setNotifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [flash, setFlash] = useState<string | null>(null);
-  const [initialState, setInitialState] = useState<{ is_archived: boolean; is_published: boolean } | null>(null);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
+    "idle"
+  );
+  const savedTimer = useRef<number | null>(null);
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const [p, w, c] = await Promise.all([
-        sbGet<Program[]>(`programs?select=*&id=eq.${id}&limit=1`),
-        sbGet<Week[]>(`program_weeks?select=*&program_id=eq.${id}&order=week_number.asc`),
-        sbGet<Client[]>(
-          "profiles?select=id,email,first_name,last_name&role=eq.client&order=first_name.asc"
-        ),
-      ]);
-      if (p.length === 0) {
-        setError("Program not found.");
-        return;
-      }
-      setProgram(p[0]);
-      setInitialState({ is_archived: p[0].is_archived, is_published: p[0].is_published });
-      setWeeks(w);
-      setClients(c);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
-    }
-  };
+  // session URL param is 1-indexed (?session=1)
+  const sessionIdx = Math.max(
+    0,
+    parseInt(searchParams.get("session") ?? "1", 10) - 1
+  );
 
   useEffect(() => {
-    load();
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        const [p, w] = await Promise.all([
+          sbGet<Program[]>(`programs?id=eq.${id}&select=*&limit=1`),
+          sbGet<Week[]>(
+            `program_weeks?select=*&program_id=eq.${id}&order=week_number.asc`
+          ),
+        ]);
+        if (cancelled) return;
+        if (p.length === 0) {
+          setError("Program not found");
+          setLoading(false);
+          return;
+        }
+        setProgram(p[0]);
+        setWeeks(w);
+        if (w.length > 0) {
+          const its = await sbGetAll<Item>(
+            `program_items?select=*&week_id=in.(${w
+              .map((x) => x.id)
+              .join(",")})&order=order_index.asc`
+          );
+          if (cancelled) return;
+          setItems(its);
+        }
+      } catch (e) {
+        if (!cancelled) setError(String(e));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
-  const saveProgram = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!program) return;
-    setSaving(true);
-    setError(null);
-    try {
-      await sbPatch(`programs?id=eq.${program.id}`, {
-        slug: program.slug,
-        title: program.title,
-        description: program.description,
-        type: program.type,
-        price_eur: program.price_eur,
-        billing_type: program.billing_type,
-        subscription_months: program.subscription_months,
-        duration_weeks: program.duration_weeks,
-        is_published: program.is_published,
-        is_archived: program.is_archived,
-        assigned_client_id: program.assigned_client_id,
-      });
-      setFlash("Program saved ✅");
-      setTimeout(() => setFlash(null), 2000);
+  const flagSaved = useCallback(() => {
+    setSaveState("saved");
+    if (savedTimer.current) window.clearTimeout(savedTimer.current);
+    savedTimer.current = window.setTimeout(() => setSaveState("idle"), 1500);
+  }, []);
 
-      // Auto-notify client if we just activated a 1:1 program
-      const wasHidden = initialState && (initialState.is_archived || !initialState.is_published);
-      const isNowActive = program.is_published && !program.is_archived;
-      if (
-        program.type === "custom" &&
-        program.assigned_client_id &&
-        wasHidden &&
-        isNowActive
-      ) {
-        const shouldSend = confirm(
-          "Program is now active for this client. Send the 'new program' email notification?"
-        );
-        if (shouldSend) {
-          setNotifying(true);
-          const r = await notifyProgramPublished(program.id);
-          setNotifying(false);
-          setFlash(r.ok ? "Client notified ✅" : `Email error: ${r.error}`);
-          setTimeout(() => setFlash(null), 3000);
-        }
+  const safeSave = useCallback(
+    async <T,>(fn: () => Promise<T>) => {
+      setSaveState("saving");
+      try {
+        const res = await fn();
+        flagSaved();
+        return res;
+      } catch (e) {
+        setSaveState("idle");
+        setError(String(e));
+        throw e;
       }
+    },
+    [flagSaved]
+  );
 
-      // Auto-cleanup form check videos when archiving
-      const wasActive = initialState && !initialState.is_archived;
-      const isNowArchived = program.is_archived;
-      if (wasActive && isNowArchived) {
-        const r = await cleanupArchivedVideos(program.id);
-        if (r.ok && r.deleted && r.deleted > 0) {
-          setFlash(`Archived ✅ · ${r.deleted} form check video${r.deleted > 1 ? "s" : ""} deleted`);
-          setTimeout(() => setFlash(null), 3000);
-        }
-      }
+  // ----- session navigation ----------------------------------------------
 
-      setInitialState({ is_archived: program.is_archived, is_published: program.is_published });
-    } catch (err) {
-      setError(String(err));
-    } finally {
-      setSaving(false);
+  const activeWeek = weeks[sessionIdx];
+  const sessionItems = useMemo(
+    () => (activeWeek ? items.filter((i) => i.week_id === activeWeek.id) : []),
+    [items, activeWeek]
+  );
+
+  const updateSessionTitle = async (value: string) => {
+    if (!activeWeek) return;
+    setWeeks((ws) =>
+      ws.map((w) => (w.id === activeWeek.id ? { ...w, title: value } : w))
+    );
+    await safeSave(() =>
+      sbPatch(`program_weeks?id=eq.${activeWeek.id}`, { title: value })
+    );
+  };
+
+  const goToSession = (idx: number) => {
+    setSearchParams({ session: String(idx + 1) }, { replace: true });
+  };
+
+  // ----- items: add / patch / delete -------------------------------------
+
+  const maxOrderIndex = useMemo(() => {
+    return sessionItems.reduce(
+      (max, it) => (it.order_index > max ? it.order_index : max),
+      0
+    );
+  }, [sessionItems]);
+
+  const addItem = async (
+    section: Section,
+    group_name: string | null,
+    overrides: Partial<Item> = {}
+  ) => {
+    if (!activeWeek) return;
+    const payload = {
+      week_id: activeWeek.id,
+      order_index: maxOrderIndex + 1,
+      custom_name: withSectionPrefix(section, ""),
+      sets: 3,
+      reps: "10",
+      rest_seconds: 60,
+      notes: null,
+      video_url: null,
+      group_name,
+      exercise_id: null,
+      ...overrides,
+    };
+    const [created] = await safeSave(() =>
+      sbPost<Item[]>("program_items", payload)
+    );
+    setItems((its) => [...its, created]);
+  };
+
+  const patchItem = async (id: string, patch: Partial<Item>) => {
+    setItems((its) =>
+      its.map((it) => (it.id === id ? { ...it, ...patch } : it))
+    );
+    await safeSave(() => sbPatch(`program_items?id=eq.${id}`, patch));
+  };
+
+  const deleteItem = async (id: string) => {
+    await safeSave(() => sbDelete(`program_items?id=eq.${id}`));
+    setItems((its) => its.filter((it) => it.id !== id));
+  };
+
+  // ----- "Add set" actions -----------------------------------------------
+
+  const addSet = async (section: Section, type: SetType) => {
+    const sets = buildSets(items, section);
+    const label = nextGroupLabel(type, sets);
+    if (type === "Single") {
+      await addItem(section, null);
+    } else {
+      // Create one starter item — the coach can add more rows after.
+      await addItem(section, label);
     }
   };
 
-  const notifyNow = async () => {
+  const addRowToSet = async (section: Section, set: UISet) => {
+    await addItem(section, set.group_name);
+  };
+
+  // ----- publish / unpublish --------------------------------------------
+
+  const togglePublish = async () => {
     if (!program) return;
-    if (!program.assigned_client_id) {
-      alert("This program has no assigned client.");
-      return;
-    }
-    if (!confirm("Send the 'new program' email to the assigned client?")) return;
-    setNotifying(true);
-    const r = await notifyProgramPublished(program.id);
-    setNotifying(false);
-    setFlash(r.ok ? "Client notified ✅" : `Email error: ${r.error}`);
-    setTimeout(() => setFlash(null), 3000);
+    const next = !program.is_published;
+    setProgram({ ...program, is_published: next });
+    await safeSave(() =>
+      sbPatch(`programs?id=eq.${program.id}`, { is_published: next })
+    );
   };
 
-  const addWeek = async () => {
-    if (!program) return;
-    const nextNum = weeks.length === 0 ? 1 : Math.max(...weeks.map((w) => w.week_number)) + 1;
-    try {
-      const created = await sbPost<Week[]>("program_weeks", {
-        program_id: program.id,
-        week_number: nextNum,
-        title: `Day ${nextNum}`,
-      });
-      setWeeks([...weeks, ...created]);
-    } catch (err) {
-      setError(String(err));
-    }
-  };
+  // ----- render ----------------------------------------------------------
 
-  const updateWeek = (wid: string, field: "title" | "notes", value: string) => {
-    setWeeks((ws) => ws.map((w) => (w.id === wid ? { ...w, [field]: value } : w)));
-  };
-
-  const saveWeek = async (w: Week) => {
-    try {
-      await sbPatch(`program_weeks?id=eq.${w.id}`, {
-        title: w.title,
-        notes: w.notes,
-      });
-      setFlash("Day saved ✅");
-      setTimeout(() => setFlash(null), 1500);
-    } catch (err) {
-      setError(String(err));
-    }
-  };
-
-  const deleteWeek = async (wid: string) => {
-    if (!confirm("Delete this day?")) return;
-    try {
-      await sbDelete(`program_weeks?id=eq.${wid}`);
-      setWeeks((ws) => ws.filter((w) => w.id !== wid));
-    } catch (err) {
-      setError(String(err));
-    }
-  };
-
-  const deleteProgram = async () => {
-    if (!program) return;
-    if (!confirm(`Permanently delete "${program.title}"?`)) return;
-    try {
-      await sbDelete(`programs?id=eq.${program.id}`);
-      // Custom blocks belong to a client — go back to that client's
-      // page. Catalogue programs (no assignee) → dashboard.
-      navigate(
-        program.assigned_client_id
-          ? `/app/admin/clients/${program.assigned_client_id}`
-          : "/app/home"
-      );
-    } catch (err) {
-      setError(String(err));
-    }
-  };
-
-  if (loading) return <div className="text-muted-foreground">Loading…</div>;
-  if (error && !program)
+  if (loading) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Loader2 size={16} className="animate-spin" /> Loading program…
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
         {error}
       </div>
     );
+  }
   if (!program) return null;
 
+  const isLast = sessionIdx === weeks.length - 1;
+  const isFirst = sessionIdx === 0;
+  const backHref = program.assigned_client_id
+    ? `/app/admin/clients/${program.assigned_client_id}`
+    : "/app/admin/programs";
+
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <Link
-          to={
-            program.assigned_client_id
-              ? `/app/admin/clients/${program.assigned_client_id}`
-              : "/app/home"
-          }
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft size={16} /> Back
-        </Link>
-        <Link
-          to={`/app/programs/${program.slug}`}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <Eye size={14} /> View as client
-        </Link>
+    <div className="space-y-4 max-w-5xl mx-auto pb-32">
+      <Link
+        to={backHref}
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft size={16} /> Back
+      </Link>
+
+      {/* ----- Header ----- */}
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+            Step 2 of 2 · Add exercises
+          </p>
+          <h1 className="font-heading text-2xl md:text-3xl font-bold mt-1">
+            {program.title}
+          </h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <SaveBadge state={saveState} />
+          <button
+            type="button"
+            onClick={togglePublish}
+            className={`text-xs font-semibold rounded-full px-3 py-1.5 border ${
+              program.is_published
+                ? "bg-green-50 border-green-200 text-green-700"
+                : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"
+            }`}
+            title="Toggle publish state"
+          >
+            {program.is_published ? "Published" : "Draft"}
+          </button>
+        </div>
       </div>
 
-      <h1 className="font-heading text-3xl md:text-4xl font-bold">{program.title}</h1>
+      {/* ----- Session tabs ----- */}
+      <div className="flex items-center gap-1 overflow-x-auto bg-muted/30 rounded-xl p-1 border border-border">
+        {weeks.map((w, idx) => (
+          <button
+            key={w.id}
+            type="button"
+            onClick={() => goToSession(idx)}
+            className={`shrink-0 text-xs font-semibold rounded-lg px-3 py-1.5 transition-colors ${
+              idx === sessionIdx
+                ? "bg-white border border-border shadow-sm text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {idx + 1}. {w.title || `Session ${idx + 1}`}
+          </button>
+        ))}
+      </div>
 
-      {flash && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700">
-          {flash}
-        </div>
-      )}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      {/* Program info */}
-      <form onSubmit={saveProgram} className="bg-white rounded-2xl border border-border p-6 space-y-5">
-        <h2 className="font-heading text-xl font-bold">Info</h2>
-
-        <div>
-          <label className="text-sm font-semibold mb-1 block">Title</label>
-          <Input value={program.title} onChange={(e) => setProgram({ ...program, title: e.target.value })} required />
-        </div>
-
-        <div>
-          <label className="text-sm font-semibold mb-1 block">Slug (URL)</label>
-          <Input value={program.slug} onChange={(e) => setProgram({ ...program, slug: e.target.value })} required />
-        </div>
-
-        <div>
-          <label className="text-sm font-semibold mb-1 block">Description</label>
-          <Textarea
-            value={program.description ?? ""}
-            onChange={(e) => setProgram({ ...program, description: e.target.value })}
-            rows={4}
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm font-semibold mb-1 block">Type</label>
-            <select
-              value={program.type}
-              onChange={(e) => setProgram({ ...program, type: e.target.value as "catalogue" | "custom" })}
-              className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm"
-            >
-              <option value="catalogue">Catalogue</option>
-              <option value="custom">1:1</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-sm font-semibold mb-1 block">Duration (weeks)</label>
+      {/* ----- Active session ----- */}
+      {activeWeek && (
+        <div className="space-y-5">
+          <div className="bg-white rounded-2xl border border-border p-4">
+            <label className="text-xs font-semibold text-muted-foreground uppercase">
+              Session name
+            </label>
             <Input
-              type="number"
-              min={1}
-              value={program.duration_weeks ?? ""}
+              value={activeWeek.title ?? ""}
               onChange={(e) =>
-                setProgram({
-                  ...program,
-                  duration_weeks: e.target.value ? Number(e.target.value) : null,
-                })
+                setWeeks((ws) =>
+                  ws.map((w) =>
+                    w.id === activeWeek.id ? { ...w, title: e.target.value } : w
+                  )
+                )
               }
+              onBlur={(e) => updateSessionTitle(e.target.value)}
+              className="mt-1 font-semibold"
+              placeholder="e.g. Push"
             />
           </div>
+
+          {(["WARMUP", "WORKOUT"] as Section[]).map((section) => (
+            <SectionBlock
+              key={section}
+              section={section}
+              items={sessionItems}
+              onAddSet={(type) => addSet(section, type)}
+              onAddRow={(set) => addRowToSet(section, set)}
+              onPatch={patchItem}
+              onDelete={deleteItem}
+            />
+          ))}
         </div>
+      )}
 
-        {program.type === "custom" && (
-          <div>
-            <label className="text-sm font-semibold mb-1 block">Assigned client</label>
-            <select
-              value={program.assigned_client_id ?? ""}
-              onChange={(e) =>
-                setProgram({
-                  ...program,
-                  assigned_client_id: e.target.value || null,
-                })
-              }
-              className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm"
-            >
-              <option value="">No client</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.first_name} {c.last_name} ({c.email})
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        <div className="flex items-center gap-2 bg-muted/40 border border-border rounded-lg p-3">
-          <input
-            type="checkbox"
-            id="paywall"
-            checked={Number(program.price_eur) > 0}
-            onChange={(e) =>
-              setProgram({ ...program, price_eur: e.target.checked ? (program.price_eur || 49) : 0 })
-            }
-          />
-          <label htmlFor="paywall" className="text-sm flex-1">
-            <b>Require payment to unlock</b>
-            <br />
-            <span className="text-xs text-muted-foreground">
-              If off, the client gets instant access (useful for pre-paid block packages).
-            </span>
-          </label>
-        </div>
-
-        {Number(program.price_eur) > 0 && (
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-semibold mb-1 block">Billing</label>
-              <select
-                value={program.billing_type}
-                onChange={(e) =>
-                  setProgram({ ...program, billing_type: e.target.value as "one_time" | "subscription" })
-                }
-                className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm"
-              >
-                <option value="one_time">One-time payment</option>
-                <option value="subscription">Monthly subscription</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-semibold mb-1 block">
-                Price (€){program.billing_type === "subscription" ? " / month" : ""}
-              </label>
-              <Input
-                type="number"
-                min={1}
-                value={program.price_eur}
-                onChange={(e) => setProgram({ ...program, price_eur: Number(e.target.value) })}
-                required
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="pub"
-            checked={program.is_published}
-            onChange={(e) => setProgram({ ...program, is_published: e.target.checked })}
-          />
-          <label htmlFor="pub" className="text-sm">
-            Published (visible to clients)
-          </label>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="arch"
-            checked={program.is_archived}
-            onChange={(e) => setProgram({ ...program, is_archived: e.target.checked })}
-          />
-          <label htmlFor="arch" className="text-sm">
-            Archived (free access in the client's "Archived" section)
-          </label>
-        </div>
-
-        <div className="flex gap-3 pt-2 flex-wrap">
-          <Button type="submit" disabled={saving} className="gap-2">
-            <Save size={16} /> {saving ? "Saving…" : "Save"}
+      {/* ----- Footer ----- */}
+      <div className="fixed bottom-4 left-4 right-4 z-30 max-w-5xl mx-auto bg-white border border-border rounded-2xl shadow-lg p-3 flex items-center justify-between gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => goToSession(sessionIdx - 1)}
+          disabled={isFirst}
+          className="gap-1"
+        >
+          <ChevronUp size={14} className="rotate-[-90deg]" /> Previous
+        </Button>
+        <p className="text-xs text-muted-foreground hidden sm:block">
+          Session {sessionIdx + 1} of {weeks.length}
+        </p>
+        {isLast ? (
+          <Button
+            type="button"
+            size="sm"
+            onClick={async () => {
+              if (!program.is_published) await togglePublish();
+              navigate(backHref);
+            }}
+            className="gap-1"
+          >
+            <Send size={14} /> {program.is_published ? "Done" : "Publish & finish"}
           </Button>
-          {program.type === "custom" && program.assigned_client_id && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={notifyNow}
-              disabled={notifying}
-              className="gap-2"
-            >
-              <Mail size={16} /> {notifying ? "Sending…" : "Notify client"}
-            </Button>
-          )}
-          <Button type="button" variant="outline" onClick={deleteProgram} className="gap-2 text-red-600 hover:bg-red-50">
-            <Trash2 size={16} /> Delete
-          </Button>
-        </div>
-      </form>
-
-      {/* Days */}
-      <div className="bg-white rounded-2xl border border-border p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-heading text-xl font-bold">Days</h2>
-          <Button variant="outline" onClick={addWeek} className="gap-2">
-            <Plus size={16} /> Add a day
-          </Button>
-        </div>
-
-        {weeks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No days yet. Click "Add a day" to get started.
-          </p>
         ) : (
-          <div className="space-y-4">
-            {weeks.map((w) => (
-              <div key={w.id} className="border border-border rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold">Day {w.week_number}</span>
-                  <button
-                    onClick={() => deleteWeek(w.id)}
-                    className="text-xs text-red-600 hover:underline inline-flex items-center gap-1"
-                  >
-                    <Trash2 size={12} /> Delete
-                  </button>
-                </div>
-                <Input
-                  value={w.title ?? ""}
-                  onChange={(e) => updateWeek(w.id, "title", e.target.value)}
-                  placeholder="Day title"
-                />
-                <Textarea
-                  value={w.notes ?? ""}
-                  onChange={(e) => updateWeek(w.id, "notes", e.target.value)}
-                  placeholder="Notes / goals for the day"
-                  rows={2}
-                />
-                <div>
-                  <Button size="sm" variant="outline" onClick={() => saveWeek(w)}>
-                    Save this day
-                  </Button>
-                </div>
-
-                <WeekExerciseEditor weekId={w.id} />
-              </div>
-            ))}
-          </div>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => goToSession(sessionIdx + 1)}
+            className="gap-1"
+          >
+            Next session <ChevronUp size={14} className="rotate-90" />
+          </Button>
         )}
       </div>
     </div>
+  );
+};
+
+// ============================================================ Section ==
+
+const SectionBlock = ({
+  section,
+  items,
+  onAddSet,
+  onAddRow,
+  onPatch,
+  onDelete,
+}: {
+  section: Section;
+  items: Item[];
+  onAddSet: (type: SetType) => void;
+  onAddRow: (set: UISet) => void;
+  onPatch: (id: string, patch: Partial<Item>) => void;
+  onDelete: (id: string) => void;
+}) => {
+  const sets = useMemo(() => buildSets(items, section), [items, section]);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  return (
+    <section className="bg-white rounded-2xl border border-border overflow-hidden">
+      <header
+        className={`px-4 py-2.5 border-b border-border flex items-center justify-between ${
+          section === "WARMUP" ? "bg-amber-50/60" : "bg-blue-50/60"
+        }`}
+      >
+        <h3 className="font-heading font-bold text-sm uppercase tracking-wide">
+          {SECTION_LABEL[section]}
+        </h3>
+        <span className="text-[10px] font-semibold text-muted-foreground bg-white border border-border rounded-full px-2 py-0.5">
+          {sets.length} set{sets.length === 1 ? "" : "s"}
+        </span>
+      </header>
+
+      <div className="p-4 space-y-3">
+        {sets.length === 0 && (
+          <p className="text-xs text-muted-foreground italic">
+            No {SECTION_LABEL[section].toLowerCase()} yet.
+          </p>
+        )}
+
+        {sets.map((set) => (
+          <SetCard
+            key={set.key}
+            set={set}
+            section={section}
+            onAddRow={() => onAddRow(set)}
+            onPatch={onPatch}
+            onDelete={onDelete}
+          />
+        ))}
+
+        <div className="relative">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setMenuOpen((v) => !v)}
+            className="gap-2 w-full"
+          >
+            <Plus size={14} /> Add a set
+          </Button>
+          {menuOpen && (
+            <div className="absolute z-10 mt-1 left-0 right-0 bg-white border border-border rounded-md shadow-lg overflow-hidden">
+              {(["Single", "Superset", "Drop set"] as SetType[]).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className="w-full text-left text-sm px-3 py-2 hover:bg-muted/60"
+                  onClick={() => {
+                    onAddSet(t);
+                    setMenuOpen(false);
+                  }}
+                >
+                  {t === "Single" && "Single exercise"}
+                  {t === "Superset" && "Superset (no rest between exercises)"}
+                  {t === "Drop set" && "Drop set (decreasing load)"}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// =========================================================== SetCard ===
+
+const SetCard = ({
+  set,
+  section,
+  onAddRow,
+  onPatch,
+  onDelete,
+}: {
+  set: UISet;
+  section: Section;
+  onAddRow: () => void;
+  onPatch: (id: string, patch: Partial<Item>) => void;
+  onDelete: (id: string) => void;
+}) => {
+  const isGroup = set.type !== "Single";
+
+  return (
+    <div
+      className={`rounded-lg border ${
+        isGroup ? "bg-muted/20 border-accent/30" : "bg-muted/10 border-border"
+      } p-3 space-y-2`}
+    >
+      {isGroup && (
+        <div className="flex items-center gap-2">
+          <Layers size={14} className="text-accent" />
+          <span className="text-xs font-bold text-accent uppercase tracking-wide">
+            {set.label}
+          </span>
+          <span className="text-[10px] text-muted-foreground">
+            ({set.items.length} exercise{set.items.length === 1 ? "" : "s"})
+          </span>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {set.items.map((it) => (
+          <ExerciseRow
+            key={it.id}
+            item={it}
+            section={section}
+            onPatch={(patch) => onPatch(it.id, patch)}
+            onDelete={() => onDelete(it.id)}
+          />
+        ))}
+      </div>
+
+      {isGroup && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onAddRow}
+          className="gap-2 w-full text-xs"
+        >
+          <Plus size={12} /> Add exercise to {set.label}
+        </Button>
+      )}
+    </div>
+  );
+};
+
+// ======================================================== ExerciseRow ==
+
+const ExerciseRow = ({
+  item,
+  section,
+  onPatch,
+  onDelete,
+}: {
+  item: Item;
+  section: Section;
+  onPatch: (patch: Partial<Item>) => void;
+  onDelete: () => void;
+}) => {
+  const parsed = useMemo(() => parseNotesFields(item.notes), [item.notes]);
+  const [tempo, setTempo] = useState(parsed.tempo);
+  const [load, setLoad] = useState(parsed.load);
+  const [comment, setComment] = useState(parsed.comment);
+
+  // Keep local state in sync when the item is replaced (e.g. another
+  // session loaded).
+  useEffect(() => {
+    setTempo(parsed.tempo);
+    setLoad(parsed.load);
+    setComment(parsed.comment);
+  }, [parsed.tempo, parsed.load, parsed.comment]);
+
+  const onPickExercise = (e: ExerciseSearchSelection) => {
+    onPatch({
+      custom_name: withSectionPrefix(section, e.name),
+      exercise_id: e.id,
+      video_url: e.video_url,
+    });
+  };
+
+  const onClearExercise = () => {
+    onPatch({
+      custom_name: withSectionPrefix(section, ""),
+      exercise_id: null,
+      video_url: null,
+    });
+  };
+
+  const commitNotes = (next: ParsedNotes) => {
+    const serialized = serializeNotes(next);
+    if (serialized !== item.notes) {
+      onPatch({ notes: serialized });
+    }
+  };
+
+  const exerciseName = stripPrefix(item.custom_name) || null;
+
+  return (
+    <div className="bg-white border border-border rounded-md p-2.5 space-y-2">
+      <div className="flex items-start gap-2">
+        <div className="flex-1">
+          <ExerciseSearchPopover
+            value={exerciseName}
+            placeholder="Search exercise…"
+            onSelect={onPickExercise}
+            onClear={onClearExercise}
+            size="sm"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="text-red-600 hover:bg-red-50 p-1.5 rounded shrink-0"
+          title="Remove exercise"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <FieldNum
+          label="Sets"
+          value={item.sets}
+          onCommit={(v) => onPatch({ sets: v })}
+        />
+        <FieldText
+          label="Reps"
+          value={item.reps ?? ""}
+          placeholder="8-12 or 30s"
+          onCommit={(v) => onPatch({ reps: v || null })}
+        />
+        <FieldText
+          label="Tempo"
+          value={tempo}
+          placeholder="0/3/0/1"
+          onChange={setTempo}
+          onCommit={(v) => commitNotes({ tempo: v, load, comment })}
+        />
+        <FieldText
+          label="Load"
+          value={load}
+          placeholder="BW · 20kg · Small band"
+          onChange={setLoad}
+          onCommit={(v) => commitNotes({ tempo, load: v, comment })}
+        />
+        <FieldNum
+          label="Rest (s)"
+          value={item.rest_seconds}
+          onCommit={(v) => onPatch({ rest_seconds: v })}
+        />
+      </div>
+
+      <div>
+        <label className="text-[10px] font-semibold text-muted-foreground uppercase">
+          Coach note <span className="opacity-50">(adds to the description)</span>
+        </label>
+        <Textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          onBlur={() => commitNotes({ tempo, load, comment })}
+          placeholder="Cue this client specifically — leave empty if the description is enough."
+          rows={2}
+          className="text-sm"
+        />
+      </div>
+    </div>
+  );
+};
+
+// ============================================================ Fields ==
+
+const FieldNum = ({
+  label,
+  value,
+  onCommit,
+}: {
+  label: string;
+  value: number | null;
+  onCommit: (v: number | null) => void;
+}) => {
+  const [draft, setDraft] = useState<string>(value == null ? "" : String(value));
+  useEffect(() => setDraft(value == null ? "" : String(value)), [value]);
+  return (
+    <div>
+      <label className="text-[10px] font-semibold text-muted-foreground uppercase">
+        {label}
+      </label>
+      <Input
+        type="number"
+        min={0}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          const next = draft === "" ? null : Number(draft);
+          if (next !== value) onCommit(next);
+        }}
+        className="h-8 text-sm"
+      />
+    </div>
+  );
+};
+
+const FieldText = ({
+  label,
+  value,
+  placeholder,
+  onChange,
+  onCommit,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  onChange?: (v: string) => void;
+  onCommit: (v: string) => void;
+}) => {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  return (
+    <div>
+      <label className="text-[10px] font-semibold text-muted-foreground uppercase">
+        {label}
+      </label>
+      <Input
+        value={draft}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          onChange?.(e.target.value);
+        }}
+        onBlur={() => {
+          if (draft !== value) onCommit(draft);
+        }}
+        placeholder={placeholder}
+        className="h-8 text-sm"
+      />
+    </div>
+  );
+};
+
+// ============================================================ Badge ==
+
+const SaveBadge = ({ state }: { state: "idle" | "saving" | "saved" }) => {
+  if (state === "idle") return null;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-[10px] font-semibold rounded-full px-2 py-1 ${
+        state === "saving"
+          ? "bg-muted text-muted-foreground"
+          : "bg-green-50 text-green-700"
+      }`}
+    >
+      {state === "saving" ? (
+        <>
+          <Loader2 size={10} className="animate-spin" /> Saving…
+        </>
+      ) : (
+        <>
+          <Save size={10} /> Saved
+        </>
+      )}
+    </span>
   );
 };
 

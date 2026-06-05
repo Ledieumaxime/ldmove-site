@@ -764,7 +764,7 @@ const AdminClientDetail = () => {
                   <Edit2 size={14} /> Edit current block
                 </Link>
                 <Link
-                  to="/app/admin/programs/new"
+                  to={`/app/admin/programs/new?client=${clientId}`}
                   className="inline-flex items-center gap-1.5 bg-white/10 text-white font-semibold rounded-full px-3 py-2 text-sm hover:bg-white/20"
                 >
                   <PlusCircle size={14} /> Build next block
@@ -801,7 +801,7 @@ const AdminClientDetail = () => {
                   : "Their last block is archived. Build the next one when you're ready."}
               </p>
               <Link
-                to="/app/admin/programs/new"
+                to={`/app/admin/programs/new?client=${clientId}`}
                 className="inline-flex items-center gap-2 bg-accent text-white font-semibold rounded-full px-4 py-2 text-sm hover:opacity-95"
               >
                 <PlusCircle size={14} /> Build a new block
