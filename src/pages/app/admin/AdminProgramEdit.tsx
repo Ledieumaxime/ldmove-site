@@ -562,7 +562,6 @@ const SectionBlock = ({
   onDelete: (id: string) => void;
 }) => {
   const sets = useMemo(() => buildSets(items, section), [items, section]);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <section className="bg-white rounded-2xl border border-border">
@@ -597,42 +596,37 @@ const SectionBlock = ({
           />
         ))}
 
-        <div className="relative">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
           <Button
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => setMenuOpen((v) => !v)}
-            className="gap-2 w-full"
+            onClick={() => onAddSet("Single")}
+            className="gap-2 justify-start"
+            title="Add a single exercise (no group)"
           >
-            <Plus size={14} /> Add a set
+            <Plus size={14} /> Single
           </Button>
-          {menuOpen && (
-            <>
-              {/* Backdrop to close on outside click. */}
-              <div
-                className="fixed inset-0 z-40"
-                onClick={() => setMenuOpen(false)}
-              />
-              <div className="absolute z-50 mt-1 left-0 right-0 bg-white border border-border rounded-md shadow-lg overflow-hidden">
-                {(["Single", "Superset", "Drop set"] as SetType[]).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    className="w-full text-left text-sm px-3 py-2 hover:bg-muted/60"
-                    onClick={() => {
-                      onAddSet(t);
-                      setMenuOpen(false);
-                    }}
-                  >
-                    {t === "Single" && "Single exercise"}
-                    {t === "Superset" && "Superset (no rest between exercises)"}
-                    {t === "Drop set" && "Drop set (decreasing load)"}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onAddSet("Superset")}
+            className="gap-2 justify-start"
+            title="Add a superset (group of exercises with no rest between them)"
+          >
+            <Plus size={14} /> Superset
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onAddSet("Drop set")}
+            className="gap-2 justify-start"
+            title="Add a drop set (group of exercises with decreasing load)"
+          >
+            <Plus size={14} /> Drop set
+          </Button>
         </div>
       </div>
     </section>
