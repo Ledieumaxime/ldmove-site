@@ -565,9 +565,9 @@ const SectionBlock = ({
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <section className="bg-white rounded-2xl border border-border overflow-hidden">
+    <section className="bg-white rounded-2xl border border-border">
       <header
-        className={`px-4 py-2.5 border-b border-border flex items-center justify-between ${
+        className={`px-4 py-2.5 border-b border-border flex items-center justify-between rounded-t-2xl ${
           section === "WARMUP" ? "bg-amber-50/60" : "bg-blue-50/60"
         }`}
       >
@@ -608,23 +608,30 @@ const SectionBlock = ({
             <Plus size={14} /> Add a set
           </Button>
           {menuOpen && (
-            <div className="absolute z-10 mt-1 left-0 right-0 bg-white border border-border rounded-md shadow-lg overflow-hidden">
-              {(["Single", "Superset", "Drop set"] as SetType[]).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className="w-full text-left text-sm px-3 py-2 hover:bg-muted/60"
-                  onClick={() => {
-                    onAddSet(t);
-                    setMenuOpen(false);
-                  }}
-                >
-                  {t === "Single" && "Single exercise"}
-                  {t === "Superset" && "Superset (no rest between exercises)"}
-                  {t === "Drop set" && "Drop set (decreasing load)"}
-                </button>
-              ))}
-            </div>
+            <>
+              {/* Backdrop to close on outside click. */}
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setMenuOpen(false)}
+              />
+              <div className="absolute z-50 mt-1 left-0 right-0 bg-white border border-border rounded-md shadow-lg overflow-hidden">
+                {(["Single", "Superset", "Drop set"] as SetType[]).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className="w-full text-left text-sm px-3 py-2 hover:bg-muted/60"
+                    onClick={() => {
+                      onAddSet(t);
+                      setMenuOpen(false);
+                    }}
+                  >
+                    {t === "Single" && "Single exercise"}
+                    {t === "Superset" && "Superset (no rest between exercises)"}
+                    {t === "Drop set" && "Drop set (decreasing load)"}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </div>
