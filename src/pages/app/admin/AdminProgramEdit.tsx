@@ -50,6 +50,7 @@ import { Textarea } from "@/components/ui/textarea";
 import ExerciseSearchPopover, {
   ExerciseSearchSelection,
 } from "@/components/ExerciseSearchPopover";
+import { WARMUP_TEMPLATES, WarmupTemplate } from "@/lib/warmupTemplates";
 
 type Program = {
   id: string;
@@ -377,6 +378,53 @@ const AdminProgramEdit = () => {
     await addItem(section, set.group_name);
   };
 
+  // Bulk-insert all exercises of a warm-up template into the active
+  // session's Warmup section, appending after any existing items.
+  // We hit the exercises table once with name=in.(...) to grab ids /
+  // video_url for all needed names in a single round-trip, then POST
+  // one batch of program_items.
+  const applyWarmupTemplate = async (template: WarmupTemplate) => {
+    if (!activeWeek) return;
+    const names = [...new Set(template.exercises.map((e) => e.name))];
+    // PostgREST's name=in.() needs each name URL-encoded + quoted.
+    const inList = names.map((n) => `"${n.replace(/"/g, '\\"')}"`).join(",");
+    const lib = await sbGet<
+      { id: string; name: string; video_url: string | null }[]
+    >(
+      `exercises?select=id,name,video_url&name=in.(${encodeURIComponent(
+        inList
+      )})&limit=2000`
+    );
+    const libByName = new Map(
+      lib.map((e) => [e.name.toLowerCase(), e])
+    );
+    const baseIdx = maxOrderIndex;
+    const payload = template.exercises.map((ex, i) => {
+      const hit = libByName.get(ex.name.toLowerCase());
+      // Build the notes column the same way ExerciseRow does.
+      const parts: string[] = [];
+      if (ex.tempo && ex.tempo.trim()) parts.push(`Tempo: ${ex.tempo.trim()}`);
+      if (ex.load && ex.load.trim()) parts.push(`Load: ${ex.load.trim()}`);
+      const notes = parts.length > 0 ? parts.join(" | ") : null;
+      return {
+        week_id: activeWeek.id,
+        order_index: baseIdx + i + 1,
+        custom_name: withSectionPrefix("WARMUP", ex.name),
+        sets: ex.sets,
+        reps: ex.reps,
+        rest_seconds: ex.rest_seconds,
+        notes,
+        video_url: hit?.video_url ?? null,
+        group_name: ex.group_name,
+        exercise_id: hit?.id ?? null,
+      };
+    });
+    const created = await safeSave(() =>
+      sbPost<Item[]>("program_items", payload)
+    );
+    setItems((its) => [...its, ...created]);
+  };
+
   // ----- publish / unpublish --------------------------------------------
 
   const togglePublish = async () => {
@@ -527,6 +575,9 @@ const AdminProgramEdit = () => {
               onAddRow={(set) => addRowToSet(section, set)}
               onPatch={patchItem}
               onDelete={deleteItem}
+              onUseTemplate={
+                section === "WARMUP" ? applyWarmupTemplate : undefined
+              }
             />
           ))}
         </div>
@@ -582,6 +633,7 @@ const SectionBlock = ({
   onAddRow,
   onPatch,
   onDelete,
+  onUseTemplate,
 }: {
   section: Section;
   items: Item[];
@@ -589,8 +641,11 @@ const SectionBlock = ({
   onAddRow: (set: UISet) => void;
   onPatch: (id: string, patch: Partial<Item>) => void;
   onDelete: (id: string) => void;
+  onUseTemplate?: (template: WarmupTemplate) => Promise<void>;
 }) => {
   const sets = useMemo(() => buildSets(items, section), [items, section]);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
 
   return (
     <section className="bg-white rounded-2xl border border-border">
@@ -599,12 +654,80 @@ const SectionBlock = ({
           section === "WARMUP" ? "bg-amber-50/60" : "bg-blue-50/60"
         }`}
       >
-        <h3 className="font-heading font-bold text-sm uppercase tracking-wide">
-          {SECTION_LABEL[section]}
-        </h3>
-        <span className="text-[10px] font-semibold text-muted-foreground bg-white border border-border rounded-full px-2 py-0.5">
-          {sets.length} set{sets.length === 1 ? "" : "s"}
-        </span>
+        <div className="flex items-center gap-2">
+          <h3 className="font-heading font-bold text-sm uppercase tracking-wide">
+            {SECTION_LABEL[section]}
+          </h3>
+          <span className="text-[10px] font-semibold text-muted-foreground bg-white border border-border rounded-full px-2 py-0.5">
+            {sets.length} set{sets.length === 1 ? "" : "s"}
+          </span>
+        </div>
+        {onUseTemplate && (
+          <div className="relative">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setTemplateOpen((v) => !v)}
+              disabled={applyingTemplate}
+              className="gap-1.5 h-8 bg-white"
+            >
+              {applyingTemplate ? (
+                <>
+                  <Loader2 size={12} className="animate-spin" /> Applying…
+                </>
+              ) : (
+                <>
+                  <Layers size={12} /> Use template
+                  <ChevronDown size={12} />
+                </>
+              )}
+            </Button>
+            {templateOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setTemplateOpen(false)}
+                />
+                <div className="absolute z-50 right-0 mt-1 w-72 max-h-80 overflow-y-auto bg-white border border-border rounded-xl shadow-lg">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-3 pt-2.5 pb-1">
+                    Pick a warm-up template
+                  </p>
+                  <ul>
+                    {WARMUP_TEMPLATES.map((t) => (
+                      <li
+                        key={t.id}
+                        className="border-t border-border first:border-t-0"
+                      >
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setTemplateOpen(false);
+                            setApplyingTemplate(true);
+                            try {
+                              await onUseTemplate(t);
+                            } finally {
+                              setApplyingTemplate(false);
+                            }
+                          }}
+                          className="w-full text-left px-3 py-2 hover:bg-muted/40"
+                        >
+                          <p className="text-sm font-semibold text-foreground">
+                            {t.name}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {t.exercises.length} exercise
+                            {t.exercises.length === 1 ? "" : "s"}
+                          </p>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </header>
 
       <div className="p-4 space-y-3">
