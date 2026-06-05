@@ -33,6 +33,8 @@ import ClientArchived from "./pages/app/ClientArchived";
 import ClientArchive from "./pages/app/ClientArchive";
 import AdminProgramNew from "./pages/app/admin/AdminProgramNew";
 import AdminProgramEdit from "./pages/app/admin/AdminProgramEdit";
+import AdminTemplates from "./pages/app/admin/AdminTemplates";
+import AdminTemplateEdit from "./pages/app/admin/AdminTemplateEdit";
 import AdminFormChecks from "./pages/app/admin/AdminFormChecks";
 import AdminClientIntake from "./pages/app/admin/AdminClientIntake";
 import AdminClientDetail from "./pages/app/admin/AdminClientDetail";
@@ -118,6 +120,22 @@ const App = () => (
                   element={
                     <ProtectedRoute requireRole="coach">
                       <AdminProgramEdit />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="admin/templates"
+                  element={
+                    <ProtectedRoute requireRole="coach">
+                      <AdminTemplates />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="admin/templates/:id/edit"
+                  element={
+                    <ProtectedRoute requireRole="coach">
+                      <AdminTemplateEdit />
                     </ProtectedRoute>
                   }
                 />

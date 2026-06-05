@@ -50,7 +50,23 @@ import { Textarea } from "@/components/ui/textarea";
 import ExerciseSearchPopover, {
   ExerciseSearchSelection,
 } from "@/components/ExerciseSearchPopover";
-import { WARMUP_TEMPLATES, WarmupTemplate } from "@/lib/warmupTemplates";
+
+type TemplateExercise = {
+  name: string;
+  sets: number | null;
+  reps: string | null;
+  tempo: string | null;
+  load: string | null;
+  rest_seconds: number | null;
+  group_name: string | null;
+};
+
+type TemplateRow = {
+  id: string;
+  type: "warmup" | "workout";
+  name: string;
+  exercises: TemplateExercise[];
+};
 
 type Program = {
   id: string;
@@ -378,15 +394,17 @@ const AdminProgramEdit = () => {
     await addItem(section, set.group_name);
   };
 
-  // Bulk-insert all exercises of a warm-up template into the active
-  // session's Warmup section, appending after any existing items.
-  // We hit the exercises table once with name=in.(...) to grab ids /
-  // video_url for all needed names in a single round-trip, then POST
-  // one batch of program_items.
-  const applyWarmupTemplate = async (template: WarmupTemplate) => {
+  // Bulk-insert all exercises of a template (warm-up or workout) into
+  // the active session's matching section, appending after any
+  // existing items. We hit the exercises table once with name=in.(...)
+  // to grab ids / video_url for all needed names in a single
+  // round-trip, then POST one batch of program_items.
+  const applyTemplate = async (
+    template: TemplateRow,
+    section: Section
+  ) => {
     if (!activeWeek) return;
     const names = [...new Set(template.exercises.map((e) => e.name))];
-    // PostgREST's name=in.() needs each name URL-encoded + quoted.
     const inList = names.map((n) => `"${n.replace(/"/g, '\\"')}"`).join(",");
     const lib = await sbGet<
       { id: string; name: string; video_url: string | null }[]
@@ -401,7 +419,6 @@ const AdminProgramEdit = () => {
     const baseIdx = maxOrderIndex;
     const payload = template.exercises.map((ex, i) => {
       const hit = libByName.get(ex.name.toLowerCase());
-      // Build the notes column the same way ExerciseRow does.
       const parts: string[] = [];
       if (ex.tempo && ex.tempo.trim()) parts.push(`Tempo: ${ex.tempo.trim()}`);
       if (ex.load && ex.load.trim()) parts.push(`Load: ${ex.load.trim()}`);
@@ -409,7 +426,7 @@ const AdminProgramEdit = () => {
       return {
         week_id: activeWeek.id,
         order_index: baseIdx + i + 1,
-        custom_name: withSectionPrefix("WARMUP", ex.name),
+        custom_name: withSectionPrefix(section, ex.name),
         sets: ex.sets,
         reps: ex.reps,
         rest_seconds: ex.rest_seconds,
@@ -575,9 +592,7 @@ const AdminProgramEdit = () => {
               onAddRow={(set) => addRowToSet(section, set)}
               onPatch={patchItem}
               onDelete={deleteItem}
-              onUseTemplate={
-                section === "WARMUP" ? applyWarmupTemplate : undefined
-              }
+              onUseTemplate={(t) => applyTemplate(t, section)}
             />
           ))}
         </div>
@@ -641,11 +656,27 @@ const SectionBlock = ({
   onAddRow: (set: UISet) => void;
   onPatch: (id: string, patch: Partial<Item>) => void;
   onDelete: (id: string) => void;
-  onUseTemplate?: (template: WarmupTemplate) => Promise<void>;
+  onUseTemplate?: (template: TemplateRow) => Promise<void>;
 }) => {
   const sets = useMemo(() => buildSets(items, section), [items, section]);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [applyingTemplate, setApplyingTemplate] = useState(false);
+  const [templates, setTemplates] = useState<TemplateRow[]>([]);
+  const [templatesLoaded, setTemplatesLoaded] = useState(false);
+  const wantedType: "warmup" | "workout" =
+    section === "WARMUP" ? "warmup" : "workout";
+
+  // Fetch the templates on first open of the picker so we don't pull
+  // them on every editor mount.
+  useEffect(() => {
+    if (!templateOpen || templatesLoaded) return;
+    sbGet<TemplateRow[]>(
+      `templates?select=id,type,name,exercises&type=eq.${wantedType}&order=name.asc&limit=500`
+    )
+      .then(setTemplates)
+      .catch(() => setTemplates([]))
+      .finally(() => setTemplatesLoaded(true));
+  }, [templateOpen, templatesLoaded, wantedType]);
 
   return (
     <section className="bg-white rounded-2xl border border-border">
@@ -691,10 +722,26 @@ const SectionBlock = ({
                 />
                 <div className="absolute z-50 right-0 mt-1 w-72 max-h-80 overflow-y-auto bg-white border border-border rounded-xl shadow-lg">
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-3 pt-2.5 pb-1">
-                    Pick a warm-up template
+                    Pick a {wantedType === "warmup" ? "warm-up" : "workout"} template
                   </p>
+                  {!templatesLoaded ? (
+                    <p className="text-xs text-muted-foreground px-3 py-2">
+                      Loading…
+                    </p>
+                  ) : templates.length === 0 ? (
+                    <p className="text-xs text-muted-foreground px-3 py-2">
+                      No template yet. Create one from{" "}
+                      <a
+                        href="/app/admin/templates"
+                        className="text-accent underline"
+                      >
+                        Templates
+                      </a>
+                      .
+                    </p>
+                  ) : null}
                   <ul>
-                    {WARMUP_TEMPLATES.map((t) => (
+                    {templates.map((t) => (
                       <li
                         key={t.id}
                         className="border-t border-border first:border-t-0"
