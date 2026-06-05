@@ -129,28 +129,54 @@ const AdminProgramNew = () => {
     setError(null);
     setSaving(true);
     try {
-      // 1. Create the program shell.
-      const [created] = await sbPost<{ id: string; slug: string }[]>(
-        "programs",
-        {
-          slug,
-          title,
-          description: description.trim() || null,
-          type: assignedClientId ? "custom" : "catalogue",
-          assigned_client_id: assignedClientId,
-          duration_weeks: durationWeeks,
-          price_eur: requirePayment ? priceEur : 0,
-          billing_type: requirePayment ? billingType : "one_time",
-          subscription_months:
-            requirePayment &&
-            billingType === "subscription" &&
-            subscriptionMonths !== ""
-              ? Number(subscriptionMonths)
-              : null,
-          is_published: publishNow,
-          is_archived: false,
+      // Try the chosen slug first; on a 23505 (unique constraint) we
+      // retry with -2, -3, … so the coach never has to hand-deduplicate.
+      const basePayload = {
+        title,
+        description: description.trim() || null,
+        type: (assignedClientId ? "custom" : "catalogue") as
+          | "custom"
+          | "catalogue",
+        assigned_client_id: assignedClientId,
+        duration_weeks: durationWeeks,
+        price_eur: requirePayment ? priceEur : 0,
+        billing_type: (requirePayment ? billingType : "one_time") as
+          | "one_time"
+          | "subscription",
+        subscription_months:
+          requirePayment &&
+          billingType === "subscription" &&
+          subscriptionMonths !== ""
+            ? Number(subscriptionMonths)
+            : null,
+        is_published: publishNow,
+        is_archived: false,
+      };
+      let attemptSlug = slug;
+      let created: { id: string; slug: string } | null = null;
+      for (let attempt = 1; attempt <= 25; attempt++) {
+        try {
+          const [row] = await sbPost<{ id: string; slug: string }[]>(
+            "programs",
+            { ...basePayload, slug: attemptSlug }
+          );
+          created = row;
+          break;
+        } catch (err) {
+          const msg = String(err);
+          if (msg.includes("23505") || /duplicate key/i.test(msg)) {
+            attempt += 1;
+            attemptSlug = `${slug}-${attempt}`;
+            continue;
+          }
+          throw err;
         }
-      );
+      }
+      if (!created) {
+        throw new Error(
+          "Could not pick a free slug after 25 attempts. Edit the slug field and try again."
+        );
+      }
 
       // 2. Create one empty week per session, preserving order.
       const weeks = sessions.map((sessionTitle, idx) => ({
