@@ -431,22 +431,52 @@ const AdminProgramEdit = () => {
             {program.title}
           </h1>
         </div>
-        <div className="flex items-center gap-2">
-          <SaveBadge state={saveState} />
-          <button
-            type="button"
-            onClick={togglePublish}
-            className={`text-xs font-semibold rounded-full px-3 py-1.5 border ${
-              program.is_published
-                ? "bg-green-50 border-green-200 text-green-700"
-                : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"
-            }`}
-            title="Toggle publish state"
-          >
-            {program.is_published ? "Published" : "Draft"}
-          </button>
-        </div>
+        <SaveBadge state={saveState} />
       </div>
+
+      {/* ----- Publish state banner ----- */}
+      {program.is_published ? (
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <p className="text-sm font-bold text-green-800">
+              ✓ Published — visible to the client
+            </p>
+            <p className="text-xs text-green-700/80">
+              Switch back to draft if you need to keep editing without the
+              client seeing changes.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={togglePublish}
+            className="border-green-300 text-green-800 hover:bg-green-100"
+          >
+            Switch to draft
+          </Button>
+        </div>
+      ) : (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <p className="text-sm font-bold text-amber-900">
+              Draft — hidden from the client
+            </p>
+            <p className="text-xs text-amber-800/80">
+              The client doesn't see this program. Click "Publish" when you've
+              finished filling all the sessions.
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            onClick={togglePublish}
+            className="gap-1.5 bg-amber-900 hover:bg-amber-950 text-white"
+          >
+            <Send size={14} /> Publish now
+          </Button>
+        </div>
+      )}
 
       {/* ----- Session tabs ----- */}
       <div className="flex items-center gap-1 overflow-x-auto bg-muted/30 rounded-xl p-1 border border-border">
@@ -521,13 +551,12 @@ const AdminProgramEdit = () => {
           <Button
             type="button"
             size="sm"
-            onClick={async () => {
-              if (!program.is_published) await togglePublish();
-              navigate(backHref);
-            }}
+            variant="outline"
+            onClick={() => navigate(backHref)}
             className="gap-1"
+            title="Save and exit (the program stays in its current state — draft or published)"
           >
-            <Send size={14} /> {program.is_published ? "Done" : "Publish & finish"}
+            Done
           </Button>
         ) : (
           <Button
