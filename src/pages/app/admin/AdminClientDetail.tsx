@@ -769,6 +769,12 @@ const AdminClientDetail = () => {
                 >
                   <PlusCircle size={14} /> Build next block
                 </Link>
+                <DraftBlockButton
+                  drafts={programs.filter(
+                    (p) => !p.is_published && !p.is_archived
+                  )}
+                  variant="onDark"
+                />
                 <Link
                   to={`/app/programs/${currentProgram.slug}`}
                   className="inline-flex items-center gap-1.5 text-white/70 font-semibold rounded-full px-3 py-2 text-sm hover:text-white"
@@ -800,42 +806,23 @@ const AdminClientDetail = () => {
                   ? "This client doesn't have any program yet."
                   : "Their last block is archived. Build the next one when you're ready."}
               </p>
-              <Link
-                to={`/app/admin/programs/new?client=${clientId}`}
-                className="inline-flex items-center gap-2 bg-accent text-white font-semibold rounded-full px-4 py-2 text-sm hover:opacity-95"
-              >
-                <PlusCircle size={14} /> Build a new block
-              </Link>
+              <div className="flex items-center gap-2 justify-center flex-wrap">
+                <Link
+                  to={`/app/admin/programs/new?client=${clientId}`}
+                  className="inline-flex items-center gap-2 bg-accent text-white font-semibold rounded-full px-4 py-2 text-sm hover:opacity-95"
+                >
+                  <PlusCircle size={14} /> Build a new block
+                </Link>
+                <DraftBlockButton
+                  drafts={programs.filter(
+                    (p) => !p.is_published && !p.is_archived
+                  )}
+                  variant="onLight"
+                />
+              </div>
             </section>
           )}
 
-          {/* In-progress drafts — programs the coach started but hasn't
-              published yet. Surfaced so half-built blocks don't get lost. */}
-          {programs.filter((p) => !p.is_published && !p.is_archived).length > 0 && (
-            <section className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
-              <h2 className="font-heading text-sm font-bold uppercase tracking-wide text-amber-900 mb-2">
-                Drafts in progress
-              </h2>
-              <ul className="space-y-1.5">
-                {programs
-                  .filter((p) => !p.is_published && !p.is_archived)
-                  .map((p) => (
-                    <li
-                      key={p.id}
-                      className="flex items-center justify-between gap-2 bg-white rounded-lg px-3 py-2 border border-amber-100"
-                    >
-                      <span className="text-sm font-semibold">{p.title}</span>
-                      <Link
-                        to={`/app/admin/programs/${p.id}/edit`}
-                        className="text-xs font-semibold text-accent hover:underline"
-                      >
-                        Resume editing →
-                      </Link>
-                    </li>
-                  ))}
-              </ul>
-            </section>
-          )}
 
           {/* Recent training */}
           <section className="bg-white rounded-2xl border border-border p-5">
@@ -1257,6 +1244,70 @@ const TimelineIcon = ({
   return (
     <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0">
       <CheckCircle2 size={14} className="text-green-700" />
+    </div>
+  );
+};
+
+// Compact button + popover listing drafts in progress for the current
+// client. Lives next to "Build next block" so the coach can resume an
+// unfinished bloc without leaving the page.
+const DraftBlockButton = ({
+  drafts,
+  variant,
+}: {
+  drafts: Program[];
+  variant: "onDark" | "onLight";
+}) => {
+  const [open, setOpen] = useState(false);
+
+  if (drafts.length === 0) return null;
+
+  const triggerClass =
+    variant === "onDark"
+      ? "bg-white/10 text-white hover:bg-white/20"
+      : "bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-200";
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`inline-flex items-center gap-1.5 font-semibold rounded-full px-3 py-2 text-sm ${triggerClass}`}
+      >
+        <Edit2 size={14} /> Draft block ({drafts.length})
+        <ChevronDown size={12} />
+      </button>
+      {open && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setOpen(false)}
+          />
+          <div className="absolute z-50 left-0 mt-1 min-w-[260px] bg-white border border-border rounded-xl shadow-lg overflow-hidden">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-3 pt-2.5">
+              In progress
+            </p>
+            <ul>
+              {drafts.map((p) => (
+                <li key={p.id} className="border-t border-border first:border-t-0">
+                  <Link
+                    to={`/app/admin/programs/${p.id}/edit`}
+                    onClick={() => setOpen(false)}
+                    className="block px-3 py-2.5 hover:bg-muted/40"
+                  >
+                    <p className="text-sm font-semibold text-foreground truncate">
+                      {p.title}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Resume editing →
+                    </p>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>
+      )}
     </div>
   );
 };
