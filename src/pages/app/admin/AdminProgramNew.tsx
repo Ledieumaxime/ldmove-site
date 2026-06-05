@@ -66,7 +66,11 @@ const AdminProgramNew = () => {
   const [priceEur, setPriceEur] = useState(49);
   const [subscriptionMonths, setSubscriptionMonths] = useState<number | "">("");
 
-  const [publishNow, setPublishNow] = useState(true);
+  // Newly created programs always start as drafts so the client doesn't
+  // see a half-built block while the coach is still adding exercises.
+  // Publication is an explicit action on the editor page once the work
+  // is done.
+  const [publishNow] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -458,24 +462,15 @@ const AdminProgramNew = () => {
           )}
         </section>
 
-        {/* --- Publish --- */}
-        <section className="bg-white rounded-2xl border border-border p-5 md:p-6">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={publishNow}
-              onChange={(e) => setPublishNow(e.target.checked)}
-              className="mt-0.5"
-            />
-            <div className="flex-1">
-              <p className="text-sm font-semibold">Publish immediately</p>
-              <p className="text-xs text-muted-foreground">
-                On = the client can see this program right now. Off = saved as
-                draft.
-              </p>
-            </div>
-          </label>
-        </section>
+        {/* --- Draft notice --- */}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-900">
+          <p className="font-semibold">Saved as draft</p>
+          <p className="text-xs opacity-80">
+            The program is hidden from the client while you fill in the
+            exercises. You'll publish it explicitly on the next page when
+            you're done.
+          </p>
+        </div>
 
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">

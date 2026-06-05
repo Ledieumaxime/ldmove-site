@@ -809,6 +809,34 @@ const AdminClientDetail = () => {
             </section>
           )}
 
+          {/* In-progress drafts — programs the coach started but hasn't
+              published yet. Surfaced so half-built blocks don't get lost. */}
+          {programs.filter((p) => !p.is_published && !p.is_archived).length > 0 && (
+            <section className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+              <h2 className="font-heading text-sm font-bold uppercase tracking-wide text-amber-900 mb-2">
+                Drafts in progress
+              </h2>
+              <ul className="space-y-1.5">
+                {programs
+                  .filter((p) => !p.is_published && !p.is_archived)
+                  .map((p) => (
+                    <li
+                      key={p.id}
+                      className="flex items-center justify-between gap-2 bg-white rounded-lg px-3 py-2 border border-amber-100"
+                    >
+                      <span className="text-sm font-semibold">{p.title}</span>
+                      <Link
+                        to={`/app/admin/programs/${p.id}/edit`}
+                        className="text-xs font-semibold text-accent hover:underline"
+                      >
+                        Resume editing →
+                      </Link>
+                    </li>
+                  ))}
+              </ul>
+            </section>
+          )}
+
           {/* Recent training */}
           <section className="bg-white rounded-2xl border border-border p-5">
             <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
