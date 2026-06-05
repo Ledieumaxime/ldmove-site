@@ -107,6 +107,7 @@ const AdminClientIntake = () => {
   const [assessments, setAssessments] = useState<Record<string, LevelAssessment>>({});
   const [dirty, setDirty] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [markingReviewed, setMarkingReviewed] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [locking, setLocking] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -187,6 +188,55 @@ const AdminClientIntake = () => {
     });
     setDirty((prev) => new Set(prev).add(fieldName));
     setSaveMsg(null);
+  };
+
+  // Insert a placeholder row so the dashboard stops flagging this client
+  // as "assessment pending". Used when the coach has watched the videos
+  // and is OK with everything without needing to override any field.
+  const markAsReviewed = async () => {
+    if (!client) return;
+    setMarkingReviewed(true);
+    setSaveMsg(null);
+    try {
+      const token = getToken();
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/client_level_assessments?on_conflict=client_id,field_name`,
+        {
+          method: "POST",
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Prefer: "resolution=merge-duplicates,return=minimal",
+          },
+          body: JSON.stringify([
+            {
+              client_id: client.id,
+              field_name: "_reviewed",
+              status: null,
+              actual_value: null,
+              notes: null,
+            },
+          ]),
+        }
+      );
+      if (!res.ok) throw new Error(await res.text());
+      // Reflect locally so the button flips to "Reviewed ✓".
+      setAssessments((prev) => ({
+        ...prev,
+        _reviewed: {
+          field_name: "_reviewed",
+          status: null,
+          actual_value: null,
+          notes: null,
+        },
+      }));
+      setSaveMsg("Marked as reviewed. The dashboard notification is now cleared.");
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setMarkingReviewed(false);
+    }
   };
 
   const lockOnboarding = async () => {
@@ -435,6 +485,31 @@ const AdminClientIntake = () => {
                     )}
                     {saving ? "Saving…" : "Save"}
                   </Button>
+                  {Object.keys(assessments).length === 0 && (
+                    <Button
+                      variant="secondary"
+                      onClick={markAsReviewed}
+                      disabled={markingReviewed || dirty.size > 0}
+                      className="gap-2"
+                      title={
+                        dirty.size > 0
+                          ? "Save your review changes first"
+                          : "Clear the dashboard notification without overriding any field"
+                      }
+                    >
+                      {markingReviewed ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <CheckCircle2 size={16} />
+                      )}
+                      {markingReviewed ? "Marking…" : "Mark as reviewed"}
+                    </Button>
+                  )}
+                  {Object.keys(assessments).length > 0 && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-1">
+                      <CheckCircle2 size={12} /> Reviewed
+                    </span>
+                  )}
                   <Button
                     variant="outline"
                     onClick={lockOnboarding}
