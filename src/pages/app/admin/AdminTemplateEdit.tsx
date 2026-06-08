@@ -397,12 +397,34 @@ const TemplateSetCard = ({
     setGroupSetsDraft(groupSets == null ? "" : String(groupSets));
   }, [groupSets]);
 
+  const groupRestSource = isGroup
+    ? set.itemIdx.find((i) => exercises[i]?.rest_seconds != null)
+    : undefined;
+  const groupRest =
+    groupRestSource !== undefined
+      ? exercises[groupRestSource].rest_seconds
+      : null;
+  const [groupRestDraft, setGroupRestDraft] = useState<string>(
+    groupRest == null ? "" : String(groupRest)
+  );
+  useEffect(() => {
+    setGroupRestDraft(groupRest == null ? "" : String(groupRest));
+  }, [groupRest]);
+
   const commitGroupSets = () => {
     const next = groupSetsDraft === "" ? null : Number(groupSetsDraft);
     if (next === groupSets) return;
-    // Mirror the rounds count onto every exercise in the group.
     for (const i of set.itemIdx) {
       if (exercises[i]?.sets !== next) onUpdate(i, { sets: next });
+    }
+  };
+
+  const commitGroupRest = () => {
+    const next = groupRestDraft === "" ? null : Number(groupRestDraft);
+    if (next === groupRest) return;
+    for (const i of set.itemIdx) {
+      if (exercises[i]?.rest_seconds !== next)
+        onUpdate(i, { rest_seconds: next });
     }
   };
 
@@ -424,19 +446,35 @@ const TemplateSetCard = ({
               {set.itemIdx.length === 1 ? "" : "s"})
             </span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase">
-              Rounds
-            </label>
-            <Input
-              type="number"
-              min={0}
-              value={groupSetsDraft}
-              onChange={(e) => setGroupSetsDraft(e.target.value)}
-              onBlur={commitGroupSets}
-              className="h-7 w-16 text-sm"
-              placeholder="3"
-            />
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase">
+                Rounds
+              </label>
+              <Input
+                type="number"
+                min={0}
+                value={groupSetsDraft}
+                onChange={(e) => setGroupSetsDraft(e.target.value)}
+                onBlur={commitGroupSets}
+                className="h-7 w-16 text-sm"
+                placeholder="3"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase">
+                Rest (s)
+              </label>
+              <Input
+                type="number"
+                min={0}
+                value={groupRestDraft}
+                onChange={(e) => setGroupRestDraft(e.target.value)}
+                onBlur={commitGroupRest}
+                className="h-7 w-16 text-sm"
+                placeholder="90"
+              />
+            </div>
           </div>
         </div>
       )}
@@ -448,6 +486,7 @@ const TemplateSetCard = ({
             idx={i}
             exercise={exercises[i]}
             hideSetsField={isGroup}
+            hideRestField={isGroup}
             onPatch={(patch) => onUpdate(i, patch)}
             onDelete={() => onDelete(i)}
           />
@@ -472,6 +511,7 @@ const TemplateSetCard = ({
 const TemplateExerciseRow = ({
   exercise,
   hideSetsField = false,
+  hideRestField = false,
   onPatch,
   onDelete,
 }: {
@@ -480,6 +520,9 @@ const TemplateExerciseRow = ({
   /** When true, omit the per-row Sets input — used inside Superset /
    *  Drop set groups whose rounds count lives at the group level. */
   hideSetsField?: boolean;
+  /** When true, omit the per-row Rest input — used inside Superset /
+   *  Drop set groups whose inter-round rest lives at the group level. */
+  hideRestField?: boolean;
   onPatch: (patch: Partial<TemplateExercise>) => void;
   onDelete: () => void;
 }) => {
@@ -599,9 +642,11 @@ const TemplateExerciseRow = ({
 
       <div
         className={`grid gap-2 ${
-          hideSetsField
-            ? "grid-cols-2 md:grid-cols-4"
-            : "grid-cols-2 md:grid-cols-5"
+          hideSetsField && hideRestField
+            ? "grid-cols-2 md:grid-cols-3"
+            : hideSetsField || hideRestField
+              ? "grid-cols-2 md:grid-cols-4"
+              : "grid-cols-2 md:grid-cols-5"
         }`}
       >
         {!hideSetsField && (
@@ -637,16 +682,18 @@ const TemplateExerciseRow = ({
           onCommit={() => onPatch({ load: draftLoad || null })}
           placeholder="BW · 20kg · Band"
         />
-        <NumField
-          label="Rest (s)"
-          draft={draftRest}
-          setDraft={setDraftRest}
-          onCommit={() =>
-            onPatch({
-              rest_seconds: draftRest === "" ? null : Number(draftRest),
-            })
-          }
-        />
+        {!hideRestField && (
+          <NumField
+            label="Rest (s)"
+            draft={draftRest}
+            setDraft={setDraftRest}
+            onCommit={() =>
+              onPatch({
+                rest_seconds: draftRest === "" ? null : Number(draftRest),
+              })
+            }
+          />
+        )}
       </div>
     </div>
   );

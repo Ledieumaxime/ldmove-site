@@ -859,11 +859,11 @@ const SetCard = ({
   onDelete: (id: string) => void;
 }) => {
   const isGroup = set.type !== "Single";
-  // For supersets and drop sets, the "number of sets" applies to the
-  // whole group (you do N rounds of exo1 + exo2 + …) so we lift the
-  // Sets field out of each row and put one at the top of the card.
-  // We seed it from the first item that has a value to stay robust to
-  // half-filled groups while editing.
+  // For supersets and drop sets, both the rounds count and the rest
+  // between rounds belong to the whole group, not to each exercise.
+  // We expose them at the SetCard header and mirror the value back
+  // onto every item so the read-side (and any future export) sees a
+  // consistent superset.
   const groupSetsSource = set.items.find((i) => i.sets != null);
   const groupSets = groupSetsSource?.sets ?? null;
   const [groupSetsDraft, setGroupSetsDraft] = useState<string>(
@@ -873,13 +873,28 @@ const SetCard = ({
     setGroupSetsDraft(groupSets == null ? "" : String(groupSets));
   }, [groupSets]);
 
+  const groupRestSource = set.items.find((i) => i.rest_seconds != null);
+  const groupRest = groupRestSource?.rest_seconds ?? null;
+  const [groupRestDraft, setGroupRestDraft] = useState<string>(
+    groupRest == null ? "" : String(groupRest)
+  );
+  useEffect(() => {
+    setGroupRestDraft(groupRest == null ? "" : String(groupRest));
+  }, [groupRest]);
+
   const commitGroupSets = () => {
     const next = groupSetsDraft === "" ? null : Number(groupSetsDraft);
     if (next === groupSets) return;
-    // Push the same value to every item in the group so the read-side
-    // (and any future export) sees a consistent superset.
     for (const it of set.items) {
       if (it.sets !== next) onPatch(it.id, { sets: next });
+    }
+  };
+
+  const commitGroupRest = () => {
+    const next = groupRestDraft === "" ? null : Number(groupRestDraft);
+    if (next === groupRest) return;
+    for (const it of set.items) {
+      if (it.rest_seconds !== next) onPatch(it.id, { rest_seconds: next });
     }
   };
 
@@ -900,19 +915,35 @@ const SetCard = ({
               ({set.items.length} exercise{set.items.length === 1 ? "" : "s"})
             </span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase">
-              Rounds
-            </label>
-            <Input
-              type="number"
-              min={0}
-              value={groupSetsDraft}
-              onChange={(e) => setGroupSetsDraft(e.target.value)}
-              onBlur={commitGroupSets}
-              className="h-7 w-16 text-sm"
-              placeholder="3"
-            />
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase">
+                Rounds
+              </label>
+              <Input
+                type="number"
+                min={0}
+                value={groupSetsDraft}
+                onChange={(e) => setGroupSetsDraft(e.target.value)}
+                onBlur={commitGroupSets}
+                className="h-7 w-16 text-sm"
+                placeholder="3"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase">
+                Rest (s)
+              </label>
+              <Input
+                type="number"
+                min={0}
+                value={groupRestDraft}
+                onChange={(e) => setGroupRestDraft(e.target.value)}
+                onBlur={commitGroupRest}
+                className="h-7 w-16 text-sm"
+                placeholder="90"
+              />
+            </div>
           </div>
         </div>
       )}
@@ -924,6 +955,7 @@ const SetCard = ({
             item={it}
             section={section}
             hideSetsField={isGroup}
+            hideRestField={isGroup}
             onPatch={(patch) => onPatch(it.id, patch)}
             onDelete={() => onDelete(it.id)}
           />
@@ -951,6 +983,7 @@ const ExerciseRow = ({
   item,
   section,
   hideSetsField = false,
+  hideRestField = false,
   onPatch,
   onDelete,
 }: {
@@ -960,6 +993,10 @@ const ExerciseRow = ({
    *  groups where the rounds count is shared and shown at the group
    *  level instead. */
   hideSetsField?: boolean;
+  /** Hide the per-row Rest field. Used inside Superset / Drop set
+   *  groups where the inter-round rest is shared and shown at the
+   *  group level instead. */
+  hideRestField?: boolean;
   onPatch: (patch: Partial<Item>) => void;
   onDelete: () => void;
 }) => {
@@ -1097,10 +1134,12 @@ const ExerciseRow = ({
       </div>
 
       <div
-        className={`grid gap-2 ${
-          hideSetsField
-            ? "grid-cols-2 md:grid-cols-4"
-            : "grid-cols-2 md:grid-cols-5"
+        className={`grid gap-2 grid-cols-2 ${
+          hideSetsField && hideRestField
+            ? "md:grid-cols-3"
+            : hideSetsField || hideRestField
+              ? "md:grid-cols-4"
+              : "md:grid-cols-5"
         }`}
       >
         {!hideSetsField && (
@@ -1130,11 +1169,13 @@ const ExerciseRow = ({
           onChange={setLoad}
           onCommit={(v) => commitNotes({ tempo, load: v, comment })}
         />
-        <FieldNum
-          label="Rest (s)"
-          value={item.rest_seconds}
-          onCommit={(v) => onPatch({ rest_seconds: v })}
-        />
+        {!hideRestField && (
+          <FieldNum
+            label="Rest (s)"
+            value={item.rest_seconds}
+            onCommit={(v) => onPatch({ rest_seconds: v })}
+          />
+        )}
       </div>
 
       <div>
