@@ -31,6 +31,7 @@ import {
   ChevronDown,
   ChevronUp,
   Copy,
+  Eye,
   Layers,
   Loader2,
   Plus,
@@ -336,6 +337,70 @@ const AdminProgramEdit = () => {
     setSearchParams({ session: String(idx + 1) }, { replace: true });
   };
 
+  // Delete the active session and every item inside it. The neighbour
+  // weeks are renumbered so week_number stays a contiguous 1..N
+  // sequence (avoids gaps that would make the tab labels confusing).
+  // We then land the coach on the previous session if there's one, or
+  // the first remaining session otherwise.
+  const deleteCurrentSession = async () => {
+    if (!activeWeek || !program) return;
+    const sessionLabel =
+      activeWeek.title || `Session ${activeWeek.week_number}`;
+    const sessionItemsCount = items.filter(
+      (i) => i.week_id === activeWeek.id
+    ).length;
+    if (
+      !confirm(
+        `Delete "${sessionLabel}"?\n\n${sessionItemsCount} exercise${
+          sessionItemsCount === 1 ? "" : "s"
+        } will be removed. This cannot be undone.`
+      )
+    )
+      return;
+
+    setSaveState("saving");
+    try {
+      // 1. wipe all program_items for this week
+      await sbDelete(`program_items?week_id=eq.${activeWeek.id}`);
+      // 2. drop the week itself
+      await sbDelete(`program_weeks?id=eq.${activeWeek.id}`);
+      // 3. pull every later week back by 1 so numbering stays
+      // contiguous (1, 2, 3, …)
+      const laterWeeks = weeks
+        .filter((w) => w.week_number > activeWeek.week_number)
+        .sort((a, b) => a.week_number - b.week_number);
+      for (const w of laterWeeks) {
+        await sbPatch(`program_weeks?id=eq.${w.id}`, {
+          week_number: w.week_number - 1,
+        });
+      }
+      // 4. update local state
+      setItems((prev) => prev.filter((i) => i.week_id !== activeWeek.id));
+      setWeeks((prev) =>
+        prev
+          .filter((w) => w.id !== activeWeek.id)
+          .map((w) =>
+            w.week_number > activeWeek.week_number
+              ? { ...w, week_number: w.week_number - 1 }
+              : w
+          )
+          .sort((a, b) => a.week_number - b.week_number)
+      );
+      flagSaved();
+      // 5. navigate to the previous session if any, otherwise stay on
+      // the first one (or the URL falls back to 1 even if no week
+      // exists, which renders the empty-program shell — fine).
+      const nextIdx = Math.max(0, sessionIdx - 1);
+      setSearchParams(
+        { session: String(nextIdx + 1) },
+        { replace: true }
+      );
+    } catch (e) {
+      setError(String(e));
+      setSaveState("idle");
+    }
+  };
+
   // Swap the active session with its neighbour in the given direction.
   // We do it by swapping week_number values atomically: bump the
   // other side to a sentinel out-of-range value first so the unique
@@ -622,7 +687,18 @@ const AdminProgramEdit = () => {
             {program.title}
           </h1>
         </div>
-        <SaveBadge state={saveState} />
+        <div className="flex items-center gap-2 flex-wrap">
+          <SaveBadge state={saveState} />
+          <a
+            href={`/app/programs/${program.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1.5 border border-border bg-white hover:bg-muted/40"
+            title="Open the client view in a new tab"
+          >
+            <Eye size={12} /> Preview
+          </a>
+        </div>
       </div>
 
       {/* ----- Publish state banner ----- */}
@@ -745,6 +821,16 @@ const AdminProgramEdit = () => {
                 title="Create a copy of this session right after it"
               >
                 <Copy size={14} /> Duplicate
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={deleteCurrentSession}
+                className="gap-1.5 shrink-0 text-red-600 hover:bg-red-50 hover:text-red-700 border-red-200"
+                title="Delete this session and all its exercises"
+              >
+                <Trash2 size={14} /> Delete
               </Button>
             </div>
           </div>
