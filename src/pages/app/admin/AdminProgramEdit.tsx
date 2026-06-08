@@ -59,6 +59,10 @@ type TemplateExercise = {
   load: string | null;
   rest_seconds: number | null;
   group_name: string | null;
+  /** Custom video link stored directly on the template when the
+   *  exercise isn't in the canonical library. Falls back to the
+   *  library lookup when absent. */
+  video_url?: string | null;
 };
 
 type TemplateRow = {
@@ -423,6 +427,11 @@ const AdminProgramEdit = () => {
       if (ex.tempo && ex.tempo.trim()) parts.push(`Tempo: ${ex.tempo.trim()}`);
       if (ex.load && ex.load.trim()) parts.push(`Load: ${ex.load.trim()}`);
       const notes = parts.length > 0 ? parts.join(" | ") : null;
+      // Custom video on the template wins; otherwise fall back to the
+      // canonical library lookup. exercise_id is only set when the
+      // name actually matched the library — a custom exercise stays
+      // unlinked.
+      const useCustomVideo = !!ex.video_url;
       return {
         week_id: activeWeek.id,
         order_index: baseIdx + i + 1,
@@ -431,9 +440,11 @@ const AdminProgramEdit = () => {
         reps: ex.reps,
         rest_seconds: ex.rest_seconds,
         notes,
-        video_url: hit?.video_url ?? null,
+        video_url: useCustomVideo
+          ? ex.video_url ?? null
+          : hit?.video_url ?? null,
         group_name: ex.group_name,
-        exercise_id: hit?.id ?? null,
+        exercise_id: useCustomVideo ? null : hit?.id ?? null,
       };
     });
     const created = await safeSave(() =>
@@ -912,6 +923,17 @@ const ExerciseRow = ({
   const [load, setLoad] = useState(parsed.load);
   const [comment, setComment] = useState(parsed.comment);
 
+  const exerciseName = stripPrefix(item.custom_name) || "";
+  // A row is "custom" (not from the canonical library) when it has no
+  // exercise_id link but the coach has written a name or a video URL.
+  // Empty rows default to library mode so the picker is the first
+  // thing the coach sees.
+  const initialIsCustom =
+    !item.exercise_id && (Boolean(exerciseName) || Boolean(item.video_url));
+  const [isCustom, setIsCustom] = useState(initialIsCustom);
+  const [customName, setCustomName] = useState(exerciseName);
+  const [customVideo, setCustomVideo] = useState(item.video_url ?? "");
+
   // Keep local state in sync when the item is replaced (e.g. another
   // session loaded).
   useEffect(() => {
@@ -919,6 +941,14 @@ const ExerciseRow = ({
     setLoad(parsed.load);
     setComment(parsed.comment);
   }, [parsed.tempo, parsed.load, parsed.comment]);
+
+  useEffect(() => {
+    setCustomName(exerciseName);
+    setCustomVideo(item.video_url ?? "");
+    setIsCustom(
+      !item.exercise_id && (Boolean(exerciseName) || Boolean(item.video_url))
+    );
+  }, [item.id, item.exercise_id, exerciseName, item.video_url]);
 
   const onPickExercise = (e: ExerciseSearchSelection) => {
     onPatch({
@@ -936,6 +966,36 @@ const ExerciseRow = ({
     });
   };
 
+  const enterCustomMode = () => {
+    setIsCustom(true);
+    // Drop the library link so a name typed manually doesn't keep
+    // pointing at a stale exercises row.
+    if (item.exercise_id) {
+      onPatch({ exercise_id: null });
+    }
+  };
+
+  const leaveCustomMode = () => {
+    setIsCustom(false);
+    onPatch({
+      custom_name: withSectionPrefix(section, ""),
+      exercise_id: null,
+      video_url: null,
+    });
+    setCustomName("");
+    setCustomVideo("");
+  };
+
+  const commitCustomName = () => {
+    const next = withSectionPrefix(section, customName.trim());
+    if (next !== item.custom_name) onPatch({ custom_name: next });
+  };
+
+  const commitCustomVideo = () => {
+    const next = customVideo.trim() || null;
+    if (next !== item.video_url) onPatch({ video_url: next });
+  };
+
   const commitNotes = (next: ParsedNotes) => {
     const serialized = serializeNotes(next);
     if (serialized !== item.notes) {
@@ -943,19 +1003,43 @@ const ExerciseRow = ({
     }
   };
 
-  const exerciseName = stripPrefix(item.custom_name) || null;
-
   return (
     <div className="bg-white border border-border rounded-md p-2.5 space-y-2">
       <div className="flex items-start gap-2">
-        <div className="flex-1">
-          <ExerciseSearchPopover
-            value={exerciseName}
-            placeholder="Search exercise…"
-            onSelect={onPickExercise}
-            onClear={onClearExercise}
-            size="sm"
-          />
+        <div className="flex-1 space-y-1.5">
+          {isCustom ? (
+            <>
+              <Input
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                onBlur={commitCustomName}
+                placeholder="Exercise name (not in library)"
+                className="h-8 text-sm font-semibold"
+              />
+              <Input
+                value={customVideo}
+                onChange={(e) => setCustomVideo(e.target.value)}
+                onBlur={commitCustomVideo}
+                placeholder="Video link (YouTube, Vimeo, …)"
+                className="h-8 text-xs"
+              />
+            </>
+          ) : (
+            <ExerciseSearchPopover
+              value={exerciseName || null}
+              placeholder="Search exercise…"
+              onSelect={onPickExercise}
+              onClear={onClearExercise}
+              size="sm"
+            />
+          )}
+          <button
+            type="button"
+            onClick={isCustom ? leaveCustomMode : enterCustomMode}
+            className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+          >
+            {isCustom ? "← Use library exercise" : "Custom exercise (not in library)"}
+          </button>
         </div>
         <button
           type="button"

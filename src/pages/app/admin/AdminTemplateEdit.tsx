@@ -33,6 +33,10 @@ export type TemplateExercise = {
   load: string | null;
   rest_seconds: number | null;
   group_name: string | null;
+  /** When the exercise isn't in the canonical library, the coach can
+   *  paste a YouTube / Vimeo / Drive link here so the program editor
+   *  still has a video to attach when the template is applied. */
+  video_url?: string | null;
 };
 
 type SetType = "Single" | "Superset" | "Drop set";
@@ -446,6 +450,14 @@ const TemplateExerciseRow = ({
     exercise.rest_seconds == null ? "" : String(exercise.rest_seconds)
   );
 
+  // Custom exercise mode: lets the coach attach an exercise that
+  // doesn't live in the canonical library, with a free name + a
+  // user-pasted video link.
+  const initialIsCustom = Boolean(exercise.video_url) && Boolean(exercise.name);
+  const [isCustom, setIsCustom] = useState(initialIsCustom);
+  const [customName, setCustomName] = useState(exercise.name ?? "");
+  const [customVideo, setCustomVideo] = useState(exercise.video_url ?? "");
+
   useEffect(() => setDraftTempo(exercise.tempo ?? ""), [exercise.tempo]);
   useEffect(() => setDraftLoad(exercise.load ?? ""), [exercise.load]);
   useEffect(() => setDraftReps(exercise.reps ?? ""), [exercise.reps]);
@@ -460,24 +472,77 @@ const TemplateExerciseRow = ({
       ),
     [exercise.rest_seconds]
   );
+  useEffect(() => {
+    setCustomName(exercise.name ?? "");
+    setCustomVideo(exercise.video_url ?? "");
+    setIsCustom(Boolean(exercise.video_url) && Boolean(exercise.name));
+  }, [exercise.name, exercise.video_url]);
 
   const pick = (e: ExerciseSearchSelection) => {
-    onPatch({ name: e.name });
+    // Picking from the library wipes any previous custom video so the
+    // program editor can rely on its lookup-by-name path.
+    onPatch({ name: e.name, video_url: null });
   };
 
-  const clear = () => onPatch({ name: "" });
+  const clear = () => onPatch({ name: "", video_url: null });
+
+  const enterCustomMode = () => {
+    setIsCustom(true);
+  };
+
+  const leaveCustomMode = () => {
+    setIsCustom(false);
+    setCustomName("");
+    setCustomVideo("");
+    onPatch({ name: "", video_url: null });
+  };
+
+  const commitCustomName = () => {
+    if (customName !== exercise.name) onPatch({ name: customName });
+  };
+
+  const commitCustomVideo = () => {
+    const next = customVideo.trim() || null;
+    if (next !== (exercise.video_url ?? null)) onPatch({ video_url: next });
+  };
 
   return (
     <div className="bg-white border border-border rounded-md p-2.5 space-y-2">
       <div className="flex items-start gap-2">
-        <div className="flex-1">
-          <ExerciseSearchPopover
-            value={exercise.name || null}
-            placeholder="Search exercise…"
-            onSelect={pick}
-            onClear={clear}
-            size="sm"
-          />
+        <div className="flex-1 space-y-1.5">
+          {isCustom ? (
+            <>
+              <Input
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                onBlur={commitCustomName}
+                placeholder="Exercise name (not in library)"
+                className="h-8 text-sm font-semibold"
+              />
+              <Input
+                value={customVideo}
+                onChange={(e) => setCustomVideo(e.target.value)}
+                onBlur={commitCustomVideo}
+                placeholder="Video link (YouTube, Vimeo, …)"
+                className="h-8 text-xs"
+              />
+            </>
+          ) : (
+            <ExerciseSearchPopover
+              value={exercise.name || null}
+              placeholder="Search exercise…"
+              onSelect={pick}
+              onClear={clear}
+              size="sm"
+            />
+          )}
+          <button
+            type="button"
+            onClick={isCustom ? leaveCustomMode : enterCustomMode}
+            className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+          >
+            {isCustom ? "← Use library exercise" : "Custom exercise (not in library)"}
+          </button>
         </div>
         <button
           type="button"
