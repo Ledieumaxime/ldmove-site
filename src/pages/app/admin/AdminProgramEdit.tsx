@@ -179,24 +179,29 @@ const buildSets = (items: Item[], section: Section): UISet[] => {
     .sort((a, b) => a.order_index - b.order_index);
 
   const sets: UISet[] = [];
-  let currentGroupKey: string | null = null;
-  let currentSet: UISet | null = null;
+  // Resilient lookup so duplicate group labels — e.g. a Superset 1
+  // fragmented across the section by an old insertion bug — collapse
+  // back into a single rendered set. We still keep the in-DB order
+  // (the items are sorted before this loop), we just stop creating a
+  // brand-new UISet when one with the same group_name already exists.
+  const setsByGroup = new Map<string, UISet>();
 
   for (const it of filtered) {
     const gn = it.group_name?.trim() || null;
     if (gn) {
-      if (gn !== currentGroupKey) {
-        currentSet = {
+      let existing = setsByGroup.get(gn);
+      if (!existing) {
+        existing = {
           key: `${section}-${gn}-${it.id}`,
           type: /drop/i.test(gn) ? "Drop set" : "Superset",
           label: gn,
           group_name: gn,
           items: [],
         };
-        sets.push(currentSet);
-        currentGroupKey = gn;
+        sets.push(existing);
+        setsByGroup.set(gn, existing);
       }
-      currentSet!.items.push(it);
+      existing.items.push(it);
     } else {
       sets.push({
         key: `${section}-single-${it.id}`,
@@ -205,8 +210,6 @@ const buildSets = (items: Item[], section: Section): UISet[] => {
         group_name: null,
         items: [it],
       });
-      currentGroupKey = null;
-      currentSet = null;
     }
   }
   return sets;
@@ -524,15 +527,44 @@ const AdminProgramEdit = () => {
     );
   }, [sessionItems]);
 
+  // Insert a new program_item.
+  //
+  // `insertAfterOrderIndex` controls where the item lands:
+  //   - undefined  → appended at the end of the current session.
+  //   - a number   → inserted immediately after that order_index.
+  //                  Every later item in the session is bumped by 1
+  //                  in the DB so the (week_id, order_index) ordering
+  //                  stays a clean contiguous run.
+  //
+  // The bump-then-insert path is what lets "Add exercise to Superset 1"
+  // keep the new row inside its group: without it, the new row would
+  // pick up `max + 1` and end up after every other set, fragmenting
+  // the superset into two visually distinct blocks that share a name.
   const addItem = async (
     section: Section,
     group_name: string | null,
-    overrides: Partial<Item> = {}
+    overrides: Partial<Item> = {},
+    insertAfterOrderIndex?: number
   ) => {
     if (!activeWeek) return;
+    let nextOrderIndex = maxOrderIndex + 1;
+    let bumped: Item[] = [];
+    if (insertAfterOrderIndex !== undefined) {
+      const targetOrder = insertAfterOrderIndex + 1;
+      bumped = sessionItems.filter((it) => it.order_index >= targetOrder);
+      // Bump in descending order so the UNIQUE constraint on
+      // (week_id, order_index) isn't briefly violated.
+      const desc = [...bumped].sort((a, b) => b.order_index - a.order_index);
+      for (const it of desc) {
+        await sbPatch(`program_items?id=eq.${it.id}`, {
+          order_index: it.order_index + 1,
+        });
+      }
+      nextOrderIndex = targetOrder;
+    }
     const payload = {
       week_id: activeWeek.id,
-      order_index: maxOrderIndex + 1,
+      order_index: nextOrderIndex,
       custom_name: withSectionPrefix(section, ""),
       sets: 3,
       reps: "10",
@@ -546,7 +578,15 @@ const AdminProgramEdit = () => {
     const [created] = await safeSave(() =>
       sbPost<Item[]>("program_items", payload)
     );
-    setItems((its) => [...its, created]);
+    setItems((its) => {
+      const bumpedIds = new Set(bumped.map((b) => b.id));
+      const updated = its.map((it) =>
+        bumpedIds.has(it.id)
+          ? { ...it, order_index: it.order_index + 1 }
+          : it
+      );
+      return [...updated, created];
+    });
   };
 
   const patchItem = async (id: string, patch: Partial<Item>) => {
@@ -575,7 +615,14 @@ const AdminProgramEdit = () => {
   };
 
   const addRowToSet = async (section: Section, set: UISet) => {
-    await addItem(section, set.group_name);
+    // Insert right after the last existing item of this set so the
+    // group stays contiguous and the buildSets parser keeps it as a
+    // single Superset / Drop set instead of fragmenting it.
+    const lastInSet = set.items.reduce(
+      (max, it) => Math.max(max, it.order_index),
+      -1
+    );
+    await addItem(section, set.group_name, {}, lastInSet);
   };
 
   // Bulk-insert all exercises of a template (warm-up or workout) into
