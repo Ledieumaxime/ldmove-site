@@ -30,6 +30,7 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronUp,
+  Copy,
   Layers,
   Loader2,
   Plus,
@@ -335,6 +336,73 @@ const AdminProgramEdit = () => {
     setSearchParams({ session: String(idx + 1) }, { replace: true });
   };
 
+  // Duplicate the current session: insert a new program_weeks row
+  // right after it (week_number = current + 1, every later week
+  // bumped by one) and clone every program_item with its full payload.
+  const duplicateCurrentSession = async () => {
+    if (!activeWeek || !program) return;
+    // Shift later weeks down by 1 so we can insert the clone right after.
+    const laterWeeks = weeks
+      .filter((w) => w.week_number > activeWeek.week_number)
+      .sort((a, b) => b.week_number - a.week_number); // descending so we don't trip the UNIQUE constraint
+    setSaveState("saving");
+    try {
+      for (const w of laterWeeks) {
+        await sbPatch(`program_weeks?id=eq.${w.id}`, {
+          week_number: w.week_number + 1,
+        });
+      }
+      const newWeekNumber = activeWeek.week_number + 1;
+      const [created] = await sbPost<Week[]>("program_weeks", {
+        program_id: program.id,
+        week_number: newWeekNumber,
+        title: `${activeWeek.title} (copy)`,
+        notes: activeWeek.notes,
+      });
+      // Clone every item from the source week onto the new one.
+      const sourceItems = items.filter((i) => i.week_id === activeWeek.id);
+      let createdItems: Item[] = [];
+      if (sourceItems.length > 0) {
+        const payload = sourceItems
+          .sort((a, b) => a.order_index - b.order_index)
+          .map((it) => ({
+            week_id: created.id,
+            order_index: it.order_index,
+            custom_name: it.custom_name,
+            sets: it.sets,
+            reps: it.reps,
+            rest_seconds: it.rest_seconds,
+            notes: it.notes,
+            video_url: it.video_url,
+            group_name: it.group_name,
+            exercise_id: it.exercise_id,
+          }));
+        createdItems = await sbPost<Item[]>("program_items", payload);
+      }
+      // Refresh local state.
+      setWeeks((prev) => {
+        const bumped = prev.map((w) =>
+          w.week_number > activeWeek.week_number
+            ? { ...w, week_number: w.week_number + 1 }
+            : w
+        );
+        return [...bumped, created].sort(
+          (a, b) => a.week_number - b.week_number
+        );
+      });
+      setItems((prev) => [...prev, ...createdItems]);
+      flagSaved();
+      // Land on the freshly created session.
+      setSearchParams(
+        { session: String(newWeekNumber) },
+        { replace: true }
+      );
+    } catch (e) {
+      setError(String(e));
+      setSaveState("idle");
+    }
+  };
+
   // ----- items: add / patch / delete -------------------------------------
 
   const maxOrderIndex = useMemo(() => {
@@ -576,22 +644,38 @@ const AdminProgramEdit = () => {
       {activeWeek && (
         <div className="space-y-5">
           <div className="bg-white rounded-2xl border border-border p-4">
-            <label className="text-xs font-semibold text-muted-foreground uppercase">
-              Session name
-            </label>
-            <Input
-              value={activeWeek.title ?? ""}
-              onChange={(e) =>
-                setWeeks((ws) =>
-                  ws.map((w) =>
-                    w.id === activeWeek.id ? { ...w, title: e.target.value } : w
-                  )
-                )
-              }
-              onBlur={(e) => updateSessionTitle(e.target.value)}
-              className="mt-1 font-semibold"
-              placeholder="e.g. Push"
-            />
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">
+                  Session name
+                </label>
+                <Input
+                  value={activeWeek.title ?? ""}
+                  onChange={(e) =>
+                    setWeeks((ws) =>
+                      ws.map((w) =>
+                        w.id === activeWeek.id
+                          ? { ...w, title: e.target.value }
+                          : w
+                      )
+                    )
+                  }
+                  onBlur={(e) => updateSessionTitle(e.target.value)}
+                  className="mt-1 font-semibold"
+                  placeholder="e.g. Push"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={duplicateCurrentSession}
+                className="gap-1.5 shrink-0"
+                title="Create a copy of this session right after it"
+              >
+                <Copy size={14} /> Duplicate session
+              </Button>
+            </div>
           </div>
 
           {(["WARMUP", "WORKOUT"] as Section[]).map((section) => (
