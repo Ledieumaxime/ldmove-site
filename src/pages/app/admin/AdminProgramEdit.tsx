@@ -603,14 +603,31 @@ const AdminProgramEdit = () => {
 
   // ----- "Add set" actions -----------------------------------------------
 
+  // Pick where a freshly added item should land in `order_index` so it
+  // shows up at the end of its own section, not at the end of the
+  // whole session. Without this anchor, a new Warm-up Single would
+  // get `max(session) + 1`, slip past every Workout item and break
+  // section ordering as soon as we ever flatten the list.
+  const lastOrderIndexInSection = (section: Section): number | undefined => {
+    const inSection = sessionItems.filter(
+      (it) => sectionOf(it.custom_name) === section
+    );
+    if (inSection.length === 0) return undefined;
+    return inSection.reduce(
+      (max, it) => (it.order_index > max ? it.order_index : max),
+      -Infinity
+    );
+  };
+
   const addSet = async (section: Section, type: SetType) => {
     const sets = buildSets(items, section);
     const label = nextGroupLabel(type, sets);
+    const anchor = lastOrderIndexInSection(section);
     if (type === "Single") {
-      await addItem(section, null);
+      await addItem(section, null, {}, anchor);
     } else {
       // Create one starter item — the coach can add more rows after.
-      await addItem(section, label);
+      await addItem(section, label, {}, anchor);
     }
   };
 
@@ -647,17 +664,29 @@ const AdminProgramEdit = () => {
     const libByName = new Map(
       lib.map((e) => [e.name.toLowerCase(), e])
     );
-    const baseIdx = maxOrderIndex;
+    // Anchor the bulk insert right after the last existing item *in
+    // the same section* so a Warm-up template doesn't leapfrog the
+    // workout in `order_index`. Items already placed further down
+    // (e.g. workout items when applying a warmup template after some
+    // workout already exists) get bumped by the size of the payload.
+    const sectionLast = lastOrderIndexInSection(section);
+    const baseIdx = sectionLast ?? 0;
+    const shiftCount = template.exercises.length;
+    const toBump = sessionItems
+      .filter((it) => it.order_index > baseIdx)
+      .sort((a, b) => b.order_index - a.order_index); // desc to avoid UNIQUE clash
+    setSaveState("saving");
+    for (const it of toBump) {
+      await sbPatch(`program_items?id=eq.${it.id}`, {
+        order_index: it.order_index + shiftCount,
+      });
+    }
     const payload = template.exercises.map((ex, i) => {
       const hit = libByName.get(ex.name.toLowerCase());
       const parts: string[] = [];
       if (ex.tempo && ex.tempo.trim()) parts.push(`Tempo: ${ex.tempo.trim()}`);
       if (ex.load && ex.load.trim()) parts.push(`Load: ${ex.load.trim()}`);
       const notes = parts.length > 0 ? parts.join(" | ") : null;
-      // Custom video on the template wins; otherwise fall back to the
-      // canonical library lookup. exercise_id is only set when the
-      // name actually matched the library — a custom exercise stays
-      // unlinked.
       const useCustomVideo = !!ex.video_url;
       return {
         week_id: activeWeek.id,
@@ -677,7 +706,15 @@ const AdminProgramEdit = () => {
     const created = await safeSave(() =>
       sbPost<Item[]>("program_items", payload)
     );
-    setItems((its) => [...its, ...created]);
+    setItems((its) => {
+      const bumpedIds = new Set(toBump.map((b) => b.id));
+      const updated = its.map((it) =>
+        bumpedIds.has(it.id)
+          ? { ...it, order_index: it.order_index + shiftCount }
+          : it
+      );
+      return [...updated, ...created];
+    });
   };
 
   // ----- publish / unpublish --------------------------------------------
