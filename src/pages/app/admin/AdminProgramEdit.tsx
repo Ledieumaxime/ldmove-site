@@ -859,6 +859,29 @@ const SetCard = ({
   onDelete: (id: string) => void;
 }) => {
   const isGroup = set.type !== "Single";
+  // For supersets and drop sets, the "number of sets" applies to the
+  // whole group (you do N rounds of exo1 + exo2 + …) so we lift the
+  // Sets field out of each row and put one at the top of the card.
+  // We seed it from the first item that has a value to stay robust to
+  // half-filled groups while editing.
+  const groupSetsSource = set.items.find((i) => i.sets != null);
+  const groupSets = groupSetsSource?.sets ?? null;
+  const [groupSetsDraft, setGroupSetsDraft] = useState<string>(
+    groupSets == null ? "" : String(groupSets)
+  );
+  useEffect(() => {
+    setGroupSetsDraft(groupSets == null ? "" : String(groupSets));
+  }, [groupSets]);
+
+  const commitGroupSets = () => {
+    const next = groupSetsDraft === "" ? null : Number(groupSetsDraft);
+    if (next === groupSets) return;
+    // Push the same value to every item in the group so the read-side
+    // (and any future export) sees a consistent superset.
+    for (const it of set.items) {
+      if (it.sets !== next) onPatch(it.id, { sets: next });
+    }
+  };
 
   return (
     <div
@@ -867,14 +890,30 @@ const SetCard = ({
       } p-3 space-y-2`}
     >
       {isGroup && (
-        <div className="flex items-center gap-2">
-          <Layers size={14} className="text-accent" />
-          <span className="text-xs font-bold text-accent uppercase tracking-wide">
-            {set.label}
-          </span>
-          <span className="text-[10px] text-muted-foreground">
-            ({set.items.length} exercise{set.items.length === 1 ? "" : "s"})
-          </span>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Layers size={14} className="text-accent" />
+            <span className="text-xs font-bold text-accent uppercase tracking-wide">
+              {set.label}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              ({set.items.length} exercise{set.items.length === 1 ? "" : "s"})
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase">
+              Rounds
+            </label>
+            <Input
+              type="number"
+              min={0}
+              value={groupSetsDraft}
+              onChange={(e) => setGroupSetsDraft(e.target.value)}
+              onBlur={commitGroupSets}
+              className="h-7 w-16 text-sm"
+              placeholder="3"
+            />
+          </div>
         </div>
       )}
 
@@ -884,6 +923,7 @@ const SetCard = ({
             key={it.id}
             item={it}
             section={section}
+            hideSetsField={isGroup}
             onPatch={(patch) => onPatch(it.id, patch)}
             onDelete={() => onDelete(it.id)}
           />
@@ -910,11 +950,16 @@ const SetCard = ({
 const ExerciseRow = ({
   item,
   section,
+  hideSetsField = false,
   onPatch,
   onDelete,
 }: {
   item: Item;
   section: Section;
+  /** Hide the per-row Sets field. Used inside Superset / Drop set
+   *  groups where the rounds count is shared and shown at the group
+   *  level instead. */
+  hideSetsField?: boolean;
   onPatch: (patch: Partial<Item>) => void;
   onDelete: () => void;
 }) => {
@@ -1051,12 +1096,20 @@ const ExerciseRow = ({
         </button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-        <FieldNum
-          label="Sets"
-          value={item.sets}
-          onCommit={(v) => onPatch({ sets: v })}
-        />
+      <div
+        className={`grid gap-2 ${
+          hideSetsField
+            ? "grid-cols-2 md:grid-cols-4"
+            : "grid-cols-2 md:grid-cols-5"
+        }`}
+      >
+        {!hideSetsField && (
+          <FieldNum
+            label="Sets"
+            value={item.sets}
+            onCommit={(v) => onPatch({ sets: v })}
+          />
+        )}
         <FieldText
           label="Reps"
           value={item.reps ?? ""}

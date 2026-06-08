@@ -385,6 +385,27 @@ const TemplateSetCard = ({
   onDelete: (idx: number) => void;
 }) => {
   const isGroup = set.type !== "Single";
+  const groupSetsSource = isGroup
+    ? set.itemIdx.find((i) => exercises[i]?.sets != null)
+    : undefined;
+  const groupSets =
+    groupSetsSource !== undefined ? exercises[groupSetsSource].sets : null;
+  const [groupSetsDraft, setGroupSetsDraft] = useState<string>(
+    groupSets == null ? "" : String(groupSets)
+  );
+  useEffect(() => {
+    setGroupSetsDraft(groupSets == null ? "" : String(groupSets));
+  }, [groupSets]);
+
+  const commitGroupSets = () => {
+    const next = groupSetsDraft === "" ? null : Number(groupSetsDraft);
+    if (next === groupSets) return;
+    // Mirror the rounds count onto every exercise in the group.
+    for (const i of set.itemIdx) {
+      if (exercises[i]?.sets !== next) onUpdate(i, { sets: next });
+    }
+  };
+
   return (
     <div
       className={`rounded-lg border ${
@@ -392,14 +413,31 @@ const TemplateSetCard = ({
       } p-3 space-y-2`}
     >
       {isGroup && (
-        <div className="flex items-center gap-2">
-          <Layers size={14} className="text-accent" />
-          <span className="text-xs font-bold text-accent uppercase tracking-wide">
-            {set.label}
-          </span>
-          <span className="text-[10px] text-muted-foreground">
-            ({set.itemIdx.length} exercise{set.itemIdx.length === 1 ? "" : "s"})
-          </span>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Layers size={14} className="text-accent" />
+            <span className="text-xs font-bold text-accent uppercase tracking-wide">
+              {set.label}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              ({set.itemIdx.length} exercise
+              {set.itemIdx.length === 1 ? "" : "s"})
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase">
+              Rounds
+            </label>
+            <Input
+              type="number"
+              min={0}
+              value={groupSetsDraft}
+              onChange={(e) => setGroupSetsDraft(e.target.value)}
+              onBlur={commitGroupSets}
+              className="h-7 w-16 text-sm"
+              placeholder="3"
+            />
+          </div>
         </div>
       )}
 
@@ -409,6 +447,7 @@ const TemplateSetCard = ({
             key={i}
             idx={i}
             exercise={exercises[i]}
+            hideSetsField={isGroup}
             onPatch={(patch) => onUpdate(i, patch)}
             onDelete={() => onDelete(i)}
           />
@@ -432,11 +471,15 @@ const TemplateSetCard = ({
 
 const TemplateExerciseRow = ({
   exercise,
+  hideSetsField = false,
   onPatch,
   onDelete,
 }: {
   idx: number;
   exercise: TemplateExercise;
+  /** When true, omit the per-row Sets input — used inside Superset /
+   *  Drop set groups whose rounds count lives at the group level. */
+  hideSetsField?: boolean;
   onPatch: (patch: Partial<TemplateExercise>) => void;
   onDelete: () => void;
 }) => {
@@ -554,17 +597,25 @@ const TemplateExerciseRow = ({
         </button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-        <NumField
-          label="Sets"
-          draft={draftSets}
-          setDraft={setDraftSets}
-          onCommit={() =>
-            onPatch({
-              sets: draftSets === "" ? null : Number(draftSets),
-            })
-          }
-        />
+      <div
+        className={`grid gap-2 ${
+          hideSetsField
+            ? "grid-cols-2 md:grid-cols-4"
+            : "grid-cols-2 md:grid-cols-5"
+        }`}
+      >
+        {!hideSetsField && (
+          <NumField
+            label="Sets"
+            draft={draftSets}
+            setDraft={setDraftSets}
+            onCommit={() =>
+              onPatch({
+                sets: draftSets === "" ? null : Number(draftSets),
+              })
+            }
+          />
+        )}
         <TextField
           label="Reps"
           draft={draftReps}
