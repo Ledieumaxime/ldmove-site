@@ -336,6 +336,53 @@ const AdminProgramEdit = () => {
     setSearchParams({ session: String(idx + 1) }, { replace: true });
   };
 
+  // Swap the active session with its neighbour in the given direction.
+  // We do it by swapping week_number values atomically: bump the
+  // other side to a sentinel out-of-range value first so the unique
+  // constraint on (program_id, week_number) is never temporarily
+  // violated, then settle each row to its final position.
+  const moveCurrentSession = async (direction: "up" | "down") => {
+    if (!activeWeek) return;
+    const otherIdx = direction === "up" ? sessionIdx - 1 : sessionIdx + 1;
+    if (otherIdx < 0 || otherIdx >= weeks.length) return;
+    const other = weeks[otherIdx];
+    const a = activeWeek;
+    const b = other;
+    setSaveState("saving");
+    try {
+      // 1. park `a` at a unique sentinel so we can free its slot
+      const sentinel = Math.max(...weeks.map((w) => w.week_number)) + 10;
+      await sbPatch(`program_weeks?id=eq.${a.id}`, { week_number: sentinel });
+      // 2. move `b` to `a`'s old position
+      await sbPatch(`program_weeks?id=eq.${b.id}`, {
+        week_number: a.week_number,
+      });
+      // 3. drop `a` into `b`'s old position
+      await sbPatch(`program_weeks?id=eq.${a.id}`, {
+        week_number: b.week_number,
+      });
+      setWeeks((prev) =>
+        prev
+          .map((w) => {
+            if (w.id === a.id) return { ...w, week_number: b.week_number };
+            if (w.id === b.id) return { ...w, week_number: a.week_number };
+            return w;
+          })
+          .sort((x, y) => x.week_number - y.week_number)
+      );
+      flagSaved();
+      // Follow the active session to its new position so the URL +
+      // tabs stay in sync.
+      setSearchParams(
+        { session: String(b.week_number) },
+        { replace: true }
+      );
+    } catch (e) {
+      setError(String(e));
+      setSaveState("idle");
+    }
+  };
+
   // Duplicate the current session: insert a new program_weeks row
   // right after it (week_number = current + 1, every later week
   // bumped by one) and clone every program_item with its full payload.
@@ -665,6 +712,30 @@ const AdminProgramEdit = () => {
                   placeholder="e.g. Push"
                 />
               </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => moveCurrentSession("up")}
+                  disabled={sessionIdx === 0}
+                  className="px-2"
+                  title="Move session up"
+                >
+                  <ChevronUp size={14} />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => moveCurrentSession("down")}
+                  disabled={sessionIdx === weeks.length - 1}
+                  className="px-2"
+                  title="Move session down"
+                >
+                  <ChevronDown size={14} />
+                </Button>
+              </div>
               <Button
                 type="button"
                 variant="outline"
@@ -673,7 +744,7 @@ const AdminProgramEdit = () => {
                 className="gap-1.5 shrink-0"
                 title="Create a copy of this session right after it"
               >
-                <Copy size={14} /> Duplicate session
+                <Copy size={14} /> Duplicate
               </Button>
             </div>
           </div>
