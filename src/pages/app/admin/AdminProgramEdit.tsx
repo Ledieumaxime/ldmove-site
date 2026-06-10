@@ -614,7 +614,11 @@ const AdminProgramEdit = () => {
     direction: "up" | "down"
   ) => {
     if (!activeWeek) return;
-    const sets = buildSets(items, section);
+    // CRITICAL: build sets from the items of the ACTIVE session, not
+    // the full items array. Otherwise indexes don't match what the
+    // SectionBlock rendered (which also uses sessionItems), and the
+    // function ends up swapping rows from another session.
+    const sets = buildSets(sessionItems, section);
     const otherIdx = direction === "up" ? setIdx - 1 : setIdx + 1;
     if (setIdx < 0 || setIdx >= sets.length) return;
     if (otherIdx < 0 || otherIdx >= sets.length) return;
