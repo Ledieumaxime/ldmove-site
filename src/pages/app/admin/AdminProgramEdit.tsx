@@ -707,7 +707,11 @@ const AdminProgramEdit = () => {
   };
 
   const addSet = async (section: Section, type: SetType) => {
-    const sets = buildSets(items, section);
+    // Use sessionItems so the next Superset / Drop set number is
+    // computed per-session, not across the whole program. Otherwise a
+    // session can jump from Superset 4 to Superset 10 just because
+    // another session happens to have nine of them.
+    const sets = buildSets(sessionItems, section);
     const label = nextGroupLabel(type, sets);
     const anchor = lastOrderIndexInSection(section);
     if (type === "Single") {
