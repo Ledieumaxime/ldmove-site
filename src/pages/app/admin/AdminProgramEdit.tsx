@@ -601,6 +601,89 @@ const AdminProgramEdit = () => {
     setItems((its) => its.filter((it) => it.id !== id));
   };
 
+  // Swap a set / superset / drop set with its neighbour in the given
+  // section. The set being moved (A) and its partner (B) trade
+  // order_index ranges so the rendered position changes accordingly.
+  //
+  // To stay safe under the (week_id, order_index) UNIQUE constraint
+  // we first park every affected row at a sentinel order beyond the
+  // session's current max, then settle each row at its final value.
+  const moveSet = async (
+    section: Section,
+    setIdx: number,
+    direction: "up" | "down"
+  ) => {
+    if (!activeWeek) return;
+    const sets = buildSets(items, section);
+    const otherIdx = direction === "up" ? setIdx - 1 : setIdx + 1;
+    if (setIdx < 0 || setIdx >= sets.length) return;
+    if (otherIdx < 0 || otherIdx >= sets.length) return;
+    const setA = sets[setIdx];
+    const setB = sets[otherIdx];
+    const aItems = [...setA.items].sort(
+      (x, y) => x.order_index - y.order_index
+    );
+    const bItems = [...setB.items].sort(
+      (x, y) => x.order_index - y.order_index
+    );
+    const aSize = aItems.length;
+    const bSize = bItems.length;
+
+    let aShift: number;
+    let bShift: number;
+    if (direction === "up") {
+      // A currently sits after B → swap so A lands where B was.
+      aShift = -bSize;
+      bShift = aSize;
+    } else {
+      // A currently sits before B → swap so A lands where B was.
+      aShift = bSize;
+      bShift = -aSize;
+    }
+
+    const sessionMax = sessionItems.reduce(
+      (m, i) => (i.order_index > m ? i.order_index : m),
+      0
+    );
+    let sentinel = sessionMax + 100;
+
+    setSaveState("saving");
+    try {
+      // Park every affected row at a guaranteed-free order_index.
+      for (const it of [...aItems, ...bItems]) {
+        await sbPatch(`program_items?id=eq.${it.id}`, {
+          order_index: sentinel++,
+        });
+      }
+      // Settle each row at its target.
+      for (const it of aItems) {
+        await sbPatch(`program_items?id=eq.${it.id}`, {
+          order_index: it.order_index + aShift,
+        });
+      }
+      for (const it of bItems) {
+        await sbPatch(`program_items?id=eq.${it.id}`, {
+          order_index: it.order_index + bShift,
+        });
+      }
+      setItems((prev) => {
+        const aIds = new Set(aItems.map((x) => x.id));
+        const bIds = new Set(bItems.map((x) => x.id));
+        return prev.map((it) => {
+          if (aIds.has(it.id))
+            return { ...it, order_index: it.order_index + aShift };
+          if (bIds.has(it.id))
+            return { ...it, order_index: it.order_index + bShift };
+          return it;
+        });
+      });
+      flagSaved();
+    } catch (e) {
+      setError(String(e));
+      setSaveState("idle");
+    }
+  };
+
   // ----- "Add set" actions -----------------------------------------------
 
   // Pick where a freshly added item should land in `order_index` so it
@@ -928,6 +1011,7 @@ const AdminProgramEdit = () => {
               onAddRow={(set) => addRowToSet(section, set)}
               onPatch={patchItem}
               onDelete={deleteItem}
+              onMoveSet={(setIdx, dir) => moveSet(section, setIdx, dir)}
               onUseTemplate={(t) => applyTemplate(t, section)}
             />
           ))}
@@ -984,6 +1068,7 @@ const SectionBlock = ({
   onAddRow,
   onPatch,
   onDelete,
+  onMoveSet,
   onUseTemplate,
 }: {
   section: Section;
@@ -992,6 +1077,7 @@ const SectionBlock = ({
   onAddRow: (set: UISet) => void;
   onPatch: (id: string, patch: Partial<Item>) => void;
   onDelete: (id: string) => void;
+  onMoveSet?: (setIdx: number, direction: "up" | "down") => Promise<void>;
   onUseTemplate?: (template: TemplateRow) => Promise<void>;
 }) => {
   const sets = useMemo(() => buildSets(items, section), [items, section]);
@@ -1120,11 +1206,19 @@ const SectionBlock = ({
           </p>
         )}
 
-        {sets.map((set) => (
+        {sets.map((set, idx) => (
           <SetCard
             key={set.key}
             set={set}
             section={section}
+            canMoveUp={!!onMoveSet && idx > 0}
+            canMoveDown={!!onMoveSet && idx < sets.length - 1}
+            onMoveUp={
+              onMoveSet ? () => onMoveSet(idx, "up") : undefined
+            }
+            onMoveDown={
+              onMoveSet ? () => onMoveSet(idx, "down") : undefined
+            }
             onAddRow={() => onAddRow(set)}
             onPatch={onPatch}
             onDelete={onDelete}
@@ -1173,12 +1267,20 @@ const SectionBlock = ({
 const SetCard = ({
   set,
   section,
+  canMoveUp = false,
+  canMoveDown = false,
+  onMoveUp,
+  onMoveDown,
   onAddRow,
   onPatch,
   onDelete,
 }: {
   set: UISet;
   section: Section;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
   onAddRow: () => void;
   onPatch: (id: string, patch: Partial<Item>) => void;
   onDelete: (id: string) => void;
@@ -1223,15 +1325,39 @@ const SetCard = ({
     }
   };
 
+  const moveButtons = (onMoveUp || onMoveDown) && (
+    <div className="flex flex-col gap-0.5 shrink-0">
+      <button
+        type="button"
+        onClick={onMoveUp}
+        disabled={!canMoveUp}
+        className="text-muted-foreground hover:text-foreground disabled:opacity-30 leading-none"
+        title="Move set up"
+      >
+        <ChevronUp size={14} />
+      </button>
+      <button
+        type="button"
+        onClick={onMoveDown}
+        disabled={!canMoveDown}
+        className="text-muted-foreground hover:text-foreground disabled:opacity-30 leading-none"
+        title="Move set down"
+      >
+        <ChevronDown size={14} />
+      </button>
+    </div>
+  );
+
   return (
     <div
       className={`rounded-lg border ${
         isGroup ? "bg-muted/20 border-accent/30" : "bg-muted/10 border-border"
       } p-3 space-y-2`}
     >
-      {isGroup && (
+      {isGroup ? (
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
+            {moveButtons}
             <Layers size={14} className="text-accent" />
             <span className="text-xs font-bold text-accent uppercase tracking-wide">
               {set.label}
@@ -1271,7 +1397,11 @@ const SetCard = ({
             </div>
           </div>
         </div>
-      )}
+      ) : moveButtons ? (
+        // Single set: no native header — surface the move arrows as a
+        // small chip in the top-right so the coach can still reorder.
+        <div className="flex justify-end">{moveButtons}</div>
+      ) : null}
 
       <div className="space-y-2">
         {set.items.map((it) => (
