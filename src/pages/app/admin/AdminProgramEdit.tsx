@@ -597,8 +597,16 @@ const AdminProgramEdit = () => {
   };
 
   const deleteItem = async (id: string) => {
+    // Capture which section the row lived in so we can renumber it
+    // after the delete (deleting the only row in a Superset removes
+    // the group; later groups in the same section should slide down
+    // a number).
+    const target = items.find((it) => it.id === id);
     await safeSave(() => sbDelete(`program_items?id=eq.${id}`));
     setItems((its) => its.filter((it) => it.id !== id));
+    if (target) {
+      await renumberSection(sectionOf(target.custom_name));
+    }
   };
 
   // Swap a set / superset / drop set with its neighbour in the given
@@ -670,18 +678,21 @@ const AdminProgramEdit = () => {
           order_index: it.order_index + bShift,
         });
       }
-      setItems((prev) => {
-        const aIds = new Set(aItems.map((x) => x.id));
-        const bIds = new Set(bItems.map((x) => x.id));
-        return prev.map((it) => {
-          if (aIds.has(it.id))
-            return { ...it, order_index: it.order_index + aShift };
-          if (bIds.has(it.id))
-            return { ...it, order_index: it.order_index + bShift };
-          return it;
-        });
+      const aIds = new Set(aItems.map((x) => x.id));
+      const bIds = new Set(bItems.map((x) => x.id));
+      const nextItems = items.map((it) => {
+        if (aIds.has(it.id))
+          return { ...it, order_index: it.order_index + aShift };
+        if (bIds.has(it.id))
+          return { ...it, order_index: it.order_index + bShift };
+        return it;
       });
+      setItems(nextItems);
       flagSaved();
+      // After the swap, the visible sequence has changed → make the
+      // Superset / Drop set numbers follow the new order. Pass the
+      // post-mutation array so we don't read the stale state closure.
+      await renumberSection(section, nextItems);
     } catch (e) {
       setError(String(e));
       setSaveState("idle");
@@ -706,11 +717,70 @@ const AdminProgramEdit = () => {
     );
   };
 
+  // Walk the section's sets in display order and patch group_name so
+  // Superset / Drop set numbers reflect the actual visible sequence
+  // (Superset 1, Superset 2, … per type, restart in each section).
+  // Called after every operation that can move groups around so the
+  // numbering never goes 'Superset 4 → Superset 10' just because the
+  // counter was incremented and the lower numbers got reused.
+  //
+  // `itemsOverride` lets the caller hand in the post-mutation items
+  // array. React batches state updates so the outer `items` closure
+  // we'd otherwise read here can still be the pre-mutation snapshot.
+  const renumberSection = async (
+    section: Section,
+    itemsOverride?: Item[]
+  ) => {
+    if (!activeWeek) return;
+    const source = itemsOverride ?? items;
+    const sectionItems = source.filter(
+      (it) =>
+        it.week_id === activeWeek.id &&
+        sectionOf(it.custom_name) === section
+    );
+    const sets = buildSets(sectionItems, section);
+    let supersetN = 0;
+    let dropsetN = 0;
+    const updates: Array<{ id: string; group_name: string }> = [];
+    for (const set of sets) {
+      if (set.type === "Single" || !set.group_name) continue;
+      let target: string;
+      if (set.type === "Superset") {
+        supersetN += 1;
+        target = `Superset ${supersetN}`;
+      } else {
+        dropsetN += 1;
+        target = `Drop set ${dropsetN}`;
+      }
+      if (set.group_name === target) continue;
+      for (const it of set.items) {
+        updates.push({ id: it.id, group_name: target });
+      }
+    }
+    if (updates.length === 0) return;
+    setSaveState("saving");
+    try {
+      for (const u of updates) {
+        await sbPatch(`program_items?id=eq.${u.id}`, {
+          group_name: u.group_name,
+        });
+      }
+      setItems((prev) => {
+        const byId = new Map(updates.map((u) => [u.id, u.group_name]));
+        return prev.map((it) =>
+          byId.has(it.id) ? { ...it, group_name: byId.get(it.id)! } : it
+        );
+      });
+      flagSaved();
+    } catch (e) {
+      setError(String(e));
+      setSaveState("idle");
+    }
+  };
+
   const addSet = async (section: Section, type: SetType) => {
     // Use sessionItems so the next Superset / Drop set number is
-    // computed per-session, not across the whole program. Otherwise a
-    // session can jump from Superset 4 to Superset 10 just because
-    // another session happens to have nine of them.
+    // computed per-session, not across the whole program.
     const sets = buildSets(sessionItems, section);
     const label = nextGroupLabel(type, sets);
     const anchor = lastOrderIndexInSection(section);
@@ -720,6 +790,12 @@ const AdminProgramEdit = () => {
       // Create one starter item — the coach can add more rows after.
       await addItem(section, label, {}, anchor);
     }
+    // Even though nextGroupLabel picks the next free slot, the
+    // *displayed* numbers can still drift on the existing data (we
+    // inherited some "Superset 10" labels from the global-counter
+    // bug). Run a renumber pass so the section's labels always read
+    // 1, 2, 3, … in order.
+    await renumberSection(section);
   };
 
   const addRowToSet = async (section: Section, set: UISet) => {
@@ -806,6 +882,11 @@ const AdminProgramEdit = () => {
       );
       return [...updated, ...created];
     });
+    // Templates carry their own Superset 1 / Drop set 1 etc. labels;
+    // applying one into a section that already has groups can produce
+    // duplicates or collisions. Renumber the section so the final
+    // labels read 1, 2, 3, … in display order regardless of source.
+    await renumberSection(section);
   };
 
   // ----- publish / unpublish --------------------------------------------
