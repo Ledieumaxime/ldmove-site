@@ -578,15 +578,16 @@ const AdminProgramEdit = () => {
     const [created] = await safeSave(() =>
       sbPost<Item[]>("program_items", payload)
     );
-    setItems((its) => {
-      const bumpedIds = new Set(bumped.map((b) => b.id));
-      const updated = its.map((it) =>
+    const bumpedIds = new Set(bumped.map((b) => b.id));
+    const nextItems = items
+      .map((it) =>
         bumpedIds.has(it.id)
           ? { ...it, order_index: it.order_index + 1 }
           : it
-      );
-      return [...updated, created];
-    });
+      )
+      .concat(created);
+    setItems(nextItems);
+    return nextItems;
   };
 
   const patchItem = async (id: string, patch: Partial<Item>) => {
@@ -603,9 +604,13 @@ const AdminProgramEdit = () => {
     // a number).
     const target = items.find((it) => it.id === id);
     await safeSave(() => sbDelete(`program_items?id=eq.${id}`));
-    setItems((its) => its.filter((it) => it.id !== id));
+    // Compute the post-delete array locally so we can hand it to
+    // renumberSection — without this, React's batched state update
+    // means the renumber pass would still see the row we just wiped.
+    const nextItems = items.filter((it) => it.id !== id);
+    setItems(nextItems);
     if (target) {
-      await renumberSection(sectionOf(target.custom_name));
+      await renumberSection(sectionOf(target.custom_name), nextItems);
     }
   };
 
@@ -784,18 +789,14 @@ const AdminProgramEdit = () => {
     const sets = buildSets(sessionItems, section);
     const label = nextGroupLabel(type, sets);
     const anchor = lastOrderIndexInSection(section);
-    if (type === "Single") {
-      await addItem(section, null, {}, anchor);
-    } else {
-      // Create one starter item — the coach can add more rows after.
-      await addItem(section, label, {}, anchor);
-    }
-    // Even though nextGroupLabel picks the next free slot, the
-    // *displayed* numbers can still drift on the existing data (we
-    // inherited some "Superset 10" labels from the global-counter
-    // bug). Run a renumber pass so the section's labels always read
-    // 1, 2, 3, … in order.
-    await renumberSection(section);
+    const after =
+      type === "Single"
+        ? await addItem(section, null, {}, anchor)
+        : await addItem(section, label, {}, anchor);
+    // Renumber against the freshly produced items array so the just-
+    // inserted row participates in the pass (and any inherited weird
+    // numbering in the section gets cleaned up).
+    if (after) await renumberSection(section, after);
   };
 
   const addRowToSet = async (section: Section, set: UISet) => {
@@ -873,20 +874,20 @@ const AdminProgramEdit = () => {
     const created = await safeSave(() =>
       sbPost<Item[]>("program_items", payload)
     );
-    setItems((its) => {
-      const bumpedIds = new Set(toBump.map((b) => b.id));
-      const updated = its.map((it) =>
+    const bumpedIds = new Set(toBump.map((b) => b.id));
+    const nextItems = items
+      .map((it) =>
         bumpedIds.has(it.id)
           ? { ...it, order_index: it.order_index + shiftCount }
           : it
-      );
-      return [...updated, ...created];
-    });
+      )
+      .concat(created);
+    setItems(nextItems);
     // Templates carry their own Superset 1 / Drop set 1 etc. labels;
     // applying one into a section that already has groups can produce
     // duplicates or collisions. Renumber the section so the final
     // labels read 1, 2, 3, … in display order regardless of source.
-    await renumberSection(section);
+    await renumberSection(section, nextItems);
   };
 
   // ----- publish / unpublish --------------------------------------------
