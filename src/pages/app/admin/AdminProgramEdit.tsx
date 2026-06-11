@@ -963,11 +963,12 @@ const AdminProgramEdit = () => {
         <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap">
           <div>
             <p className="text-sm font-bold text-green-800">
-              ✓ Published — visible to the client
+              ✓ Published — live for the client
             </p>
             <p className="text-xs text-green-700/80">
-              Switch back to draft if you need to keep editing without the
-              client seeing changes.
+              You can keep editing right here — every change auto-saves and
+              the client sees it in real time. Switch to draft only if you
+              want to stage bigger changes out of sight first.
             </p>
           </div>
           <Button
