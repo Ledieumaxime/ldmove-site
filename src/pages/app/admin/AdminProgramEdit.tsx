@@ -1800,9 +1800,14 @@ const FieldText = ({
           setDraft(e.target.value);
           onChange?.(e.target.value);
         }}
-        onBlur={() => {
-          if (draft !== value) onCommit(draft);
-        }}
+        // Always commit on blur and let the parent's onCommit decide
+        // whether to actually round-trip to the DB. The Tempo/Load
+        // fields pipe an onChange that keeps the parent's local state
+        // in sync — that makes `value` track `draft` on every
+        // keystroke, so the previous "only commit if draft !== value"
+        // check was always false and the typed change never reached
+        // the database.
+        onBlur={() => onCommit(draft)}
         placeholder={placeholder}
         className="h-8 text-sm"
       />
