@@ -946,6 +946,23 @@ const AdminProgramEdit = () => {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <SaveBadge state={saveState} />
+          <button
+            type="button"
+            onClick={() => {
+              // Force-blur whatever input the coach is currently in so
+              // any pending onBlur commit runs before we flash the
+              // 'Saved' state. Auto-save handles the actual write —
+              // this button is for psychological reassurance after a
+              // big edit pass.
+              const active = document.activeElement as HTMLElement | null;
+              if (active && typeof active.blur === "function") active.blur();
+              flagSaved();
+            }}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1.5 border border-border bg-white hover:bg-muted/40"
+            title="Flush every pending edit and confirm everything is saved"
+          >
+            <Save size={12} /> Save
+          </button>
           <a
             href={`/app/programs/${program.slug}`}
             target="_blank"
@@ -1818,22 +1835,27 @@ const FieldText = ({
 // ============================================================ Badge ==
 
 const SaveBadge = ({ state }: { state: "idle" | "saving" | "saved" }) => {
-  if (state === "idle") return null;
   return (
     <span
-      className={`inline-flex items-center gap-1 text-[10px] font-semibold rounded-full px-2 py-1 ${
+      className={`inline-flex items-center gap-1 text-[11px] font-semibold rounded-full px-2.5 py-1 border ${
         state === "saving"
-          ? "bg-muted text-muted-foreground"
-          : "bg-green-50 text-green-700"
+          ? "bg-muted text-muted-foreground border-border"
+          : state === "saved"
+            ? "bg-green-50 text-green-700 border-green-200"
+            : "bg-white text-muted-foreground border-border"
       }`}
     >
       {state === "saving" ? (
         <>
-          <Loader2 size={10} className="animate-spin" /> Saving…
+          <Loader2 size={11} className="animate-spin" /> Saving…
+        </>
+      ) : state === "saved" ? (
+        <>
+          <Save size={11} /> Saved
         </>
       ) : (
         <>
-          <Save size={10} /> Saved
+          <Save size={11} /> Auto-save on
         </>
       )}
     </span>
