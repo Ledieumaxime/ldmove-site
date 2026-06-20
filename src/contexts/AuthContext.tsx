@@ -158,6 +158,95 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     })();
   }, []);
 
+  // ---- Proactive access-token refresh ----------------------------------
+  // Supabase access tokens default to 1h. Without this loop the user
+  // sees a 'JWT expired' 401 the next time they save a workout log /
+  // form check / anything from the client side. We swap the token
+  // around T-2min and chain a new timeout each time.
+  useEffect(() => {
+    if (!session?.refresh_token) return;
+    const refreshAt =
+      (session.expires_at ?? Math.floor(Date.now() / 1000) + 3600) * 1000 -
+      2 * 60 * 1000; // 2 minutes before expiry
+    const delay = Math.max(5_000, refreshAt - Date.now()); // never zero / negative
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,
+          {
+            method: "POST",
+            headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+            body: JSON.stringify({ refresh_token: session.refresh_token }),
+          }
+        );
+        if (!res.ok) {
+          console.warn(
+            "[AUTH] refresh token rejected — signing out",
+            res.status
+          );
+          setSession(null);
+          setProfile(null);
+          return;
+        }
+        const json = await res.json();
+        const next: SessionLike = {
+          access_token: json.access_token,
+          refresh_token: json.refresh_token ?? session.refresh_token,
+          expires_at:
+            json.expires_at ?? Math.floor(Date.now() / 1000) + 3600,
+          user: session.user,
+        };
+        setSession(next);
+      } catch (e) {
+        console.error("[AUTH] refresh token error", e);
+      }
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [session?.access_token]);
+
+  // ---- Refresh on tab focus -------------------------------------------
+  // Mobile Safari often kills the setTimeout above when the tab/screen
+  // goes inactive. When the coach (or client) re-opens the page after
+  // a long pause, jump-start a refresh if the stored token is close to
+  // expiry. Stops the JWT-expired errors that appear the moment they
+  // try to mark a workout complete.
+  useEffect(() => {
+    const handler = async () => {
+      if (document.visibilityState !== "visible") return;
+      const stored = loadStoredSession();
+      if (!stored) return;
+      const msToExpiry = (stored.expires_at ?? 0) * 1000 - Date.now();
+      if (msToExpiry > 2 * 60 * 1000) return; // still fresh
+      try {
+        const res = await fetch(
+          `${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,
+          {
+            method: "POST",
+            headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+            body: JSON.stringify({ refresh_token: stored.refresh_token }),
+          }
+        );
+        if (!res.ok) {
+          setSession(null);
+          setProfile(null);
+          return;
+        }
+        const json = await res.json();
+        setSession({
+          access_token: json.access_token,
+          refresh_token: json.refresh_token ?? stored.refresh_token,
+          expires_at:
+            json.expires_at ?? Math.floor(Date.now() / 1000) + 3600,
+          user: stored.user,
+        });
+      } catch (e) {
+        console.error("[AUTH] visibility refresh failed", e);
+      }
+    };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, []);
+
   const signUp: AuthContextValue["signUp"] = async (email, password, first_name, last_name) => {
     console.log("[AUTH] signUp start");
     try {
