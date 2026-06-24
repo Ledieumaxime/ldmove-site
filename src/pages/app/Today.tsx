@@ -226,6 +226,26 @@ const Today = () => {
     );
   }
 
+  // Today's session exists in the program structure but has no
+  // exercises filled in yet. Surface it explicitly instead of
+  // silently jumping the loop to a different session (which is what
+  // happened before — the empty week was skipped entirely, the
+  // modulo wrapped early and the client saw the wrong session).
+  if (todaysWorkout.isEmpty) {
+    return (
+      <div className="max-w-xl mx-auto bg-white border border-border rounded-2xl p-8 text-center space-y-3">
+        <Lock className="mx-auto text-muted-foreground" size={28} />
+        <h1 className="font-heading text-2xl font-bold">
+          {dayDisplayLabel(todaysWorkout)}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Your coach hasn't filled this session yet. Check back soon or ping
+          them — once the exercises are in, this page updates automatically.
+        </p>
+      </div>
+    );
+  }
+
   // Group today's items by [SECTION] prefix to keep the warmup/exercise/etc. structure.
   type SectionGroup = { section: string; items: ProgramItem[] };
   const sections: SectionGroup[] = [];

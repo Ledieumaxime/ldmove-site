@@ -33,9 +33,17 @@ export type WorkoutDay<T extends ProgramItemLite = ProgramItemLite> = {
   weekNumber: number;
   weekTitle: string | null;
   items: T[];
+  /** True when the session has no exercises yet. Surfaced to the
+   *  client UI so they see "This session is empty" instead of being
+   *  silently shifted to the next non-empty session (which broke the
+   *  modulo math and made the loop wrap a session early). */
+  isEmpty: boolean;
 };
 
-/** All training sessions in the program, in week_number order. */
+/** All training sessions in the program, in week_number order.
+ *  Empty sessions are kept in the list so the modulo in `nextDay`
+ *  matches what ProgramDetail shows (every program_weeks row counts),
+ *  but flagged via `isEmpty` so consumers can render them differently. */
 export function listProgramDays<T extends ProgramItemLite>(
   weeks: ProgramWeekLite[],
   items: T[]
@@ -47,12 +55,12 @@ export function listProgramDays<T extends ProgramItemLite>(
     const weekItems = items
       .filter((i) => i.week_id === w.id)
       .sort((a, b) => a.order_index - b.order_index);
-    if (weekItems.length === 0) continue;
     days.push({
       weekId: w.id,
       weekNumber: w.week_number,
       weekTitle: w.title,
       items: weekItems,
+      isEmpty: weekItems.length === 0,
     });
   }
 
