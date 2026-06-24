@@ -892,8 +892,30 @@ const AdminProgramEdit = () => {
 
   // ----- publish / unpublish --------------------------------------------
 
+  // Empty sessions silently break the block loop client-side
+  // (listProgramDays skips weeks with zero items), so we surface them
+  // here and block publish until they're filled or removed.
+  const emptySessions = useMemo(() => {
+    const itemsByWeek = new Map<string, number>();
+    for (const it of items) {
+      itemsByWeek.set(it.week_id, (itemsByWeek.get(it.week_id) ?? 0) + 1);
+    }
+    return weeks.filter((w) => (itemsByWeek.get(w.id) ?? 0) === 0);
+  }, [items, weeks]);
+
   const togglePublish = async () => {
     if (!program) return;
+    // Only guard the "draft → published" direction; un-publishing
+    // (switching to draft) is always allowed.
+    if (!program.is_published && emptySessions.length > 0) {
+      const list = emptySessions
+        .map((w) => `  · ${w.title || `Session ${w.week_number}`}`)
+        .join("\n");
+      alert(
+        `Can't publish yet — these sessions are empty and would silently break the client's session loop:\n\n${list}\n\nFill them (add at least one exercise) or delete them, then try again.`
+      );
+      return;
+    }
     const next = !program.is_published;
     setProgram({ ...program, is_published: next });
     await safeSave(() =>
@@ -975,6 +997,26 @@ const AdminProgramEdit = () => {
         </div>
       </div>
 
+      {/* ----- Empty session warning ----- */}
+      {emptySessions.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+          <p className="text-sm font-bold text-red-800">
+            ⚠ {emptySessions.length} empty session
+            {emptySessions.length > 1 ? "s" : ""} — the block loop will
+            silently skip {emptySessions.length > 1 ? "them" : "it"} on the
+            client side.
+          </p>
+          <ul className="text-xs text-red-800/80 mt-1 list-disc list-inside space-y-0.5">
+            {emptySessions.map((w) => (
+              <li key={w.id}>
+                {w.title || `Session ${w.week_number}`} — fill at least one
+                exercise or delete the session.
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* ----- Publish state banner ----- */}
       {program.is_published ? (
         <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap">
@@ -1022,20 +1064,29 @@ const AdminProgramEdit = () => {
 
       {/* ----- Session tabs ----- */}
       <div className="flex items-center gap-1 overflow-x-auto bg-muted/30 rounded-xl p-1 border border-border">
-        {weeks.map((w, idx) => (
-          <button
-            key={w.id}
-            type="button"
-            onClick={() => goToSession(idx)}
-            className={`shrink-0 text-xs font-semibold rounded-lg px-3 py-1.5 transition-colors ${
-              idx === sessionIdx
-                ? "bg-white border border-border shadow-sm text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {idx + 1}. {w.title || `Session ${idx + 1}`}
-          </button>
-        ))}
+        {weeks.map((w, idx) => {
+          const isEmpty = emptySessions.some((e) => e.id === w.id);
+          return (
+            <button
+              key={w.id}
+              type="button"
+              onClick={() => goToSession(idx)}
+              className={`shrink-0 text-xs font-semibold rounded-lg px-3 py-1.5 transition-colors flex items-center gap-1.5 ${
+                idx === sessionIdx
+                  ? "bg-white border border-border shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {idx + 1}. {w.title || `Session ${idx + 1}`}
+              {isEmpty && (
+                <span
+                  className="inline-block w-2 h-2 rounded-full bg-red-500"
+                  title="Empty session"
+                />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* ----- Active session ----- */}
