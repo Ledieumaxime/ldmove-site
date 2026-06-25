@@ -156,6 +156,17 @@ const ProgramDetail = () => {
   const isFree = Number(program.price_eur) <= 0;
   const canView = isCoach || isPaid || isArchived || isFree;
 
+  // Let the client upload a form-check video against any exercise of
+  // their own active (non-archived) 1:1 program, from any session —
+  // not just today's. This is the "I finished session 4 but want to
+  // go back and add a video" case: the overview page is the natural
+  // place to do it because it lists every session at once.
+  const clientCanUploadFormCheck =
+    !isCoach &&
+    program.type === "custom" &&
+    !program.is_archived &&
+    program.assigned_client_id === profile?.id;
+
   return (
     <div className="space-y-6 max-w-3xl">
       <Link
@@ -178,6 +189,14 @@ const ProgramDetail = () => {
         {program.duration_weeks && (
           <p className="text-sm text-muted-foreground mt-3">
             Duration: {program.duration_weeks} weeks
+          </p>
+        )}
+        {clientCanUploadFormCheck && (
+          <p className="text-xs text-muted-foreground mt-3 bg-muted/40 border border-border rounded-lg px-3 py-2">
+            Want to add a form-check video to an exercise you already did?
+            Scroll to any session below and use the upload button on that
+            exercise — you can do it any time, even after finishing the
+            session.
           </p>
         )}
       </div>
@@ -283,6 +302,7 @@ const ProgramDetail = () => {
                                     item={b.item}
                                     canComment={program.type === "custom"}
                                     commentsReadOnly={program.is_archived}
+                                    canUploadFormCheck={clientCanUploadFormCheck}
                                     accent={style.border}
                                     // Overview page: no interactive logger
                                     // for the client. The coach keeps a
@@ -334,6 +354,7 @@ const ProgramDetail = () => {
                                                 compact
                                                 canComment={program.type === "custom"}
                                     commentsReadOnly={program.is_archived}
+                                                canUploadFormCheck={clientCanUploadFormCheck}
                                                 inSuperset
                                                 loggerClientId={
                                                   isCoach
