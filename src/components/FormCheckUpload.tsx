@@ -49,6 +49,40 @@ function getToken(): string | null {
   }
 }
 
+// Force a fresh access token from the stored refresh_token and persist
+// it back to localStorage. Returns the new access token (or null if it
+// failed). Used to recover from a 401/403 'JWT expired' / 'claim
+// timestamp check failed' during upload without making the client sign
+// out and back in.
+async function refreshToken(): Promise<string | null> {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const session = JSON.parse(raw);
+    if (!session.refresh_token) return null;
+    const res = await fetch(
+      `${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,
+      {
+        method: "POST",
+        headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: session.refresh_token }),
+      }
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    const next = {
+      access_token: json.access_token,
+      refresh_token: json.refresh_token ?? session.refresh_token,
+      expires_at: json.expires_at ?? Math.floor(Date.now() / 1000) + 3600,
+      user: session.user,
+    };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(next));
+    return json.access_token as string;
+  } catch {
+    return null;
+  }
+}
+
 async function signUrl(path: string): Promise<string | null> {
   const token = getToken();
   if (!token) return null;
@@ -159,24 +193,54 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
     try {
       const ext = file.name.split(".").pop() || "mp4";
       const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const token = getToken();
+      let token = getToken();
       if (!token) throw new Error("Not signed in");
 
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", `${SUPABASE_URL}/storage/v1/object/form-checks/${path}`);
-        xhr.setRequestHeader("apikey", SUPABASE_KEY);
-        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-        xhr.setRequestHeader("x-upsert", "false");
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable)
-            setProgress(Math.round((e.loaded / e.total) * 100));
-        };
-        xhr.onload = () =>
-          xhr.status < 300 ? resolve() : reject(new Error(xhr.responseText));
-        xhr.onerror = () => reject(new Error("Upload failed"));
-        xhr.send(file);
-      });
+      // Try the upload; on an auth-timestamp failure (401/403) refresh
+      // the token once and retry. Covers expired or skewed tokens
+      // without forcing a full sign-out.
+      const doUpload = (authToken: string) =>
+        new Promise<{ status: number; body: string }>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open(
+            "POST",
+            `${SUPABASE_URL}/storage/v1/object/form-checks/${path}`
+          );
+          xhr.setRequestHeader("apikey", SUPABASE_KEY);
+          xhr.setRequestHeader("Authorization", `Bearer ${authToken}`);
+          xhr.setRequestHeader("x-upsert", "false");
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable)
+              setProgress(Math.round((e.loaded / e.total) * 100));
+          };
+          xhr.onload = () =>
+            resolve({ status: xhr.status, body: xhr.responseText });
+          xhr.onerror = () => reject(new Error("Upload failed"));
+          xhr.send(file);
+        });
+
+      let result = await doUpload(token);
+      if (result.status === 401 || result.status === 403) {
+        const fresh = await refreshToken();
+        if (fresh) {
+          token = fresh;
+          setProgress(0);
+          result = await doUpload(fresh);
+        }
+      }
+      if (result.status >= 300) {
+        // Give a human hint for the most common residual cause: a phone
+        // clock that's off enough to trip the JWT timestamp check.
+        if (
+          result.status === 403 &&
+          /timestamp/i.test(result.body)
+        ) {
+          throw new Error(
+            "Upload rejected (clock check). Please check your phone's Date & Time is set to Automatic, then try again."
+          );
+        }
+        throw new Error(result.body || `Upload failed (${result.status})`);
+      }
 
       await sbPost("form_check_submissions", {
         item_id: itemId,
