@@ -43,7 +43,13 @@ const loadStoredSession = (): SessionLike | null => {
     const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return null;
     const s = JSON.parse(raw) as SessionLike;
-    if (s.expires_at && s.expires_at * 1000 < Date.now()) return null;
+    // IMPORTANT: do NOT drop the session just because the local clock
+    // thinks the access token is expired. A device clock that's ahead
+    // of real time (a very common phone misconfiguration) would make a
+    // perfectly valid token look expired and log the user out
+    // mid-session. We always return the stored session and let the
+    // refresh loop renew the access token from the refresh_token,
+    // which has a much longer life and is validated server-side.
     return s;
   } catch {
     return null;
@@ -180,12 +186,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
         );
         if (!res.ok) {
-          console.warn(
-            "[AUTH] refresh token rejected — signing out",
-            res.status
-          );
-          setSession(null);
-          setProfile(null);
+          // Do NOT sign the user out here. A failed scheduled refresh
+          // is most often a transient network blip (training in a gym
+          // with weak signal), which used to log Cym out mid-session.
+          // Keep the current session; the api-layer refresh+retry and
+          // the visibility handler will renew it on the next action.
+          console.warn("[AUTH] scheduled refresh failed (keeping session)", res.status);
           return;
         }
         const json = await res.json();
@@ -214,7 +220,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const handler = async () => {
       if (document.visibilityState !== "visible") return;
       const stored = loadStoredSession();
-      if (!stored) return;
+      if (!stored?.refresh_token) return;
       const msToExpiry = (stored.expires_at ?? 0) * 1000 - Date.now();
       if (msToExpiry > 2 * 60 * 1000) return; // still fresh
       try {
@@ -226,9 +232,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             body: JSON.stringify({ refresh_token: stored.refresh_token }),
           }
         );
+        // Same policy as the scheduled refresh: never sign out on a
+        // failed refresh, just keep the session and let the next API
+        // call heal it. Signing out mid-training is the worst outcome.
         if (!res.ok) {
-          setSession(null);
-          setProfile(null);
+          console.warn("[AUTH] visibility refresh failed (keeping session)", res.status);
           return;
         }
         const json = await res.json();

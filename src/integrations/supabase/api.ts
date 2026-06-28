@@ -6,7 +6,12 @@ const URL = import.meta.env.VITE_SUPABASE_URL as string;
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 const SESSION_KEY = "ldmove-session";
 
-type StoredSession = { access_token: string } | null;
+type StoredSession = {
+  access_token: string;
+  refresh_token?: string;
+  expires_at?: number;
+  user?: unknown;
+} | null;
 
 const getToken = (): string | null => {
   try {
@@ -19,14 +24,80 @@ const getToken = (): string | null => {
   }
 };
 
+// Mint a fresh access token from the stored refresh_token and persist
+// it. Returns the new token, or null if the refresh itself failed.
+// Shared by every helper so a single expired/skewed token gets healed
+// transparently instead of bubbling a 401/403 up to the UI (which was
+// showing clients 'JWT expired' / 'claim timestamp check failed' mid
+// workout).
+let refreshInFlight: Promise<string | null> | null = null;
+async function refreshAccessToken(): Promise<string | null> {
+  // Collapse concurrent refreshes (e.g. several set saves firing at
+  // once) into one network call.
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (!raw) return null;
+      const session = JSON.parse(raw) as StoredSession;
+      if (!session?.refresh_token) return null;
+      const res = await fetch(
+        `${URL}/auth/v1/token?grant_type=refresh_token`,
+        {
+          method: "POST",
+          headers: { apikey: KEY, "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: session.refresh_token }),
+        }
+      );
+      if (!res.ok) return null;
+      const json = await res.json();
+      const next = {
+        access_token: json.access_token,
+        refresh_token: json.refresh_token ?? session.refresh_token,
+        expires_at: json.expires_at ?? Math.floor(Date.now() / 1000) + 3600,
+        user: json.user ?? session.user,
+      };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(next));
+      return json.access_token as string;
+    } catch {
+      return null;
+    } finally {
+      // Allow the next refresh to actually run.
+      setTimeout(() => {
+        refreshInFlight = null;
+      }, 0);
+    }
+  })();
+  return refreshInFlight;
+}
+
+// Core request runner with one automatic refresh+retry on 401/403.
+async function request(
+  method: string,
+  path: string,
+  init: Omit<RequestInit, "method"> = {}
+): Promise<Response> {
+  const send = (token: string | null) =>
+    fetch(`${URL}/rest/v1/${path}`, {
+      ...init,
+      method,
+      headers: {
+        apikey: KEY,
+        ...(init.headers ?? {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+  let res = await send(getToken());
+  if (res.status === 401 || res.status === 403) {
+    const fresh = await refreshAccessToken();
+    if (fresh) res = await send(fresh);
+  }
+  return res;
+}
+
 export async function sbGet<T>(path: string): Promise<T> {
-  const token = getToken();
-  const res = await fetch(`${URL}/rest/v1/${path}`, {
-    headers: {
-      apikey: KEY,
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
+  const res = await request("GET", path);
   if (!res.ok) throw new Error(`GET ${path} → ${res.status} ${await res.text()}`);
   return (await res.json()) as T;
 }
@@ -66,20 +137,13 @@ export async function sbPost<T>(
   body: unknown,
   options?: { merge?: boolean }
 ): Promise<T> {
-  const token = getToken();
   // PostgREST upsert: combine "resolution=merge-duplicates" with the
   // on_conflict query param the caller adds to the path.
   const prefer = options?.merge
     ? "resolution=merge-duplicates,return=representation"
     : "return=representation";
-  const res = await fetch(`${URL}/rest/v1/${path}`, {
-    method: "POST",
-    headers: {
-      apikey: KEY,
-      "Content-Type": "application/json",
-      Prefer: prefer,
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+  const res = await request("POST", path, {
+    headers: { "Content-Type": "application/json", Prefer: prefer },
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`POST ${path} → ${res.status} ${await res.text()}`);
@@ -87,15 +151,8 @@ export async function sbPost<T>(
 }
 
 export async function sbPatch<T>(path: string, body: unknown): Promise<T> {
-  const token = getToken();
-  const res = await fetch(`${URL}/rest/v1/${path}`, {
-    method: "PATCH",
-    headers: {
-      apikey: KEY,
-      "Content-Type": "application/json",
-      Prefer: "return=representation",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+  const res = await request("PATCH", path, {
+    headers: { "Content-Type": "application/json", Prefer: "return=representation" },
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`PATCH ${path} → ${res.status} ${await res.text()}`);
@@ -103,13 +160,6 @@ export async function sbPatch<T>(path: string, body: unknown): Promise<T> {
 }
 
 export async function sbDelete(path: string): Promise<void> {
-  const token = getToken();
-  const res = await fetch(`${URL}/rest/v1/${path}`, {
-    method: "DELETE",
-    headers: {
-      apikey: KEY,
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
+  const res = await request("DELETE", path);
   if (!res.ok) throw new Error(`DELETE ${path} → ${res.status} ${await res.text()}`);
 }
