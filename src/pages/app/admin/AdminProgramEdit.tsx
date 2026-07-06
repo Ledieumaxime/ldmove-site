@@ -43,6 +43,7 @@ import {
   sbDelete,
   sbGet,
   sbGetAll,
+  sbGetIn,
   sbPatch,
   sbPost,
 } from "@/integrations/supabase/api";
@@ -349,14 +350,37 @@ const AdminProgramEdit = () => {
     if (!activeWeek || !program) return;
     const sessionLabel =
       activeWeek.title || `Session ${activeWeek.week_number}`;
-    const sessionItemsCount = items.filter(
-      (i) => i.week_id === activeWeek.id
-    ).length;
+    const sessionItemList = items.filter((i) => i.week_id === activeWeek.id);
+    const sessionItemsCount = sessionItemList.length;
+
+    // Data-loss guard: count the client's logged sets across every
+    // exercise of this session before wiping it (logs + comments
+    // cascade with the items).
+    let loggedSets = 0;
+    try {
+      if (sessionItemList.length > 0) {
+        const logRows = await sbGetIn<{ id: string }>(
+          `workout_logs?select=id`,
+          "program_item_id",
+          sessionItemList.map((i) => i.id)
+        );
+        loggedSets = logRows.length;
+      }
+    } catch {
+      // Best-effort — if the count fails, keep the generic warning.
+    }
+
+    const historyWarning =
+      loggedSets > 0
+        ? `\n\n⚠ The client has logged ${loggedSets} set${
+            loggedSets > 1 ? "s" : ""
+          } in this session — that training history will be permanently erased too.`
+        : "";
     if (
       !confirm(
         `Delete "${sessionLabel}"?\n\n${sessionItemsCount} exercise${
           sessionItemsCount === 1 ? "" : "s"
-        } will be removed. This cannot be undone.`
+        } will be removed. This cannot be undone.${historyWarning}`
       )
     )
       return;
@@ -603,6 +627,31 @@ const AdminProgramEdit = () => {
     // the group; later groups in the same section should slide down
     // a number).
     const target = items.find((it) => it.id === id);
+
+    // Data-loss guard: workout_logs and exercise_comments cascade on
+    // program_items delete. If the client already logged sets on this
+    // exercise, deleting it silently erases their history — make the
+    // coach confirm with full knowledge.
+    try {
+      const logs = await sbGet<Array<{ id: string }>>(
+        `workout_logs?select=id&program_item_id=eq.${id}&limit=1000`
+      );
+      if (logs.length > 0) {
+        const name = target ? stripPrefix(target.custom_name) : "this exercise";
+        if (
+          !confirm(
+            `⚠ The client has already logged ${logs.length} set${
+              logs.length > 1 ? "s" : ""
+            } on "${name}".\n\nDeleting it will permanently erase that training history (and any comments on it). Continue?`
+          )
+        )
+          return;
+      }
+    } catch {
+      // If the check itself fails, fall through to the delete — the
+      // guard is best-effort, not a gate.
+    }
+
     await safeSave(() => sbDelete(`program_items?id=eq.${id}`));
     // Compute the post-delete array locally so we can hand it to
     // renumberSection — without this, React's batched state update
