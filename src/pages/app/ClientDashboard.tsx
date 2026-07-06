@@ -10,7 +10,7 @@ import {
   Video,
   Bell,
 } from "lucide-react";
-import { sbGet, sbPatch } from "@/integrations/supabase/api";
+import { sbGet, sbGetIn, sbPatch } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { IntakeAnswers, visibleExercises } from "@/lib/assessment";
 
@@ -83,39 +83,31 @@ const ClientDashboard = () => {
 
   useEffect(() => {
     if (!user) return;
-    Promise.all([
-      sbGet<Program[]>(
-        `programs?select=*&or=(type.eq.catalogue,and(type.eq.custom,assigned_client_id.eq.${user.id}))&order=created_at.desc`
-      ),
-      sbGet<Comment[]>(
-        `exercise_comments?select=*,program_items(custom_name,week_id)&author_role=eq.coach&order=created_at.desc&limit=20`
-      ),
-      sbGet<CommentRead[]>(
-        `comment_reads?select=item_id,last_read_at&user_id=eq.${user.id}`
-      ),
-      sbGet<FormCheck[]>(
-        `form_check_submissions?select=id,status,created_at&client_id=eq.${user.id}&order=created_at.desc&limit=10`
-      ),
-      sbGet<(IntakeAnswers & { locked_at: string | null })[]>(
-        `client_intakes?select=max_pull_ups,max_dips,max_push_ups,deep_squat,handstand,muscle_up,planche,front_lever,lsit_vsit,hspu,rope_climb,hamstrings,splits,shoulder_mobility,squat_flat_heels,backbend,locked_at&client_id=eq.${user.id}&limit=1`
-      ),
-      sbGet<Array<{ id: string }>>(
-        `assessment_videos?select=id&client_id=eq.${user.id}`
-      ),
-      sbGet<Notification[]>(
-        `notifications?user_id=eq.${user.id}&read=eq.false&select=id,type,title,body,link_url,read,created_at&order=created_at.desc`
-      ),
-      sbGet<ProgramWeekRef[]>(
-        `program_weeks?select=id,program_id`
-      ),
-      sbGet<{ id: string; week_id: string }[]>(
-        `program_items?select=id,week_id`
-      ),
-      sbGet<CompletionLog[]>(
-        `workout_logs?client_id=eq.${user.id}&completed_at=not.is.null&select=program_item_id,session_run_id`
-      ),
-    ])
-      .then(([p, co, r, fc, intake, av, notifs, weeks, items, logs]) => {
+    (async () => {
+      try {
+        const [p, co, r, fc, intake, av, notifs] = await Promise.all([
+          sbGet<Program[]>(
+            `programs?select=*&or=(type.eq.catalogue,and(type.eq.custom,assigned_client_id.eq.${user.id}))&order=created_at.desc`
+          ),
+          sbGet<Comment[]>(
+            `exercise_comments?select=*,program_items(custom_name,week_id)&author_role=eq.coach&order=created_at.desc&limit=20`
+          ),
+          sbGet<CommentRead[]>(
+            `comment_reads?select=item_id,last_read_at&user_id=eq.${user.id}`
+          ),
+          sbGet<FormCheck[]>(
+            `form_check_submissions?select=id,status,created_at&client_id=eq.${user.id}&order=created_at.desc&limit=10`
+          ),
+          sbGet<(IntakeAnswers & { locked_at: string | null })[]>(
+            `client_intakes?select=max_pull_ups,max_dips,max_push_ups,deep_squat,handstand,muscle_up,planche,front_lever,lsit_vsit,hspu,rope_climb,hamstrings,splits,shoulder_mobility,squat_flat_heels,backbend,locked_at&client_id=eq.${user.id}&limit=1`
+          ),
+          sbGet<Array<{ id: string }>>(
+            `assessment_videos?select=id&client_id=eq.${user.id}`
+          ),
+          sbGet<Notification[]>(
+            `notifications?user_id=eq.${user.id}&read=eq.false&select=id,type,title,body,link_url,read,created_at&order=created_at.desc`
+          ),
+        ]);
         setPrograms(p);
         setComments(co);
         setReads(r);
@@ -125,13 +117,55 @@ const ClientDashboard = () => {
         setOnboardingLocked(!!intake[0]?.locked_at);
         setAssessmentCount(av.length);
         setNotifications(notifs);
-        setProgramWeeks(weeks);
-        setProgramItemsByWeek(
-          Object.fromEntries(items.map((i) => [i.id, i.week_id]))
+
+        // Progress data: scoped to the CURRENT program only. The old
+        // version fetched every program_weeks / program_items row the
+        // RLS would let us read (all catalogue + all of the client's
+        // archived blocks) plus every completed workout_log with no
+        // limit — all three quietly truncate at PostgREST's ~1000-row
+        // cap once a long-time client accumulates history, which
+        // corrupts the progress math.
+        const current = p.find(
+          (x) =>
+            x.type === "custom" &&
+            x.assigned_client_id === user.id &&
+            !x.is_archived &&
+            x.is_published
         );
-        setCompletedLogs(logs);
-      })
-      .finally(() => setLoading(false));
+        if (current) {
+          const weeks = await sbGet<ProgramWeekRef[]>(
+            `program_weeks?select=id,program_id&program_id=eq.${current.id}`
+          );
+          setProgramWeeks(weeks);
+          const items =
+            weeks.length > 0
+              ? await sbGetIn<{ id: string; week_id: string }>(
+                  `program_items?select=id,week_id`,
+                  "week_id",
+                  weeks.map((w) => w.id)
+                )
+              : [];
+          setProgramItemsByWeek(
+            Object.fromEntries(items.map((i) => [i.id, i.week_id]))
+          );
+          const logs =
+            items.length > 0
+              ? await sbGetIn<CompletionLog>(
+                  `workout_logs?client_id=eq.${user.id}&completed_at=not.is.null&select=program_item_id,session_run_id`,
+                  "program_item_id",
+                  items.map((i) => i.id)
+                )
+              : [];
+          setCompletedLogs(logs);
+        } else {
+          setProgramWeeks([]);
+          setProgramItemsByWeek({});
+          setCompletedLogs([]);
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [user]);
 
   const dismissAndGo = async (n: Notification) => {

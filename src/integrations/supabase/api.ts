@@ -132,6 +132,33 @@ export async function sbGetAll<T>(
   return result;
 }
 
+/**
+ * Fetch rows matching an `in.(...)` filter on a potentially long id
+ * list. Two ceilings are handled at once:
+ *   - URL length: the id list is chunked (60 uuids ≈ 2.2KB per URL).
+ *   - Server max-rows (~1000): each chunk goes through sbGetAll which
+ *     paginates past the cap.
+ * Use for "all logs of this program's items"-style queries where the
+ * id list and the result set can both grow unbounded over time.
+ */
+export async function sbGetIn<T>(
+  basePath: string,
+  column: string,
+  ids: string[],
+  chunkSize = 60
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize);
+    const sep = basePath.includes("?") ? "&" : "?";
+    const rows = await sbGetAll<T>(
+      `${basePath}${sep}${column}=in.(${chunk.join(",")})`
+    );
+    out.push(...rows);
+  }
+  return out;
+}
+
 export async function sbPost<T>(
   path: string,
   body: unknown,

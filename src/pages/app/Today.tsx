@@ -8,7 +8,7 @@ import {
   Link2,
   Trophy,
 } from "lucide-react";
-import { sbGet, sbPatch } from "@/integrations/supabase/api";
+import { sbGet, sbGetIn, sbPatch, sbPost } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import ProgramItemCard, { ProgramItem } from "@/components/ProgramItemCard";
@@ -75,9 +75,9 @@ const Today = () => {
       setWeeks(w);
 
       const weekIds = w.map((x) => x.id);
-      const [it, lg] = await Promise.all([
+      const it =
         weekIds.length > 0
-          ? sbGet<Array<ProgramItem & { exercise: { description: string | null } | null }>>(
+          ? await sbGet<Array<ProgramItem & { exercise: { description: string | null } | null }>>(
               `program_items?select=id,week_id,order_index,custom_name,sets,reps,rest_seconds,notes,video_url,group_name,exercise:exercises(description)` +
                 `&week_id=in.(${weekIds.join(",")})` +
                 `&order=order_index.asc`
@@ -87,12 +87,22 @@ const Today = () => {
                 description: exercise?.description ?? null,
               }))
             )
-          : Promise.resolve([] as ProgramItem[]),
-        sbGet<CompletedLog[]>(
-          `workout_logs?select=program_item_id,session_run_id,session_date,completed_at` +
-            `&client_id=eq.${user.id}`
-        ),
-      ]);
+          : ([] as ProgramItem[]);
+
+      // Logs: scope to THIS program's items and paginate. An unfiltered
+      // `workout_logs?client_id=eq.X` hits PostgREST's silent ~1000-row
+      // cap once a long-time client accumulates history, which quietly
+      // corrupts the completed-session count (wrong "Session N", wrong
+      // next session).
+      const lg =
+        it.length > 0
+          ? await sbGetIn<CompletedLog>(
+              `workout_logs?select=program_item_id,session_run_id,session_date,completed_at` +
+                `&client_id=eq.${user.id}`,
+              "program_item_id",
+              it.map((x) => x.id)
+            )
+          : [];
 
       setItems(it);
       setLogs(lg);
@@ -161,13 +171,39 @@ const Today = () => {
     setCompleting(true);
     setError(null);
     try {
-      // Stamp every log of the current run as completed.
-      await sbPatch(
+      const stamp = new Date().toISOString();
+      // Stamp every log of the current run as completed. The PATCH is
+      // authoritative (server-side): it catches logs created by the
+      // WorkoutLogger children even though this page's local `logs`
+      // state is a snapshot from mount.
+      const stamped = await sbPatch<unknown[]>(
         `workout_logs?client_id=eq.${user.id}` +
           `&session_run_id=eq.${sessionRunId}` +
           `&completed_at=is.null`,
-        { completed_at: new Date().toISOString() }
+        { completed_at: stamp }
       );
+      if (!Array.isArray(stamped) || stamped.length === 0) {
+        // Zero rows stamped → the client didn't tick a single set
+        // (they followed the session without logging). The PATCH-only
+        // path used to be a silent no-op here, so the session never
+        // counted as done and the client kept seeing the same one.
+        // Write a completion marker so the run registers. Upsert so a
+        // race with a just-created log can't 409.
+        await sbPost(
+          "workout_logs?on_conflict=client_id,program_item_id,session_run_id,set_number",
+          {
+            client_id: user.id,
+            program_item_id: todaysWorkout.items[0].id,
+            session_run_id: sessionRunId,
+            session_date: today,
+            set_number: 1,
+            reps_done: null,
+            weight_kg: null,
+            completed_at: stamp,
+          },
+          { merge: true }
+        );
+      }
       // Reset the freshly-minted run id so the next session gets its own.
       freshRunIdRef.current = null;
       // Send the client back to the dashboard, where the next session
