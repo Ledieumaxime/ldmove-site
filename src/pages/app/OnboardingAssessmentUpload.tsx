@@ -9,7 +9,7 @@ import {
   RefreshCw,
   AlertCircle,
 } from "lucide-react";
-import { sbGet, sbPost } from "@/integrations/supabase/api";
+import { sbGet, sbPost, sbSignUrl } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -87,29 +87,8 @@ const OnboardingAssessmentUpload = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  const signUrl = async (path: string): Promise<string | null> => {
-    const token = getToken();
-    if (!token) return null;
-    try {
-      const res = await fetch(
-        `${SUPABASE_URL}/storage/v1/object/sign/assessment-videos/${path}`,
-        {
-          method: "POST",
-          headers: {
-            apikey: SUPABASE_KEY,
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ expiresIn: 1800 }),
-        }
-      );
-      if (!res.ok) return null;
-      const data = await res.json();
-      return `${SUPABASE_URL}/storage/v1${data.signedURL ?? data.signedUrl ?? ""}`;
-    } catch {
-      return null;
-    }
-  };
+  // Shared helper — refreshes an expired token and retries.
+  const signUrl = (path: string) => sbSignUrl("assessment-videos", path);
 
   const uploadFor = async (exercise: AssessmentExercise, file: File) => {
     if (!user) return;

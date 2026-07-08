@@ -7,7 +7,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
-import { sbGet } from "@/integrations/supabase/api";
+import { sbGet, sbSignUrl } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,42 +37,8 @@ type ProgressVideo = {
   created_at: string;
 };
 
-const getToken = (): string | null => {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw).access_token ?? null;
-  } catch {
-    return null;
-  }
-};
-
-const signUrl = async (
-  bucket: string,
-  path: string
-): Promise<string | null> => {
-  const token = getToken();
-  if (!token) return null;
-  try {
-    const res = await fetch(
-      `${SUPABASE_URL}/storage/v1/object/sign/${bucket}/${path}`,
-      {
-        method: "POST",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ expiresIn: 1800 }),
-      }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    return `${SUPABASE_URL}/storage/v1${data.signedURL ?? data.signedUrl ?? ""}`;
-  } catch {
-    return null;
-  }
-};
+// Shared helper — refreshes an expired token and retries.
+const signUrl = (bucket: string, path: string) => sbSignUrl(bucket, path);
 
 const ClientArchive = () => {
   const { user } = useAuth();

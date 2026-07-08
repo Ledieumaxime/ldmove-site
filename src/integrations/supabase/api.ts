@@ -159,6 +159,49 @@ export async function sbGetIn<T>(
   return out;
 }
 
+/**
+ * Sign a storage object URL with the same refresh-and-retry behaviour
+ * as the REST helpers. Components used to hand-roll this with a raw
+ * fetch + the localStorage token; since the auth layer stopped
+ * dropping stale sessions (to avoid logging users out mid-workout on
+ * skewed clocks), a raw call can run with an expired token and fail
+ * silently — which showed up as "the coach can't play form-check
+ * videos". Going through this helper heals the token first.
+ * Returns the full playable URL, or null if signing failed.
+ */
+export async function sbSignUrl(
+  bucket: string,
+  path: string,
+  expiresIn = 1800
+): Promise<string | null> {
+  const send = (token: string | null) =>
+    fetch(
+      `${URL}/storage/v1/object/sign/${encodeURIComponent(bucket)}/${path}`,
+      {
+        method: "POST",
+        headers: {
+          apikey: KEY,
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ expiresIn }),
+      }
+    );
+  try {
+    let res = await send(getToken());
+    if (res.status === 401 || res.status === 403) {
+      const fresh = await refreshAccessToken();
+      if (fresh) res = await send(fresh);
+    }
+    if (!res.ok) return null;
+    const data = await res.json();
+    const signed = data.signedURL ?? data.signedUrl;
+    return signed ? `${URL}/storage/v1${signed}` : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function sbPost<T>(
   path: string,
   body: unknown,

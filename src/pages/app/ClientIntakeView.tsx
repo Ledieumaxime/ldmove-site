@@ -6,7 +6,7 @@ import {
   Calendar,
   Loader2,
 } from "lucide-react";
-import { sbGet } from "@/integrations/supabase/api";
+import { sbGet, sbSignUrl } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { VERIFIABLE_FIELDS } from "@/lib/intakeOptions";
@@ -80,29 +80,8 @@ const getToken = (): string | null => {
   }
 };
 
-const signUrl = async (path: string): Promise<string | null> => {
-  const token = getToken();
-  if (!token) return null;
-  try {
-    const res = await fetch(
-      `${SUPABASE_URL}/storage/v1/object/sign/assessment-videos/${path}`,
-      {
-        method: "POST",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ expiresIn: 1800 }),
-      }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    return `${SUPABASE_URL}/storage/v1${data.signedURL ?? data.signedUrl ?? ""}`;
-  } catch {
-    return null;
-  }
-};
+// Shared helper — refreshes an expired token and retries.
+const signUrl = (path: string) => sbSignUrl("assessment-videos", path);
 
 const ClientIntakeView = () => {
   const { user } = useAuth();

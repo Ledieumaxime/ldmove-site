@@ -11,49 +11,16 @@ import {
   X,
   Inbox as InboxIcon,
 } from "lucide-react";
-import { sbGet, sbPatch } from "@/integrations/supabase/api";
+import { sbGet, sbPatch, sbSignUrl } from "@/integrations/supabase/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ExerciseComments from "@/components/ExerciseComments";
 import BackToDashboard from "@/components/BackToDashboard";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-const SESSION_KEY = "ldmove-session";
-
-function getToken(): string | null {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw).access_token ?? null;
-  } catch {
-    return null;
-  }
-}
-
-async function signUrl(path: string): Promise<string | null> {
-  const token = getToken();
-  if (!token) return null;
-  try {
-    const res = await fetch(
-      `${SUPABASE_URL}/storage/v1/object/sign/form-checks/${path}`,
-      {
-        method: "POST",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ expiresIn: 1800 }),
-      }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    return `${SUPABASE_URL}/storage/v1${data.signedURL ?? data.signedUrl ?? ""}`;
-  } catch {
-    return null;
-  }
-}
+// URL signing goes through the shared helper so an expired access
+// token gets refreshed + retried instead of silently failing (which
+// used to leave the coach staring at unplayable videos).
+const signUrl = (path: string) => sbSignUrl("form-checks", path);
 
 type FormCheck = {
   id: string;

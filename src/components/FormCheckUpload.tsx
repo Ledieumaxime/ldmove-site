@@ -8,7 +8,7 @@ import {
   Upload,
   Trash2,
 } from "lucide-react";
-import { sbDelete, sbGet, sbPost } from "@/integrations/supabase/api";
+import { sbDelete, sbGet, sbPost, sbSignUrl } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 
@@ -83,29 +83,9 @@ async function refreshToken(): Promise<string | null> {
   }
 }
 
-async function signUrl(path: string): Promise<string | null> {
-  const token = getToken();
-  if (!token) return null;
-  try {
-    const res = await fetch(
-      `${SUPABASE_URL}/storage/v1/object/sign/form-checks/${path}`,
-      {
-        method: "POST",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ expiresIn: 1800 }),
-      }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    return `${SUPABASE_URL}/storage/v1${data.signedURL ?? data.signedUrl ?? ""}`;
-  } catch {
-    return null;
-  }
-}
+// Shared helper — refreshes an expired token and retries, instead of
+// silently returning null (which hid past videos from the client).
+const signUrl = (path: string) => sbSignUrl("form-checks", path);
 
 const FormCheckUpload = ({ itemId }: { itemId: string }) => {
   const { user } = useAuth();
