@@ -10,6 +10,7 @@ import {
   Archive,
   X,
   Inbox as InboxIcon,
+  Loader2,
 } from "lucide-react";
 import { sbGet, sbPatch, sbSignUrl } from "@/integrations/supabase/api";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ type CommentRow = {
   author_role: "coach" | "client";
   created_at: string;
   body: string;
+  dismissed_at: string | null;
   profiles?: { first_name: string | null; last_name: string | null } | null;
   program_items?: { custom_name: string | null } | null;
 };
@@ -59,6 +61,9 @@ type Thread = {
   lastAt: string;
   count: number;
   needsReply: boolean;
+  /** id of the latest client comment — the row the Skip button stamps
+   *  with dismissed_at to clear the thread from the inbox. */
+  lastClientCommentId: string | null;
 };
 
 type PendingItem =
@@ -145,7 +150,13 @@ const AdminFormChecks = () => {
           lastBody: last.body,
           lastAt: last.created_at,
           count: cs.length,
-          needsReply: last.author_role === "client",
+          // A thread needs attention when the latest message is from
+          // the client AND the coach hasn't dismissed it. Dismissing
+          // stamps dismissed_at on that latest comment; a newer client
+          // message arrives without the flag and resurfaces the thread.
+          needsReply: last.author_role === "client" && !last.dismissed_at,
+          lastClientCommentId:
+            last.author_role === "client" ? last.id : null,
         });
       }
       threadsOut.sort(
@@ -448,6 +459,25 @@ const ThreadCard = ({
   onReplied?: () => void;
 }) => {
   const [open, setOpen] = useState(!compact);
+  const [skipping, setSkipping] = useState(false);
+
+  // "Nothing to reply here" — stamp dismissed_at on the latest client
+  // comment so the thread drops out of the inbox without a reply. A
+  // newer client message won't carry the flag and resurfaces it.
+  const skipThread = async () => {
+    if (!thread.lastClientCommentId) return;
+    setSkipping(true);
+    try {
+      await sbPatch(
+        `exercise_comments?id=eq.${thread.lastClientCommentId}`,
+        { dismissed_at: new Date().toISOString() }
+      );
+      onReplied?.();
+    } finally {
+      setSkipping(false);
+    }
+  };
+
   return (
     <div
       className={`bg-white border rounded-xl p-4 ${
@@ -493,6 +523,24 @@ const ThreadCard = ({
       {open && (
         <div className="mt-3 pt-3 border-t border-border">
           <ExerciseComments itemId={thread.item_id} onReplied={onReplied} />
+          {thread.needsReply && thread.lastClientCommentId && (
+            <div className="mt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={skipThread}
+                disabled={skipping}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground border border-border rounded-full px-3 py-1.5 hover:bg-muted/40 disabled:opacity-50"
+                title="Clear this thread from the inbox without replying"
+              >
+                {skipping ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Check size={12} />
+                )}
+                {skipping ? "Skipping…" : "Skip — nothing to reply"}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

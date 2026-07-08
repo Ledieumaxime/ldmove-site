@@ -71,6 +71,7 @@ type Comment = {
   body: string;
   created_at: string;
   item_id: string;
+  dismissed_at: string | null;
   profiles?: { first_name: string | null; last_name: string | null } | null;
 };
 
@@ -334,6 +335,9 @@ const AdminDashboard = () => {
     for (const c of latestByItem.values()) {
       if (c.author_role !== "client" || !c.author_id) continue;
       if (itemsWithPendingCheck.has(c.item_id)) continue;
+      // Coach used "Skip — nothing to reply" on this thread: keep it
+      // out of the inbox until the client writes something new.
+      if (c.dismissed_at) continue;
       if (!map.has(c.author_id)) map.set(c.author_id, []);
       map.get(c.author_id)!.push(c);
     }

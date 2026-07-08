@@ -91,6 +91,7 @@ type Comment = {
   body: string;
   created_at: string;
   item_id: string;
+  dismissed_at: string | null;
   program_items?: { custom_name: string | null } | null;
 };
 
@@ -459,7 +460,11 @@ const AdminClientDetail = () => {
     }
     return Array.from(latestByItem.values()).filter(
       (c) =>
-        c.author_role === "client" && !itemsWithPendingCheck.has(c.item_id)
+        c.author_role === "client" &&
+        !itemsWithPendingCheck.has(c.item_id) &&
+        // Skipped via "nothing to reply" in the inbox — stays hidden
+        // until the client posts something new.
+        !c.dismissed_at
     );
   }, [clientComments, itemsWithPendingCheck]);
 
