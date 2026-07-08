@@ -400,6 +400,7 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
                 <video
                   src={historySigned[c.id]}
                   controls
+                  preload="metadata"
                   className="w-full rounded mt-1"
                 />
               )}

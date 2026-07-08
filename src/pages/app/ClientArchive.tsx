@@ -165,6 +165,7 @@ const ClientArchive = () => {
                     <video
                       src={progressUrls[p.id]}
                       controls
+                      preload="metadata"
                       className="w-full rounded-lg bg-black max-h-[360px]"
                     />
                   ) : (
@@ -235,6 +236,7 @@ const ClientArchive = () => {
                             <video
                               src={assessmentUrls[video.id]}
                               controls
+                              preload="metadata"
                               className="w-full rounded-lg bg-black max-h-[320px]"
                             />
                           ) : (

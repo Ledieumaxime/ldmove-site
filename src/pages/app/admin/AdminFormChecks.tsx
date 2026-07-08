@@ -648,6 +648,10 @@ const CheckCard = ({
         <video
           src={videoSrc}
           controls
+          // metadata-only: without this every mounted card preloads its
+          // whole video. Ten 40 MB form checks from one client saturate
+          // the connection and none of them ever buffer enough to play.
+          preload="metadata"
           className="w-full rounded-lg max-h-[400px]"
         />
       ) : (

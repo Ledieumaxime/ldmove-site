@@ -115,6 +115,7 @@ const IntakeSkillRow = ({
             <video
               src={videoUrl}
               controls
+              preload="metadata"
               className="w-full rounded-lg bg-black max-h-[320px] mt-3"
             />
           )}

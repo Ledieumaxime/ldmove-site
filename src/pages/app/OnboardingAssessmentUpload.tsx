@@ -340,6 +340,7 @@ const ExerciseSlot = ({
         <video
           src={signedUrl}
           controls
+          preload="metadata"
           className="w-full rounded-lg bg-black max-h-[320px]"
         />
       )}
