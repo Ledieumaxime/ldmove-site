@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Lock, Dumbbell, Scale, TrendingUp, CheckCircle2 } from "lucide-react";
 import Layout from "@/components/Layout";
 import SectionWrapper from "@/components/SectionWrapper";
+import Seo from "@/components/Seo";
 import { useLang } from "@/contexts/LangContext";
 import heroHome from "@/assets/hero-home.jpg";
 import heroVideo from "@/assets/hero-intro.mp4";
@@ -30,6 +31,10 @@ const Index = () => {
 
   return (
     <Layout>
+      <Seo
+        title="LD Move | Online Handstand, Mobility & Calisthenics Coaching"
+        description="Online handstand, mobility and bodyweight strength coaching. Train smarter, get stronger and more mobile with structured programs that fit into real life."
+      />
       {/* Hero */}
       <section className="relative bg-sand overflow-hidden">
         <div className="container py-16 md:py-24">
@@ -46,6 +51,16 @@ const Index = () => {
               <p className="font-body text-lg md:text-xl text-muted-foreground leading-relaxed mb-10">
                 {t("home2.hero.subtitle")}
               </p>
+              <div className="flex flex-wrap gap-4">
+                <Button variant="cta" size="lg" asChild>
+                  <Link to="/coaching">
+                    {t("home2.hero.cta2")} <ArrowRight size={16} />
+                  </Link>
+                </Button>
+                <Button variant="ctaOutline" size="lg" asChild>
+                  <Link to="/programmes">{t("home2.hero.cta")}</Link>
+                </Button>
+              </div>
             </motion.div>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -171,6 +186,33 @@ const Index = () => {
               </Button>
             </motion.div>
           ))}
+        </div>
+      </SectionWrapper>
+
+      {/* Closing CTA */}
+      <SectionWrapper className="bg-primary text-primary-foreground">
+        <div className="text-center max-w-2xl mx-auto">
+          <h2 className="font-heading text-3xl md:text-5xl font-bold mb-4">
+            {t("home2.final.title")}
+          </h2>
+          <p className="font-body text-primary-foreground/70 text-lg mb-10">
+            {t("home2.final.desc")}
+          </p>
+          <div className="flex flex-wrap justify-center gap-4">
+            <Button variant="cta" size="lg" asChild>
+              <Link to="/apply">
+                {t("home2.final.cta")} <ArrowRight size={16} />
+              </Link>
+            </Button>
+            <Button
+              variant="ctaOutline"
+              size="lg"
+              asChild
+              className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
+            >
+              <Link to="/consultation">{t("home2.final.cta2")}</Link>
+            </Button>
+          </div>
         </div>
       </SectionWrapper>
 

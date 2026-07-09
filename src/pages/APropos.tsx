@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Heart, Compass, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import Layout from "@/components/Layout";
+import Seo from "@/components/Seo";
 import SectionWrapper from "@/components/SectionWrapper";
 import { useLang } from "@/contexts/LangContext";
 import coachImg from "@/assets/maxime-portrait.jpg";
@@ -13,6 +14,10 @@ const AProposPage = () => {
 
   return (
     <Layout>
+      <Seo
+        title="About Maxime | LD Move"
+        description="Maxime Ledieu is a handstand, mobility and calisthenics coach. Learn about his approach to building strong, mobile, pain-free bodies."
+      />
       <SectionWrapper className="bg-background pt-28 md:pt-36">
         <div className="grid lg:grid-cols-2 gap-16 items-start">
           <div className="order-1 lg:order-1">

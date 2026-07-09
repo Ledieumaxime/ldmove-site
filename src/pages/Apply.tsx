@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Send, Lock } from "lucide-react";
 import Layout from "@/components/Layout";
+import Seo from "@/components/Seo";
 import SectionWrapper from "@/components/SectionWrapper";
 import { toast } from "sonner";
 import { useLang } from "@/contexts/LangContext";
@@ -108,6 +109,10 @@ const ApplyPage = () => {
 
   return (
     <Layout>
+      <Seo
+        title="Apply for 1:1 Coaching | LD Move"
+        description="Apply for personalised online coaching. Tell me about your goals and I'll get back to you within 48 hours."
+      />
       <SectionWrapper className="bg-background pt-28 md:pt-36">
         <div className="max-w-2xl mx-auto text-center mb-12">
           <p className="font-body text-accent font-semibold text-sm uppercase tracking-widest mb-3">

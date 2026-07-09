@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Dumbbell } from "lucide-react";
 import Layout from "@/components/Layout";
+import Seo from "@/components/Seo";
 import SectionWrapper from "@/components/SectionWrapper";
 import { motion } from "framer-motion";
 import { useLang } from "@/contexts/LangContext";
@@ -37,6 +38,10 @@ const ProgrammesPage = () => {
 
   return (
     <Layout>
+      <Seo
+        title="Training Programs | LD Move"
+        description="Structured multi-week programs for handstand, flexibility and spine mobility. Guided videos and clear progressions you can follow at your own pace."
+      />
       <SectionWrapper className="bg-sand pt-28 md:pt-36">
         <div className="text-center max-w-2xl mx-auto mb-16">
           <p className="font-body text-accent font-semibold text-sm uppercase tracking-widest mb-3">{t("prog.tag")}</p>

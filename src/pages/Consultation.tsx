@@ -2,6 +2,7 @@ import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import Layout from "@/components/Layout";
+import Seo from "@/components/Seo";
 import SectionWrapper from "@/components/SectionWrapper";
 import { useLang } from "@/contexts/LangContext";
 
@@ -16,6 +17,10 @@ const ConsultationPage = () => {
 
   return (
     <Layout>
+      <Seo
+        title="30-Minute Consultation | LD Move"
+        description="A 30-minute online consultation to review your movement practice, answer your questions and give you clear next steps for handstand, mobility and training."
+      />
       {/* Hero */}
       <section className="bg-sand min-h-[50vh] flex items-center">
         <div className="container py-20">
@@ -28,8 +33,8 @@ const ConsultationPage = () => {
             <p className="font-body text-accent font-semibold text-sm uppercase tracking-widest mb-4">
               {t("consult.tag")}
             </p>
-            <h1 className="font-heading text-3xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight mb-6">
-              30-Min<br />Consultation
+            <h1 className="font-heading text-3xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight mb-6 whitespace-pre-line">
+              {t("consult.title")}
             </h1>
             <p className="font-body text-lg md:text-xl text-muted-foreground leading-relaxed">
               {t("consult.subtitle")}

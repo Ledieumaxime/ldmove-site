@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, Lock } from "lucide-react";
 import Layout from "@/components/Layout";
+import Seo from "@/components/Seo";
 import SectionWrapper from "@/components/SectionWrapper";
 import { toast } from "sonner";
 import { useLang } from "@/contexts/LangContext";
@@ -85,6 +86,10 @@ const ContactPage = () => {
 
   return (
     <Layout>
+      <Seo
+        title="Contact | LD Move"
+        description="Get in touch with LD Move for coaching, programs or any question about your movement practice."
+      />
       <SectionWrapper className="bg-background pt-28 md:pt-36">
         <div className="max-w-2xl mx-auto text-center mb-12">
           <p className="font-body text-accent font-semibold text-sm uppercase tracking-widest mb-3">

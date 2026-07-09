@@ -1,4 +1,5 @@
 import Layout from "@/components/Layout";
+import Seo from "@/components/Seo";
 import SectionWrapper from "@/components/SectionWrapper";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,10 @@ const FAQPage = () => {
 
   return (
     <Layout>
+      <Seo
+        title="FAQ | LD Move"
+        description="Answers to the most common questions about LD Move coaching, programs, equipment and how online training works."
+      />
       <SectionWrapper className="bg-background pt-28 md:pt-36">
         <div className="text-center max-w-2xl mx-auto mb-16">
           <p className="font-body text-accent font-semibold text-sm uppercase tracking-widest mb-3">{t("faq.tag")}</p>

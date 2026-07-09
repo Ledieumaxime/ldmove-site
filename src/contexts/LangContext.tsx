@@ -85,7 +85,7 @@ const translations: Record<string, Record<Lang, string>> = {
 
   // Coaching page - Hero
   "coaching.tag": { fr: "Coaching premium", en: "Premium Coaching" },
-  "coaching.title": { fr: "Coaching 1:1 en ligne : Handstand, Mobilité et Calisthenics", en: "Online 1:1 Coaching : Handstand, Mobility and Calisthenics" },
+  "coaching.title": { fr: "Coaching 1:1 en ligne : Handstand, Mobilité et Calisthenics", en: "Online 1:1 Coaching: Handstand, Mobility and Calisthenics" },
   "coaching.subtitle": { fr: "Un accompagnement personnalisé pour progresser plus vite, avec un plan clair, des retours vidéo et un coach qui te suit vraiment.", en: "Personalized support to progress faster, with a clear plan, video feedback, and a coach who truly follows your journey." },
   "coaching.price.from": { fr: "À partir de 200 USD / mois", en: "Starting at $200 USD / month" },
   "coaching.cta": { fr: "Postuler au coaching 1:1", en: "Apply for 1:1 Coaching" },
@@ -219,7 +219,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "prog.p4.r3": { fr: "Créer une routine de flexibilité durable", en: "Build a sustainable flexibility routine" },
   "prog.p4.btn": { fr: "Coming soon", en: "Coming soon" },
 
-  "prog.p6.title": { fr: "Handstand Débutant : 8 Semaines", en: "Beginner Handstand : 8 Weeks" },
+  "prog.p6.title": { fr: "Handstand Débutant : 8 Semaines", en: "Beginner Handstand: 8 Weeks" },
   "prog.p6.level": { fr: "Débutant", en: "Beginner" },
   "prog.p6.duration": { fr: "8 semaines", en: "8 weeks" },
   "prog.p6.desc": { fr: "Construis tes fondations, gagne en force et en confiance sur les mains, même si tu pars de zéro. Programme structuré semaine par semaine avec vidéos de démonstration.", en: "Build your foundations, gain strength and confidence on your hands, even starting from scratch. Week-by-week structured program with demo videos." },
@@ -481,10 +481,10 @@ const translations: Record<string, Record<Lang, string>> = {
   "hs.details.toggle": { fr: "Voir les détails des exercices", en: "View exercise details" },
   "hs.details.placeholder": { fr: "Les descriptions détaillées des exercices seront ajoutées bientôt.", en: "Detailed exercise descriptions will be added soon." },
 
-  "hs.phase1": { fr: "Phase 1 : Fondations et Confiance", en: "Phase 1 : Foundations and Confidence" },
-  "hs.phase2": { fr: "Phase 2 : Inversion et Force", en: "Phase 2 : Inversion and Strength" },
-  "hs.phase3": { fr: "Phase 3 : Construire le Handstand", en: "Phase 3 : Building the Handstand" },
-  "hs.phase4": { fr: "Phase 4 : Vers l'autonomie", en: "Phase 4 : Towards Independence" },
+  "hs.phase1": { fr: "Phase 1 : Fondations et Confiance", en: "Phase 1: Foundations and Confidence" },
+  "hs.phase2": { fr: "Phase 2 : Inversion et Force", en: "Phase 2: Inversion and Strength" },
+  "hs.phase3": { fr: "Phase 3 : Construire le Handstand", en: "Phase 3: Building the Handstand" },
+  "hs.phase4": { fr: "Phase 4 : Vers l'autonomie", en: "Phase 4: Towards Independence" },
 
   "hs.week": { fr: "Semaine", en: "Week" },
   "hs.week1.name": { fr: "Fondations et Confiance", en: "Foundations and Confidence" },
@@ -496,7 +496,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "hs.week7.name": { fr: "Vers l'autonomie", en: "Towards Independence" },
   "hs.week8.name": { fr: "Consolidation et Test", en: "Consolidation and Test" },
 
-  "hs.test.title": { fr: "🎯 TEST FINAL : Semaine 8", en: "🎯 FINAL TEST : Week 8" },
+  "hs.test.title": { fr: "TEST FINAL : Semaine 8", en: "FINAL TEST: Week 8" },
   "hs.test.col.test": { fr: "Test", en: "Test" },
   "hs.test.col.sets": { fr: "Sets", en: "Sets" },
   "hs.test.col.goal": { fr: "Objectif", en: "Goal" },
@@ -571,6 +571,12 @@ const translations: Record<string, Record<Lang, string>> = {
   "home2.philo.a4.title": { fr: "Approche ludique", en: "Playful Approach" },
   "home2.philo.a4.desc": { fr: "Handstand, mouvement ou skills. L'entraînement devrait ressembler à un jeu auquel on a envie de jouer plutôt qu'une tâche à accomplir.", en: "Handstand, movement, or skill. Training should feel like a game, not a chore." },
 
+  // CTA de clôture (home)
+  "home2.final.title": { fr: "Prêt à mieux bouger ?", en: "Ready to Move Better?" },
+  "home2.final.desc": { fr: "Dis-moi où tu en es et où tu veux aller. Je te réponds sous 48h.", en: "Tell me where you are and where you want to go. I'll get back to you within 48h." },
+  "home2.final.cta": { fr: "Postuler au coaching 1:1", en: "Apply for 1:1 Coaching" },
+  "home2.final.cta2": { fr: "Réserver une consultation", en: "Book a Consultation" },
+
   // Comment ça marche
   "home2.step.tag": { fr: "Comment ça marche ?", en: "How It Works" },
   "home2.step.title": { fr: "4 étapes pour commencer", en: "4 Steps to Get Started" },
@@ -607,7 +613,7 @@ const translations: Record<string, Record<Lang, string>> = {
 
   // Homepage 1:1 Coaching Section
   "home2.coaching.tag": { fr: "Coaching 1:1", en: "1:1 Coaching" },
-  "home2.coaching.title": { fr: "Coaching 1:1 : LD_Move System", en: "1:1 Coaching : LD_Move System" },
+  "home2.coaching.title": { fr: "Coaching 1:1 : LD_Move System", en: "1:1 Coaching: LD_Move System" },
   "home2.coaching.intro": { fr: "Si tu veux un accompagnement plus personnalisé que les programmes en autonomie, tu peux travailler avec moi en coaching 1:1. On adapte le plan à ton niveau, ton emploi du temps et tes objectifs (handstand, mobilité, force au poids du corps).", en: "If you want more personalized support than self-paced programs, you can work with me 1:1. We'll adapt the plan to your level, schedule and goals (handstands, mobility, bodyweight strength)." },
 
   "home2.coaching.c1.title": { fr: "Coaching 1 mois", en: "1-Month Coaching" },
@@ -642,9 +648,9 @@ const translations: Record<string, Record<Lang, string>> = {
   // Consultation page
   "nav.consultation": { fr: "Consultation", en: "Consultation" },
   "consult.tag": { fr: "Consultation en ligne", en: "Online Consultation" },
-  "consult.title": { fr: "30-Min\nConsultation", en: "30-Min\nConsultation" },
+  "consult.title": { fr: "Consultation\nde 30 minutes", en: "30-Minute\nConsultation" },
   "consult.subtitle": { fr: "Tu veux un avis personnalisé sur ta pratique de mouvement ? Lors de cette consultation en ligne de 30 minutes, on parle de tes objectifs, on évalue ton niveau actuel et on te donne des pistes claires pour ton entraînement. Tu peux poser toutes tes questions sur le handstand, la mobilité ou la structure de ton entraînement.", en: "Want personal feedback on your movement practice? In this 30‑minute online consultation, we talk about your goals, review your current level, and give you clear next steps for your training. You can ask any questions about handstand, mobility, or overall training structure." },
-  "consult.box.title": { fr: "Consultation en ligne de 30 min, 50 USD", en: "30-min online consultation – 50 USD" },
+  "consult.box.title": { fr: "Consultation en ligne de 30 min, 50 USD", en: "30-min online consultation, 50 USD" },
   "consult.box.b1": { fr: "Discuter de ta pratique actuelle et de tes objectifs", en: "Discuss your current practice and goals" },
   "consult.box.b2": { fr: "Poser toutes tes questions sur le handstand, la mobilité ou la structure d'entraînement", en: "Ask any questions about handstand, mobility, or training structure" },
   "consult.box.b3": { fr: "Repars avec des étapes claires et pratiques pour améliorer ta pratique.", en: "Leave with clear, practical steps to upgrade your practice." },

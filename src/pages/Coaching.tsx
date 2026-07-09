@@ -7,6 +7,7 @@ import {
 import { motion } from "framer-motion";
 import Layout from "@/components/Layout";
 import SectionWrapper from "@/components/SectionWrapper";
+import Seo from "@/components/Seo";
 import { useLang } from "@/contexts/LangContext";
 import heroImg from "@/assets/hero-handstand.jpg";
 import {
@@ -51,6 +52,10 @@ const CoachingPage = () => {
 
   return (
     <Layout>
+      <Seo
+        title="1:1 Online Coaching | LD Move"
+        description="Personalised online coaching for handstand, mobility and bodyweight strength. Custom programs, weekly video feedback and direct access to your coach."
+      />
       {/* Hero */}
       <section className="bg-sand min-h-[60vh] flex items-center">
         <div className="container py-20">
@@ -66,6 +71,11 @@ const CoachingPage = () => {
             <h1 className="font-heading text-3xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight mb-6">
               {t("coaching.title")}
             </h1>
+            <Button variant="cta" size="lg" asChild>
+              <Link to="/apply">
+                {t("coaching.pricing.cta")} <ArrowRight size={16} />
+              </Link>
+            </Button>
           </motion.div>
         </div>
       </section>
@@ -280,6 +290,22 @@ const CoachingPage = () => {
         </div>
       </SectionWrapper>
 
+      {/* Closing CTA */}
+      <SectionWrapper className="bg-primary text-primary-foreground">
+        <div className="text-center max-w-2xl mx-auto">
+          <h2 className="font-heading text-3xl md:text-5xl font-bold mb-4">
+            {t("coaching.final.title")}
+          </h2>
+          <p className="font-body text-primary-foreground/70 text-lg mb-10">
+            {t("coaching.final.desc")}
+          </p>
+          <Button variant="cta" size="lg" asChild>
+            <Link to="/apply">
+              {t("coaching.pricing.cta")} <ArrowRight size={16} />
+            </Link>
+          </Button>
+        </div>
+      </SectionWrapper>
 
     </Layout>
   );

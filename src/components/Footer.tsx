@@ -73,7 +73,7 @@ const Footer = () => {
             </Link>
           </div>
           <p className="font-body text-xs text-primary-foreground/40">
-            © {new Date().getFullYear()} LD Move – Maxime Ledieu. {t("footer.rights")}
+            © {new Date().getFullYear()} LD Move · Maxime Ledieu. {t("footer.rights")}
           </p>
         </div>
       </div>
