@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { sbGet } from "@/integrations/supabase/api";
 
 export type Profile = {
   id: string;
@@ -77,26 +78,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     saveSession(s);
   };
 
-  const fetchProfile = async (accessToken: string, userId: string): Promise<Profile | null> => {
+  // Goes through the api helper (not a raw fetch) so an expired stored
+  // access token gets refreshed and retried. A raw fetch here returned
+  // 401 when the app booted with a stale token — since we deliberately
+  // stopped dropping stale sessions, that left profile=null forever and
+  // silently disabled every profile-gated action (sending comments,
+  // most visibly). The token argument is kept for call-site
+  // compatibility but the helper reads localStorage itself.
+  const fetchProfile = async (_accessToken: string, userId: string): Promise<Profile | null> => {
     console.log("[AUTH] fetchProfile", userId);
     try {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=*`,
-        {
-          headers: {
-            apikey: SUPABASE_KEY,
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-      if (!res.ok) {
-        console.error("[AUTH] fetchProfile http error", res.status, await res.text());
-        return null;
-      }
-      const rows = (await res.json()) as Profile[];
+      const rows = await sbGet<Profile[]>(`profiles?id=eq.${userId}&select=*`);
       return rows[0] ?? null;
     } catch (e) {
-      console.error("[AUTH] fetchProfile exception", e);
+      console.error("[AUTH] fetchProfile failed", e);
       return null;
     }
   };
@@ -163,6 +158,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     })();
   }, []);
+
+  // ---- Profile recovery -------------------------------------------------
+  // If the boot-time profile fetch failed (offline moment, transient
+  // 401 the retry couldn't heal), retry whenever the access token
+  // changes. Without this, profile stays null for the whole session and
+  // every profile-gated action (posting comments, coach tools) silently
+  // no-ops even though the user looks logged in.
+  useEffect(() => {
+    if (!session || profile) return;
+    let cancelled = false;
+    (async () => {
+      const p = await fetchProfile(session.access_token, session.user.id);
+      if (!cancelled && p) setProfile(p);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.access_token, profile]);
 
   // ---- Proactive access-token refresh ----------------------------------
   // Supabase access tokens default to 1h. Without this loop the user
