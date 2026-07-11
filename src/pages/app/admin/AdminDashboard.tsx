@@ -9,7 +9,7 @@ import {
   Inbox,
   UserPlus,
 } from "lucide-react";
-import { sbGet, sbGetAll } from "@/integrations/supabase/api";
+import { sbGet, sbGetAll, sbPost } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   CompletedLog,
@@ -94,6 +94,12 @@ type ActiveEntry = {
   daysSinceLastTraining: number | null;
   pendingFormChecks: number;
   unansweredComments: number;
+  /** TrueCoach-style adherence: sessions done vs expected by today,
+   *  capped at 100. Drives the ring color on the client card. */
+  compliance: number;
+  /** ISO dates (YYYY-MM-DD) with at least one completed session in the
+   *  last 7 days — feeds the activity dots. */
+  last7Dates: Set<string>;
 };
 
 type IdleEntry = {
@@ -423,6 +429,20 @@ const AdminDashboard = () => {
         status = "ontrack";
       }
 
+      const compliance =
+        expectedByNow >= 1
+          ? Math.min(100, Math.round((sessionsDone / expectedByNow) * 100))
+          : 100;
+
+      const last7Dates = new Set<string>();
+      const cutoff = now - 7 * 86_400_000;
+      for (const l of clientLogs) {
+        if (!programItemIds.has(l.program_item_id)) continue;
+        if (!l.completed_at) continue;
+        if (new Date(l.completed_at).getTime() < cutoff) continue;
+        last7Dates.add(l.session_date);
+      }
+
       list.push({
         program: p,
         client,
@@ -436,6 +456,8 @@ const AdminDashboard = () => {
         pendingFormChecks: pendingChecksByClient.get(client.id)?.length ?? 0,
         unansweredComments:
           unansweredCommentsByClient.get(client.id)?.length ?? 0,
+        compliance,
+        last7Dates,
       });
     }
     return list.sort((a, b) => {
@@ -527,6 +549,38 @@ const AdminDashboard = () => {
     return out.slice(0, 10);
   }, [checks, comments]);
 
+  // Nudge: one-click "get back on it" notification for a client who's
+  // falling behind. Uses the notifications table (coach has write RLS);
+  // the client sees it as a banner on their dashboard.
+  const [nudgedIds, setNudgedIds] = useState<Set<string>>(new Set());
+  const nudgeClient = async (clientId: string) => {
+    try {
+      await sbPost("notifications", {
+        user_id: clientId,
+        type: "nudge",
+        title: "A nudge from your coach",
+        body: "Your next session is ready when you are. Jump back in.",
+        link_url: "/app/today",
+      });
+      setNudgedIds((prev) => new Set(prev).add(clientId));
+    } catch (e) {
+      console.error("nudge failed", e);
+    }
+  };
+
+  const oldestCheckDays = (() => {
+    if (totalPendingChecks.length === 0) return null;
+    const oldest = totalPendingChecks.reduce(
+      (min, c) => (c.created_at < min ? c.created_at : min),
+      totalPendingChecks[0].created_at
+    );
+    return Math.floor((now - new Date(oldest).getTime()) / 86_400_000);
+  })();
+
+  const behindCount = activeEntries.filter(
+    (e) => e.status === "ghosting" || e.status === "overdue" || e.status === "behind"
+  ).length;
+
   if (loading)
     return <div className="text-muted-foreground">Loading dashboard…</div>;
 
@@ -555,6 +609,45 @@ const AdminDashboard = () => {
         onClose={() => setInviteOpen(false)}
         onInvited={() => setReloadTick((t) => t + 1)}
       />
+
+      {/* ============ STAT STRIP ============ */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-white border border-border rounded-2xl p-4">
+          <p className="text-xs text-muted-foreground mb-1">Active clients</p>
+          <p className="font-heading text-2xl font-bold">{activeEntries.length}</p>
+        </div>
+        <Link
+          to="/app/admin/form-checks"
+          className="bg-white border border-border rounded-2xl p-4 hover:shadow-sm transition"
+        >
+          <p className="text-xs text-muted-foreground mb-1">Form checks</p>
+          <p className="font-heading text-2xl font-bold">
+            {totalPendingChecks.length}
+            {oldestCheckDays != null && oldestCheckDays >= 1 && (
+              <span className="text-xs font-semibold text-amber-600 ml-2">
+                oldest {oldestCheckDays}d
+              </span>
+            )}
+          </p>
+        </Link>
+        <Link
+          to="/app/admin/form-checks"
+          className="bg-white border border-border rounded-2xl p-4 hover:shadow-sm transition"
+        >
+          <p className="text-xs text-muted-foreground mb-1">Messages</p>
+          <p className="font-heading text-2xl font-bold">{totalUnansweredComments}</p>
+        </Link>
+        <div className="bg-white border border-border rounded-2xl p-4">
+          <p className="text-xs text-muted-foreground mb-1">Falling behind</p>
+          <p
+            className={`font-heading text-2xl font-bold ${
+              behindCount > 0 ? "text-red-600" : ""
+            }`}
+          >
+            {behindCount}
+          </p>
+        </div>
+      </div>
 
       {/* ============ ASSESSMENT REVIEW (onboarding-level alert) ============ */}
       {pendingAssessmentClients.length > 0 && (
@@ -701,9 +794,9 @@ const AdminDashboard = () => {
                 className={`block bg-white border rounded-2xl p-4 hover:shadow-md transition ${STATUS_BORDER_CLASS[e.status]}`}
               >
                 <div className="flex items-center gap-4 flex-wrap">
-                  <Avatar
-                    name={e.client.first_name ?? e.client.email}
-                    status={e.status}
+                  <ComplianceRing
+                    compliance={e.compliance}
+                    initial={(e.client.first_name ?? e.client.email).charAt(0).toUpperCase()}
                   />
                   <div className="flex-1 min-w-[200px]">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -720,14 +813,12 @@ const AdminDashboard = () => {
                       {e.program.title} · {describeBlockTime(e)}
                     </p>
                   </div>
+                  <SevenDayDots dates={e.last7Dates} now={now} />
                   <div className="flex items-center gap-3 text-xs flex-wrap">
                     <span className="font-semibold">
                       {e.expectedTotal > 0
                         ? `${e.sessionsDone}/${e.expectedTotal} done`
                         : "0 sessions"}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {describeWorkSignal(e)}
                     </span>
                   </div>
                   <span className="text-sm font-semibold text-accent shrink-0">
@@ -742,14 +833,50 @@ const AdminDashboard = () => {
                   />
                 </div>
 
-                {/* Inbox counts intentionally moved to the unified Inbox
-                    panel above; these cards stay focused on training
-                    signal so the screen has one source of truth per
-                    concern. */}
-                <div className="flex items-center gap-3 mt-2 text-xs flex-wrap">
+                <div className="flex items-center gap-2 mt-2.5 text-xs flex-wrap">
+                  {e.workoutsBehind >= 2 && (
+                    <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 font-semibold px-2 py-1 rounded-full">
+                      {e.workoutsBehind} sessions behind
+                    </span>
+                  )}
+                  {e.pendingFormChecks > 0 && (
+                    <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 font-semibold px-2 py-1 rounded-full">
+                      <Video size={11} /> {e.pendingFormChecks} form check
+                      {e.pendingFormChecks > 1 ? "s" : ""}
+                    </span>
+                  )}
+                  {e.unansweredComments > 0 && (
+                    <span className="inline-flex items-center gap-1 bg-accent/10 text-accent font-semibold px-2 py-1 rounded-full">
+                      <MessageCircle size={11} /> {e.unansweredComments} message
+                      {e.unansweredComments > 1 ? "s" : ""}
+                    </span>
+                  )}
                   <span className="inline-flex items-center gap-1 text-muted-foreground">
                     {describeLastTraining(e)}
                   </span>
+                  {(e.status === "ghosting" || e.status === "behind") && (
+                    <button
+                      type="button"
+                      onClick={(ev) => {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        if (!nudgedIds.has(e.client.id)) nudgeClient(e.client.id);
+                      }}
+                      className={`ml-auto inline-flex items-center gap-1 font-semibold px-3 py-1 rounded-full border transition ${
+                        nudgedIds.has(e.client.id)
+                          ? "border-green-200 bg-green-50 text-green-700 cursor-default"
+                          : "border-border hover:bg-muted/50 text-foreground"
+                      }`}
+                    >
+                      {nudgedIds.has(e.client.id) ? (
+                        <>Nudged ✓</>
+                      ) : (
+                        <>
+                          <Bell size={11} /> Nudge
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </Link>
             ))}
@@ -909,5 +1036,62 @@ function formatRelative(dateStr: string, now: number): string {
     day: "numeric",
   });
 }
+
+// TrueCoach-style adherence ring: sessions done vs expected by today.
+// Green >= 85, amber >= 60, red below.
+const ComplianceRing = ({
+  compliance,
+  initial,
+}: {
+  compliance: number;
+  initial: string;
+}) => {
+  const C = 2 * Math.PI * 16;
+  const color =
+    compliance >= 85
+      ? "text-green-500"
+      : compliance >= 60
+        ? "text-amber-500"
+        : "text-red-500";
+  return (
+    <svg width="44" height="44" viewBox="0 0 44 44" className="shrink-0">
+      <title>{`Adherence ${compliance}%`}</title>
+      <circle cx="22" cy="22" r="16" fill="none" stroke="currentColor" strokeWidth="4" className="text-muted" />
+      <circle
+        cx="22" cy="22" r="16" fill="none"
+        stroke="currentColor" strokeWidth="4" strokeLinecap="round"
+        className={color}
+        strokeDasharray={`${Math.round((compliance / 100) * C)} ${Math.round(C)}`}
+        transform="rotate(-90 22 22)"
+      />
+      <text x="22" y="27" textAnchor="middle" fontSize="14" fontWeight="700" fill="currentColor" className="text-foreground">
+        {initial}
+      </text>
+    </svg>
+  );
+};
+
+// Last-7-days activity: one dot per day, filled when the client
+// completed at least one session that day. Oldest on the left.
+const SevenDayDots = ({ dates, now }: { dates: Set<string>; now: number }) => {
+  const days: { iso: string; done: boolean }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now - i * 86_400_000);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    days.push({ iso, done: dates.has(iso) });
+  }
+  return (
+    <div className="hidden md:flex items-center gap-1" title="Last 7 days">
+      {days.map((d) => (
+        <span
+          key={d.iso}
+          className={`w-2 h-2 rounded-full ${
+            d.done ? "bg-green-500" : "bg-muted"
+          }`}
+        />
+      ))}
+    </div>
+  );
+};
 
 export default AdminDashboard;

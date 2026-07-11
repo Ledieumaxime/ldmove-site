@@ -6,13 +6,21 @@ import {
   Archive,
   ArrowRight,
   AlertCircle,
+  Check,
   ClipboardList,
+  Clock,
+  Flame,
   Video,
   Bell,
 } from "lucide-react";
 import { sbGet, sbGetIn, sbPatch } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { IntakeAnswers, visibleExercises } from "@/lib/assessment";
+import {
+  dayDisplayLabel,
+  listProgramDays,
+  nextDay,
+} from "@/lib/workoutDay";
 
 type Program = {
   id: string;
@@ -55,11 +63,26 @@ type Notification = {
   created_at: string;
 };
 
-type ProgramWeekRef = { id: string; program_id: string };
+type ProgramWeekRef = {
+  id: string;
+  program_id: string;
+  week_number: number;
+  title: string | null;
+};
+
+type ProgramItemRef = {
+  id: string;
+  week_id: string;
+  order_index: number;
+  sets: number | null;
+  rest_seconds: number | null;
+};
 
 type CompletionLog = {
   program_item_id: string;
   session_run_id: string;
+  session_date: string;
+  completed_at: string | null;
 };
 
 const ClientDashboard = () => {
@@ -78,6 +101,7 @@ const ClientDashboard = () => {
   const [programItemsByWeek, setProgramItemsByWeek] = useState<
     Record<string, string>
   >({}); // item_id → week_id
+  const [programItems, setProgramItems] = useState<ProgramItemRef[]>([]);
   const [completedLogs, setCompletedLogs] = useState<CompletionLog[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -134,24 +158,25 @@ const ClientDashboard = () => {
         );
         if (current) {
           const weeks = await sbGet<ProgramWeekRef[]>(
-            `program_weeks?select=id,program_id&program_id=eq.${current.id}`
+            `program_weeks?select=id,program_id,week_number,title&program_id=eq.${current.id}&order=week_number.asc`
           );
           setProgramWeeks(weeks);
           const items =
             weeks.length > 0
-              ? await sbGetIn<{ id: string; week_id: string }>(
-                  `program_items?select=id,week_id`,
+              ? await sbGetIn<ProgramItemRef>(
+                  `program_items?select=id,week_id,order_index,sets,rest_seconds`,
                   "week_id",
                   weeks.map((w) => w.id)
                 )
               : [];
+          setProgramItems(items);
           setProgramItemsByWeek(
             Object.fromEntries(items.map((i) => [i.id, i.week_id]))
           );
           const logs =
             items.length > 0
               ? await sbGetIn<CompletionLog>(
-                  `workout_logs?client_id=eq.${user.id}&completed_at=not.is.null&select=program_item_id,session_run_id`,
+                  `workout_logs?client_id=eq.${user.id}&completed_at=not.is.null&select=program_item_id,session_run_id,session_date,completed_at`,
                   "program_item_id",
                   items.map((i) => i.id)
                 )
@@ -159,6 +184,7 @@ const ClientDashboard = () => {
           setCompletedLogs(logs);
         } else {
           setProgramWeeks([]);
+          setProgramItems([]);
           setProgramItemsByWeek({});
           setCompletedLogs([]);
         }
@@ -254,6 +280,87 @@ const ClientDashboard = () => {
     isOverdue = daysLeft < 0;
   }
 
+  // ---- Week strip / streak / next session (Trainerize-style) ----------
+  const toISO = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+  const mondayOf = (d: Date) => {
+    const copy = new Date(d);
+    const diff = (copy.getDay() + 6) % 7; // Mon=0 … Sun=6
+    copy.setDate(copy.getDate() - diff);
+    copy.setHours(0, 0, 0, 0);
+    return copy;
+  };
+
+  const weekDays: { iso: string; label: string; isToday: boolean }[] = [];
+  {
+    const monday = mondayOf(new Date());
+    const todayIso = toISO(new Date());
+    const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const iso = toISO(d);
+      weekDays.push({ iso, label: labels[i], isToday: iso === todayIso });
+    }
+  }
+
+  // Distinct completed runs, grouped by session_date and by week-monday.
+  const runDates = new Map<string, string>(); // run_id → session_date
+  for (const l of completedLogs) {
+    if (!l.completed_at) continue;
+    if (!runDates.has(l.session_run_id)) runDates.set(l.session_run_id, l.session_date);
+  }
+  const datesWithSession = new Set(runDates.values());
+  const runsByWeek = new Map<string, number>(); // monday ISO → distinct runs
+  for (const date of runDates.values()) {
+    const wk = toISO(mondayOf(new Date(date + "T12:00:00")));
+    runsByWeek.set(wk, (runsByWeek.get(wk) ?? 0) + 1);
+  }
+  const doneThisWeek = runsByWeek.get(weekDays[0].iso) ?? 0;
+
+  // Streak: consecutive weeks (walking back) hitting the weekly target.
+  // The current week counts once it reaches the target; otherwise the
+  // streak is measured from last week backwards so an in-progress week
+  // doesn't break it.
+  let streakWeeks = 0;
+  if (sessionsPerLoop > 0) {
+    const cursor = mondayOf(new Date());
+    if ((runsByWeek.get(toISO(cursor)) ?? 0) >= sessionsPerLoop) streakWeeks++;
+    for (let i = 1; i < 104; i++) {
+      const d = new Date(cursor);
+      d.setDate(cursor.getDate() - 7 * i);
+      if ((runsByWeek.get(toISO(d)) ?? 0) >= sessionsPerLoop) streakWeeks++;
+      else break;
+    }
+  }
+
+  // Next session: same modulo logic as the Today page, so the dashboard
+  // card and the workout page always agree.
+  const programDays = currentProgram
+    ? listProgramDays(programWeeks, programItems)
+    : [];
+  const nextSession = nextDay(programDays, completedLogs);
+  const nextSessionLabel = nextSession ? dayDisplayLabel(nextSession) : null;
+  const nextSessionExerciseCount = nextSession?.items.length ?? 0;
+  // Duration estimate: ~45s of work per set + the prescribed rest per
+  // set. Rounded to the nearest 5 minutes; floor of 15.
+  const nextSessionMinutes = (() => {
+    if (!nextSession || nextSession.items.length === 0) return null;
+    let seconds = 0;
+    for (const raw of nextSession.items) {
+      const it = raw as unknown as ProgramItemRef;
+      const sets = it.sets ?? 3;
+      const rest = it.rest_seconds ?? 45;
+      seconds += sets * 45 + sets * rest;
+    }
+    const mins = Math.max(15, Math.round(seconds / 60 / 5) * 5);
+    return Math.min(mins, 120);
+  })();
+
   const pendingChecks = checks.filter((c) => c.status === "pending").length;
 
   return (
@@ -321,71 +428,98 @@ const ClientDashboard = () => {
         return null;
       })()}
 
+      {/* Week strip — training rhythm at a glance */}
+      {currentProgram && sessionsPerLoop > 0 && (
+        <div className="bg-white rounded-2xl border border-border p-4">
+          <div className="flex items-baseline justify-between mb-3">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              This week
+            </span>
+            <span
+              className={`text-xs font-semibold ${
+                doneThisWeek >= sessionsPerLoop
+                  ? "text-green-600"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {Math.min(doneThisWeek, sessionsPerLoop)} of {sessionsPerLoop} done
+            </span>
+          </div>
+          <div className="flex justify-between">
+            {weekDays.map((d) => {
+              const done = datesWithSession.has(d.iso);
+              return (
+                <div key={d.iso} className="text-center">
+                  <p
+                    className={`text-[10px] mb-1 ${
+                      d.isToday
+                        ? "font-bold text-foreground"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {d.label}
+                  </p>
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      done
+                        ? "bg-green-100"
+                        : d.isToday
+                          ? "border-2 border-accent"
+                          : "border border-border"
+                    }`}
+                  >
+                    {done ? (
+                      <Check size={15} className="text-green-600" />
+                    ) : d.isToday ? (
+                      <span className="text-[11px] font-bold text-accent">
+                        {totalSessionsCompleted + 1}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Current program hero */}
       {currentProgram ? (
         <div className="bg-foreground text-background rounded-2xl p-6">
           <p className="text-xs uppercase tracking-wider opacity-70 font-semibold mb-1">
             Next session
           </p>
-          <h2 className="font-heading text-2xl md:text-3xl font-bold mb-4">
-            {currentProgram.title}
+          <h2 className="font-heading text-2xl md:text-3xl font-bold mb-1">
+            {nextSessionLabel ?? currentProgram.title}
           </h2>
-
-          <div className="flex items-baseline justify-between mb-2">
-            <span className="font-heading text-3xl font-bold">
-              {Math.round(progress)}%
-            </span>
-            <span className="text-sm opacity-80">
-              {isOverdue
-                ? `Block expired ${Math.abs(daysLeft)} day${Math.abs(daysLeft) > 1 ? "s" : ""} ago`
-                : `${daysLeft} day${daysLeft > 1 ? "s" : ""} left in block`}
-            </span>
-          </div>
-          <div className="h-2 bg-background/20 rounded-full overflow-hidden mb-2">
-            <div
-              className={`h-full transition-all ${
-                isOverdue ? "bg-red-400" : "bg-green-400"
-              }`}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <p className="text-xs opacity-70 mb-4">
-            {expectedTotal > 0 ? (
-              totalSessionsCompleted >= expectedTotal ? (
-                <>
-                  Block complete · {totalSessionsCompleted} workouts done ·
-                  new program coming soon
-                </>
-              ) : (
-                <>
-                  {totalSessionsCompleted}/{expectedTotal} workouts done ·{" "}
-                  {workoutsBehind > 1
-                    ? `behind by ${workoutsBehind} workouts`
-                    : workoutsBehind === 1
-                      ? "behind by 1 workout"
-                      : workoutsBehind <= -1
-                        ? `${Math.abs(workoutsBehind)} ahead of schedule`
-                        : "on track"}
-                </>
-              )
-            ) : (
-              "No sessions in this block yet"
-            )}
-          </p>
+          {nextSession && (
+            <p className="text-sm opacity-70 mb-4 flex items-center gap-3 flex-wrap">
+              <span className="inline-flex items-center gap-1.5">
+                <ClipboardList size={14} /> {nextSessionExerciseCount} exercise
+                {nextSessionExerciseCount === 1 ? "" : "s"}
+              </span>
+              {nextSessionMinutes != null && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock size={14} /> ~{nextSessionMinutes} min
+                </span>
+              )}
+              <span className="opacity-70">{currentProgram.title}</span>
+            </p>
+          )}
 
           <div className="flex items-center gap-3 flex-wrap">
             <Link
               to="/app/today"
-              className="inline-flex items-center gap-2 bg-accent text-white font-semibold rounded-full px-4 py-2 text-sm hover:opacity-95 transition"
+              className="inline-flex items-center gap-2 bg-accent text-white font-semibold rounded-full px-5 py-2.5 text-sm hover:opacity-95 transition"
             >
               Start Session {totalSessionsCompleted + 1}
               <ArrowRight size={16} />
             </Link>
             <Link
               to={`/app/programs/${currentProgram.slug}`}
-              className="text-xs opacity-80 hover:opacity-100 underline"
+              className="inline-flex items-center rounded-full border border-background/40 px-4 py-2.5 text-xs opacity-80 hover:opacity-100"
             >
-              View full program
+              Preview
             </Link>
           </div>
         </div>
@@ -395,6 +529,55 @@ const ClientDashboard = () => {
           <p className="text-sm text-muted-foreground">
             Your coach hasn't assigned an active program yet. Check the catalogue below or get in touch.
           </p>
+        </div>
+      )}
+
+      {/* Progress ring + streak */}
+      {currentProgram && expectedTotal > 0 && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-white rounded-2xl border border-border p-4 flex items-center gap-3">
+            {(() => {
+              const pct = Math.min(1, totalSessionsCompleted / expectedTotal);
+              const C = 2 * Math.PI * 18;
+              return (
+                <svg width="52" height="52" viewBox="0 0 52 52" className="shrink-0">
+                  <circle cx="26" cy="26" r="18" fill="none" stroke="currentColor" strokeWidth="5" className="text-border" />
+                  <circle
+                    cx="26" cy="26" r="18" fill="none"
+                    stroke="currentColor" strokeWidth="5" strokeLinecap="round"
+                    className={isOverdue ? "text-red-400" : "text-accent"}
+                    strokeDasharray={`${Math.round(pct * C)} ${Math.round(C)}`}
+                    transform="rotate(-90 26 26)"
+                  />
+                  <text x="26" y="30" textAnchor="middle" fontSize="12" fontWeight="700" fill="currentColor" className="text-foreground">
+                    {totalSessionsCompleted}
+                  </text>
+                </svg>
+              );
+            })()}
+            <div className="min-w-0">
+              <p className="font-heading font-bold text-sm">
+                {totalSessionsCompleted} of {expectedTotal}
+              </p>
+              <p className="text-[11px] text-muted-foreground truncate">
+                {isOverdue
+                  ? `Ended ${Math.abs(daysLeft)}d ago`
+                  : `${daysLeft} day${daysLeft > 1 ? "s" : ""} left`}
+              </p>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl border border-border p-4 flex items-center gap-3">
+            <Flame
+              size={26}
+              className={streakWeeks > 0 ? "text-accent shrink-0" : "text-muted-foreground/40 shrink-0"}
+            />
+            <div className="min-w-0">
+              <p className="font-heading font-bold text-sm">
+                {streakWeeks} week{streakWeeks === 1 ? "" : "s"}
+              </p>
+              <p className="text-[11px] text-muted-foreground">Training streak</p>
+            </div>
+          </div>
         </div>
       )}
 
