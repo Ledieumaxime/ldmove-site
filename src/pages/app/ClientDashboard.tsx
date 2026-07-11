@@ -562,7 +562,7 @@ const ClientDashboard = () => {
               <p className="text-[11px] text-muted-foreground truncate">
                 {isOverdue
                   ? `Ended ${Math.abs(daysLeft)}d ago`
-                  : `${daysLeft} day${daysLeft > 1 ? "s" : ""} left`}
+                  : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`}
               </p>
             </div>
           </div>

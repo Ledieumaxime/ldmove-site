@@ -391,7 +391,14 @@ const AdminDashboard = () => {
 
       const daysElapsed = Math.max(0, (now - start) / 86_400_000);
       const expectedByNow = (sessionsPerLoop * daysElapsed) / 7;
-      const workoutsBehind = Math.round(expectedByNow - sessionsDone);
+      // Cap at the block's actual remaining sessions: once a block is
+      // past its end date expectedByNow keeps growing linearly and the
+      // chip drifts into absurd territory ("46 sessions behind" on a
+      // 25-session block).
+      const workoutsBehind = Math.min(
+        Math.round(expectedByNow - sessionsDone),
+        Math.max(0, expectedTotal - sessionsDone)
+      );
 
       // Last training timestamp for this client, scoped to the active
       // block — same logs but pinned to this program's items.
