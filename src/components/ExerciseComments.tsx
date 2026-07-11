@@ -33,25 +33,18 @@ function getToken(): string | null {
 }
 
 // Upsert the current user's last_read_at for this item using ON CONFLICT.
+// Goes through sbPost so an expired token gets refreshed + retried.
 async function markRead(userId: string, itemId: string) {
-  const token = getToken();
-  if (!token) return;
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/comment_reads?on_conflict=user_id,item_id`, {
-      method: "POST",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        Prefer: "resolution=merge-duplicates,return=minimal",
-      },
-      body: JSON.stringify({
+    await sbPost(
+      "comment_reads?on_conflict=user_id,item_id",
+      {
         user_id: userId,
         item_id: itemId,
         last_read_at: new Date().toISOString(),
-      }),
-    });
-    if (!res.ok) console.error("markRead failed", res.status, await res.text());
+      },
+      { merge: true }
+    );
   } catch (e) {
     console.error("markRead", e);
   }

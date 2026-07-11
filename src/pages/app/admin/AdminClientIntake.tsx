@@ -177,29 +177,19 @@ const AdminClientIntake = () => {
     setMarkingReviewed(true);
     setSaveMsg(null);
     try {
-      const token = getToken();
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/client_level_assessments?on_conflict=client_id,field_name`,
-        {
-          method: "POST",
-          headers: {
-            apikey: SUPABASE_KEY,
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            Prefer: "resolution=merge-duplicates,return=minimal",
+      await sbPost(
+        "client_level_assessments?on_conflict=client_id,field_name",
+        [
+          {
+            client_id: client.id,
+            field_name: "_reviewed",
+            status: null,
+            actual_value: null,
+            notes: null,
           },
-          body: JSON.stringify([
-            {
-              client_id: client.id,
-              field_name: "_reviewed",
-              status: null,
-              actual_value: null,
-              notes: null,
-            },
-          ]),
-        }
+        ],
+        { merge: true }
       );
-      if (!res.ok) throw new Error(await res.text());
       // Reflect locally so the button flips to "Reviewed ✓".
       setAssessments((prev) => ({
         ...prev,
@@ -253,7 +243,6 @@ const AdminClientIntake = () => {
     setSaving(true);
     setSaveMsg(null);
     try {
-      const token = getToken();
       const rows = [...dirty].map((fn) => {
         const a = assessments[fn] ?? {
           field_name: fn,
@@ -271,20 +260,11 @@ const AdminClientIntake = () => {
           notes: a.notes && a.notes.trim() ? a.notes : null,
         };
       });
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/client_level_assessments?on_conflict=client_id,field_name`,
-        {
-          method: "POST",
-          headers: {
-            apikey: SUPABASE_KEY,
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            Prefer: "resolution=merge-duplicates,return=minimal",
-          },
-          body: JSON.stringify(rows),
-        }
+      await sbPost(
+        "client_level_assessments?on_conflict=client_id,field_name",
+        rows,
+        { merge: true }
       );
-      if (!res.ok) throw new Error(await res.text());
       setDirty(new Set());
       setSaveMsg(`Saved ${rows.length} update${rows.length > 1 ? "s" : ""}.`);
     } catch (e) {

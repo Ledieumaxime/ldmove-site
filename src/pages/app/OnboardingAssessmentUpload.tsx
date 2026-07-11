@@ -9,7 +9,7 @@ import {
   RefreshCw,
   AlertCircle,
 } from "lucide-react";
-import { sbGet, sbPost, sbSignUrl } from "@/integrations/supabase/api";
+import { refreshAccessToken, sbGet, sbPost, sbSignUrl } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -102,63 +102,77 @@ const OnboardingAssessmentUpload = () => {
     try {
       const ext = file.name.split(".").pop() || "mp4";
       const path = `${user.id}/${exercise.n}-${Date.now()}.${ext}`;
-      const token = getToken();
+      let token = getToken();
       if (!token) throw new Error("Not signed in");
 
-      // Remove the previous file for this slot (if any) so we don't leak storage
+      // Remove the previous file for this slot (if any) so we don't leak
+      // storage. Retry once with a fresh token on an auth failure.
       const prev = videos.find((v) => v.exercise_number === exercise.n);
       if (prev) {
-        await fetch(
-          `${SUPABASE_URL}/storage/v1/object/assessment-videos/${prev.video_path}`,
-          {
-            method: "DELETE",
-            headers: {
-              apikey: SUPABASE_KEY,
-              Authorization: `Bearer ${token}`,
-            },
+        const del = (t: string) =>
+          fetch(
+            `${SUPABASE_URL}/storage/v1/object/assessment-videos/${prev.video_path}`,
+            {
+              method: "DELETE",
+              headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${t}` },
+            }
+          );
+        let res = await del(token);
+        if (res.status === 401 || res.status === 403) {
+          const fresh = await refreshAccessToken();
+          if (fresh) {
+            token = fresh;
+            await del(fresh);
           }
-        );
+        }
       }
 
-      // Upload the new file
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open(
-          "POST",
-          `${SUPABASE_URL}/storage/v1/object/assessment-videos/${path}`
-        );
-        xhr.setRequestHeader("apikey", SUPABASE_KEY);
-        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-        xhr.setRequestHeader("x-upsert", "false");
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable)
-            setProgress(Math.round((e.loaded / e.total) * 100));
-        };
-        xhr.onload = () =>
-          xhr.status < 300 ? resolve() : reject(new Error(xhr.responseText));
-        xhr.onerror = () => reject(new Error("Upload failed"));
-        xhr.send(file);
-      });
-
-      // Upsert the DB row on (client_id, exercise_number)
-      await fetch(
-        `${SUPABASE_URL}/rest/v1/assessment_videos?on_conflict=client_id,exercise_number`,
-        {
-          method: "POST",
-          headers: {
-            apikey: SUPABASE_KEY,
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            Prefer: "resolution=merge-duplicates,return=minimal",
-          },
-          body: JSON.stringify({
-            client_id: user.id,
-            exercise_number: exercise.n,
-            exercise_name: exercise.name,
-            video_path: path,
-            uploaded_at: new Date().toISOString(),
-          }),
+      // Upload the new file; on an auth-timestamp failure refresh the
+      // token once and retry so a stale session doesn't break onboarding.
+      const doUpload = (t: string) =>
+        new Promise<{ status: number; body: string }>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open(
+            "POST",
+            `${SUPABASE_URL}/storage/v1/object/assessment-videos/${path}`
+          );
+          xhr.setRequestHeader("apikey", SUPABASE_KEY);
+          xhr.setRequestHeader("Authorization", `Bearer ${t}`);
+          xhr.setRequestHeader("x-upsert", "false");
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable)
+              setProgress(Math.round((e.loaded / e.total) * 100));
+          };
+          xhr.onload = () =>
+            resolve({ status: xhr.status, body: xhr.responseText });
+          xhr.onerror = () => reject(new Error("Upload failed"));
+          xhr.send(file);
+        });
+      let result = await doUpload(token);
+      if (result.status === 401 || result.status === 403) {
+        const fresh = await refreshAccessToken();
+        if (fresh) {
+          token = fresh;
+          setProgress(0);
+          result = await doUpload(fresh);
         }
+      }
+      if (result.status >= 300) {
+        throw new Error(result.body || `Upload failed (${result.status})`);
+      }
+
+      // Upsert the DB row on (client_id, exercise_number) via the
+      // refresh-aware helper.
+      await sbPost(
+        "assessment_videos?on_conflict=client_id,exercise_number",
+        {
+          client_id: user.id,
+          exercise_number: exercise.n,
+          exercise_name: exercise.name,
+          video_path: path,
+          uploaded_at: new Date().toISOString(),
+        },
+        { merge: true }
       );
 
       await load();

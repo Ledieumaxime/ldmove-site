@@ -31,7 +31,7 @@ const getToken = (): string | null => {
 // showing clients 'JWT expired' / 'claim timestamp check failed' mid
 // workout).
 let refreshInFlight: Promise<string | null> | null = null;
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
   // Collapse concurrent refreshes (e.g. several set saves firing at
   // once) into one network call.
   if (refreshInFlight) return refreshInFlight;
