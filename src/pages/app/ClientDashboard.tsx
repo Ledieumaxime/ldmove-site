@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Dumbbell,
-  MessageCircle,
   Archive,
   ArrowRight,
   AlertCircle,
+  Bell,
   Check,
   ClipboardList,
   Clock,
   Flame,
+  MessageCircle,
+  TrendingUp,
   Video,
-  Bell,
 } from "lucide-react";
 import { sbGet, sbGetIn, sbPatch } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -47,12 +47,6 @@ type Comment = {
 
 type CommentRead = { item_id: string; last_read_at: string };
 
-type FormCheck = {
-  id: string;
-  status: "pending" | "reviewed";
-  created_at: string;
-};
-
 type Notification = {
   id: string;
   type: string;
@@ -75,84 +69,150 @@ type ProgramItemRef = {
   week_id: string;
   order_index: number;
   sets: number | null;
+  reps: string | null;
   rest_seconds: number | null;
+  custom_name: string | null;
 };
 
-type CompletionLog = {
+type SetLog = {
   program_item_id: string;
   session_run_id: string;
   session_date: string;
   completed_at: string | null;
+  set_number: number;
+  reps_done: number | null;
+  weight_kg: number | string | null;
 };
 
+// ---- date helpers ----------------------------------------------------
+const toISO = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+const mondayOf = (d: Date) => {
+  const copy = new Date(d);
+  const diff = (copy.getDay() + 6) % 7; // Mon=0 … Sun=6
+  copy.setDate(copy.getDate() - diff);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+};
+function formatSessionDate(dateISO: string): string {
+  const d = new Date(dateISO + "T12:00:00");
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  const diffDays = Math.round((today.getTime() - d.getTime()) / 86_400_000);
+  if (diffDays <= 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return d.toLocaleDateString("en-US", { weekday: "long" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+// ---- section helpers -------------------------------------------------
+// Exercise names carry their program section as a "[SECTION] Name"
+// prefix (same convention as Today.tsx / ProgramDetail.tsx).
+const stripSection = (name: string | null) =>
+  (name ?? "").replace(/^\[[^\]]+\]\s*/, "").trim() || "Exercise";
+const sectionOf = (name: string | null) => {
+  const m = (name ?? "").match(/^\[([^\]]+)\]/);
+  return m ? m[1].trim().toUpperCase() : "EXERCISES";
+};
+const isWarmupSection = (s: string) => s.includes("WARM");
+
+/**
+ * The client's own dashboard. Thin wrapper: the body is shared with the
+ * coach's "view as client" page (/app/admin/clients/:id/dashboard) so
+ * both always render exactly the same thing.
+ */
 const ClientDashboard = () => {
   const { profile, user } = useAuth();
+  if (!user) return null;
+  return (
+    <ClientDashboardBody
+      clientId={user.id}
+      firstName={profile?.first_name ?? ""}
+    />
+  );
+};
+
+export const ClientDashboardBody = ({
+  clientId,
+  firstName,
+  coachView = false,
+}: {
+  clientId: string;
+  firstName: string;
+  coachView?: boolean;
+}) => {
   const navigate = useNavigate();
   const [programs, setPrograms] = useState<Program[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [reads, setReads] = useState<CommentRead[]>([]);
-  const [checks, setChecks] = useState<FormCheck[]>([]);
   const [hasIntake, setHasIntake] = useState(true);
   const [intakeAnswers, setIntakeAnswers] = useState<IntakeAnswers | null>(null);
   const [onboardingLocked, setOnboardingLocked] = useState(false);
   const [assessmentCount, setAssessmentCount] = useState(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [programWeeks, setProgramWeeks] = useState<ProgramWeekRef[]>([]);
-  const [programItemsByWeek, setProgramItemsByWeek] = useState<
-    Record<string, string>
-  >({}); // item_id → week_id
   const [programItems, setProgramItems] = useState<ProgramItemRef[]>([]);
-  const [completedLogs, setCompletedLogs] = useState<CompletionLog[]>([]);
+  const [completedLogs, setCompletedLogs] = useState<SetLog[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    if (!clientId) return;
     (async () => {
       try {
-        const [p, co, r, fc, intake, av, notifs] = await Promise.all([
+        const [p, co, r, intake, av, notifs] = await Promise.all([
           sbGet<Program[]>(
-            `programs?select=*&or=(type.eq.catalogue,and(type.eq.custom,assigned_client_id.eq.${user.id}))&order=created_at.desc`
+            `programs?select=*&or=(type.eq.catalogue,and(type.eq.custom,assigned_client_id.eq.${clientId}))&order=created_at.desc`
           ),
-          sbGet<Comment[]>(
-            `exercise_comments?select=*,program_items(custom_name,week_id)&author_role=eq.coach&order=created_at.desc&limit=20`
-          ),
-          sbGet<CommentRead[]>(
-            `comment_reads?select=item_id,last_read_at&user_id=eq.${user.id}`
-          ),
-          sbGet<FormCheck[]>(
-            `form_check_submissions?select=id,status,created_at&client_id=eq.${user.id}&order=created_at.desc&limit=10`
-          ),
-          sbGet<(IntakeAnswers & { locked_at: string | null })[]>(
-            `client_intakes?select=max_pull_ups,max_dips,max_push_ups,deep_squat,handstand,muscle_up,planche,front_lever,lsit_vsit,hspu,rope_climb,hamstrings,splits,shoulder_mobility,squat_flat_heels,backbend,locked_at&client_id=eq.${user.id}&limit=1`
-          ),
-          sbGet<Array<{ id: string }>>(
-            `assessment_videos?select=id&client_id=eq.${user.id}`
-          ),
-          sbGet<Notification[]>(
-            `notifications?user_id=eq.${user.id}&read=eq.false&select=id,type,title,body,link_url,read,created_at&order=created_at.desc`
-          ),
+          // In coach view the RLS would surface every client's comments,
+          // so we re-fetch scoped to the program's items further down.
+          coachView
+            ? Promise.resolve([] as Comment[])
+            : sbGet<Comment[]>(
+                `exercise_comments?select=*,program_items(custom_name,week_id)&author_role=eq.coach&order=created_at.desc&limit=20`
+              ),
+          // comment_reads are per-user; meaningless for the coach.
+          coachView
+            ? Promise.resolve([] as CommentRead[])
+            : sbGet<CommentRead[]>(
+                `comment_reads?select=item_id,last_read_at&user_id=eq.${clientId}`
+              ),
+          coachView
+            ? Promise.resolve(
+                [] as (IntakeAnswers & { locked_at: string | null })[]
+              )
+            : sbGet<(IntakeAnswers & { locked_at: string | null })[]>(
+                `client_intakes?select=max_pull_ups,max_dips,max_push_ups,deep_squat,handstand,muscle_up,planche,front_lever,lsit_vsit,hspu,rope_climb,hamstrings,splits,shoulder_mobility,squat_flat_heels,backbend,locked_at&client_id=eq.${clientId}&limit=1`
+              ),
+          coachView
+            ? Promise.resolve([] as Array<{ id: string }>)
+            : sbGet<Array<{ id: string }>>(
+                `assessment_videos?select=id&client_id=eq.${clientId}`
+              ),
+          coachView
+            ? Promise.resolve([] as Notification[])
+            : sbGet<Notification[]>(
+                `notifications?user_id=eq.${clientId}&read=eq.false&select=id,type,title,body,link_url,read,created_at&order=created_at.desc`
+              ),
         ]);
         setPrograms(p);
         setComments(co);
         setReads(r);
-        setChecks(fc);
-        setHasIntake(intake.length > 0);
+        setHasIntake(coachView ? true : intake.length > 0);
         setIntakeAnswers(intake[0] ?? null);
         setOnboardingLocked(!!intake[0]?.locked_at);
         setAssessmentCount(av.length);
         setNotifications(notifs);
 
-        // Progress data: scoped to the CURRENT program only. The old
-        // version fetched every program_weeks / program_items row the
-        // RLS would let us read (all catalogue + all of the client's
-        // archived blocks) plus every completed workout_log with no
-        // limit — all three quietly truncate at PostgREST's ~1000-row
-        // cap once a long-time client accumulates history, which
-        // corrupts the progress math.
+        // Progress data: scoped to the CURRENT program only, to stay
+        // well under PostgREST's ~1000-row cap for long-time clients.
         const current = p.find(
           (x) =>
             x.type === "custom" &&
-            x.assigned_client_id === user.id &&
+            x.assigned_client_id === clientId &&
             !x.is_archived &&
             x.is_published
         );
@@ -164,35 +224,44 @@ const ClientDashboard = () => {
           const items =
             weeks.length > 0
               ? await sbGetIn<ProgramItemRef>(
-                  `program_items?select=id,week_id,order_index,sets,rest_seconds`,
+                  `program_items?select=id,week_id,order_index,sets,reps,rest_seconds,custom_name`,
                   "week_id",
                   weeks.map((w) => w.id)
                 )
               : [];
           setProgramItems(items);
-          setProgramItemsByWeek(
-            Object.fromEntries(items.map((i) => [i.id, i.week_id]))
-          );
           const logs =
             items.length > 0
-              ? await sbGetIn<CompletionLog>(
-                  `workout_logs?client_id=eq.${user.id}&completed_at=not.is.null&select=program_item_id,session_run_id,session_date,completed_at`,
+              ? await sbGetIn<SetLog>(
+                  `workout_logs?client_id=eq.${clientId}&completed_at=not.is.null&select=program_item_id,session_run_id,session_date,completed_at,set_number,reps_done,weight_kg`,
                   "program_item_id",
                   items.map((i) => i.id)
                 )
               : [];
           setCompletedLogs(logs);
+          if (coachView && items.length > 0) {
+            const cs = await sbGetIn<Comment>(
+              `exercise_comments?select=*,program_items(custom_name,week_id)&author_role=eq.coach`,
+              "item_id",
+              items.map((i) => i.id)
+            );
+            cs.sort(
+              (a, b) =>
+                new Date(b.created_at).getTime() -
+                new Date(a.created_at).getTime()
+            );
+            setComments(cs);
+          }
         } else {
           setProgramWeeks([]);
           setProgramItems([]);
-          setProgramItemsByWeek({});
           setCompletedLogs([]);
         }
       } finally {
         setLoading(false);
       }
     })();
-  }, [user]);
+  }, [clientId, coachView]);
 
   const dismissAndGo = async (n: Notification) => {
     setNotifications((prev) => prev.filter((x) => x.id !== n.id));
@@ -212,7 +281,7 @@ const ClientDashboard = () => {
   const currentProgram = programs.find(
     (p) =>
       p.type === "custom" &&
-      p.assigned_client_id === user?.id &&
+      p.assigned_client_id === clientId &&
       !p.is_archived &&
       p.is_published
   );
@@ -220,38 +289,39 @@ const ClientDashboard = () => {
   const archivedCount = programs.filter(
     (p) =>
       p.type === "custom" &&
-      p.assigned_client_id === user?.id &&
+      p.assigned_client_id === clientId &&
       p.is_archived
   ).length;
 
-  // Unread coach comments: coach comments whose created_at > user's last_read_at for that item
+  const programItemsByWeek: Record<string, string> = Object.fromEntries(
+    programItems.map((i) => [i.id, i.week_id])
+  );
+  const itemById = new Map(programItems.map((i) => [i.id, i]));
+
+  // Unread coach comments: coach comments newer than the client's
+  // last_read_at for that item. Always empty in coach view.
   const readsByItem = new Map(reads.map((r) => [r.item_id, r.last_read_at]));
-  const unreadComments = comments.filter((c) => {
-    const lastRead = readsByItem.get(c.item_id);
-    if (!lastRead) return true;
-    return new Date(c.created_at).getTime() > new Date(lastRead).getTime();
-  });
+  const unreadComments = coachView
+    ? []
+    : comments.filter((c) => {
+        const lastRead = readsByItem.get(c.item_id);
+        if (!lastRead) return true;
+        return new Date(c.created_at).getTime() > new Date(lastRead).getTime();
+      });
+  const latestCoachComment = comments[0] ?? null;
 
   // Progress of current program: based on workout completions, not calendar.
-  //   T = total sessions ever completed for this block (distinct
-  //       (week_id, session_date) tuples in workout_logs.completed_at)
-  //   N = number of sessions in the block (program_weeks count)
-  //   D = block calendar duration in weeks (programs.duration_weeks)
-  //   expectedTotal = N × D                    (1 loop per week assumption)
-  //   expectedByNow = N × (days_elapsed / 7)   (linear pace)
-  //   progress = min(100, T / expectedTotal × 100)
-  // If the client skips, T stagnates and the bar simply doesn't move —
-  // the "behind by X workouts" subtitle nudges them.
   let progress = 0;
   let daysLeft = 0;
   let isOverdue = false;
   let totalSessionsCompleted = 0;
   let sessionsPerLoop = 0;
   let expectedTotal = 0;
-  let workoutsBehind = 0; // positive = behind, negative = ahead
   if (currentProgram) {
     const programWeekIds = new Set(
-      programWeeks.filter((w) => w.program_id === currentProgram.id).map((w) => w.id)
+      programWeeks
+        .filter((w) => w.program_id === currentProgram.id)
+        .map((w) => w.id)
     );
     sessionsPerLoop = programWeekIds.size;
 
@@ -271,30 +341,17 @@ const ClientDashboard = () => {
       progress = Math.min(100, (totalSessionsCompleted / expectedTotal) * 100);
     }
 
-    const daysElapsed = Math.max(0, (now - start) / 86_400_000);
-    const expectedByNow = (sessionsPerLoop * daysElapsed) / 7;
-    workoutsBehind = Math.round(expectedByNow - totalSessionsCompleted);
-
     const end = start + weeks * 7 * 86_400_000;
     daysLeft = Math.ceil((end - now) / 86_400_000);
     isOverdue = daysLeft < 0;
   }
 
-  // ---- Week strip / streak / next session (Trainerize-style) ----------
-  const toISO = (d: Date) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  };
-  const mondayOf = (d: Date) => {
-    const copy = new Date(d);
-    const diff = (copy.getDay() + 6) % 7; // Mon=0 … Sun=6
-    copy.setDate(copy.getDate() - diff);
-    copy.setHours(0, 0, 0, 0);
-    return copy;
-  };
+  const currentLoopWeek =
+    sessionsPerLoop > 0
+      ? Math.floor(totalSessionsCompleted / sessionsPerLoop) + 1
+      : 1;
 
+  // ---- Week strip ----------------------------------------------------
   const weekDays: { iso: string; label: string; isToday: boolean }[] = [];
   {
     const monday = mondayOf(new Date());
@@ -312,7 +369,8 @@ const ClientDashboard = () => {
   const runDates = new Map<string, string>(); // run_id → session_date
   for (const l of completedLogs) {
     if (!l.completed_at) continue;
-    if (!runDates.has(l.session_run_id)) runDates.set(l.session_run_id, l.session_date);
+    if (!runDates.has(l.session_run_id))
+      runDates.set(l.session_run_id, l.session_date);
   }
   const datesWithSession = new Set(runDates.values());
   const runsByWeek = new Map<string, number>(); // monday ISO → distinct runs
@@ -323,9 +381,6 @@ const ClientDashboard = () => {
   const doneThisWeek = runsByWeek.get(weekDays[0].iso) ?? 0;
 
   // Streak: consecutive weeks (walking back) hitting the weekly target.
-  // The current week counts once it reaches the target; otherwise the
-  // streak is measured from last week backwards so an in-progress week
-  // doesn't break it.
   let streakWeeks = 0;
   if (sessionsPerLoop > 0) {
     const cursor = mondayOf(new Date());
@@ -338,8 +393,159 @@ const ClientDashboard = () => {
     }
   }
 
-  // Next session: same modulo logic as the Today page, so the dashboard
-  // card and the workout page always agree.
+  // ---- Runs in chronological order, for PRs + last session ------------
+  type RunAgg = {
+    runId: string;
+    date: string;
+    completedAt: number;
+    weekId: string | null;
+    byItem: Map<string, SetLog[]>;
+  };
+  const runsById = new Map<string, RunAgg>();
+  for (const log of completedLogs) {
+    if (!log.completed_at) continue;
+    let run = runsById.get(log.session_run_id);
+    if (!run) {
+      run = {
+        runId: log.session_run_id,
+        date: log.session_date,
+        completedAt: 0,
+        weekId: programItemsByWeek[log.program_item_id] ?? null,
+        byItem: new Map(),
+      };
+      runsById.set(log.session_run_id, run);
+    }
+    run.completedAt = Math.max(
+      run.completedAt,
+      new Date(log.completed_at).getTime()
+    );
+    const arr = run.byItem.get(log.program_item_id) ?? [];
+    arr.push(log);
+    run.byItem.set(log.program_item_id, arr);
+  }
+  const runsOrdered = [...runsById.values()].sort(
+    (a, b) => a.completedAt - b.completedAt
+  );
+
+  // PR detection, per exercise NAME (the same exercise lives as a
+  // different program_item row in every week of the block). A run scores
+  // a PR on an exercise when its best set beats the best of all previous
+  // runs: heavier load wins; for unloaded exercises, more reps/seconds
+  // wins. Warmup sections never count.
+  type Best = { weight: number | null; reps: number | null };
+  const bestByName = new Map<string, Best>();
+  const prKeys = new Set<string>(); // `${runId}|${nameLower}`
+  let prsThisBlock = 0;
+  let prsThisWeek = 0;
+  const currentWeekMonday = toISO(mondayOf(new Date()));
+  for (const run of runsOrdered) {
+    const runMax = new Map<string, Best>();
+    for (const [itemId, logs] of run.byItem) {
+      const item = itemById.get(itemId);
+      if (!item) continue;
+      if (isWarmupSection(sectionOf(item.custom_name))) continue;
+      const name = stripSection(item.custom_name).toLowerCase();
+      const cur = runMax.get(name) ?? { weight: null, reps: null };
+      for (const l of logs) {
+        if (l.weight_kg != null)
+          cur.weight = Math.max(cur.weight ?? 0, Number(l.weight_kg));
+        if (l.reps_done != null)
+          cur.reps = Math.max(cur.reps ?? 0, l.reps_done);
+      }
+      runMax.set(name, cur);
+    }
+    for (const [name, m] of runMax) {
+      const prev = bestByName.get(name);
+      let isPr = false;
+      if (prev) {
+        if (m.weight != null && prev.weight != null && m.weight > prev.weight)
+          isPr = true;
+        else if (m.weight != null && prev.weight == null) isPr = true;
+        else if (
+          m.weight == null &&
+          prev.weight == null &&
+          m.reps != null &&
+          prev.reps != null &&
+          m.reps > prev.reps
+        )
+          isPr = true;
+      }
+      if (isPr) {
+        prsThisBlock++;
+        prKeys.add(`${run.runId}|${name}`);
+        if (
+          toISO(mondayOf(new Date(run.date + "T12:00:00"))) ===
+          currentWeekMonday
+        )
+          prsThisWeek++;
+      }
+      const merged = prev ?? { weight: null, reps: null };
+      if (m.weight != null)
+        merged.weight = Math.max(merged.weight ?? m.weight, m.weight);
+      if (m.reps != null) merged.reps = Math.max(merged.reps ?? m.reps, m.reps);
+      bestByName.set(name, merged);
+    }
+  }
+
+  // ---- Last session summary (workout sections only, no warmup) --------
+  const lastRun = runsOrdered[runsOrdered.length - 1] ?? null;
+  type LastExercise = { id: string; name: string; perf: string; isPr: boolean };
+  let lastSession: {
+    label: string;
+    when: string;
+    exercises: LastExercise[];
+  } | null = null;
+  if (lastRun) {
+    const entries = [...lastRun.byItem.entries()]
+      .map(([itemId, logs]) => ({ item: itemById.get(itemId), logs }))
+      .filter(
+        (e): e is { item: ProgramItemRef; logs: SetLog[] } =>
+          !!e.item && !isWarmupSection(sectionOf(e.item.custom_name))
+      )
+      .sort((a, b) => a.item.order_index - b.item.order_index);
+    const exercises: LastExercise[] = entries.map(({ item, logs }) => {
+      const name = stripSection(item.custom_name);
+      const setsCount = new Set(logs.map((l) => l.set_number)).size;
+      let maxW: number | null = null;
+      let maxR: number | null = null;
+      for (const l of logs) {
+        if (l.weight_kg != null) maxW = Math.max(maxW ?? 0, Number(l.weight_kg));
+        if (l.reps_done != null) maxR = Math.max(maxR ?? 0, l.reps_done);
+      }
+      const prescription = item.reps ?? "";
+      const inSeconds = /\d+\s*(s|sec|secs|seconds)\b/i.test(prescription);
+      const isMaxEffort = /max|amrap/i.test(prescription);
+      let perf = "";
+      if (maxR != null) {
+        perf = isMaxEffort
+          ? `best ${maxR}${inSeconds ? " s" : ""}`
+          : `${setsCount}×${maxR}${inSeconds ? " s" : ""}`;
+      } else if (setsCount > 0) {
+        perf = `${setsCount} set${setsCount > 1 ? "s" : ""}`;
+      }
+      if (maxW != null) perf += `${perf ? " · " : ""}${maxW} kg`;
+      return {
+        id: item.id,
+        name,
+        perf,
+        isPr: prKeys.has(`${lastRun.runId}|${name.toLowerCase()}`),
+      };
+    });
+    if (exercises.length > 0) {
+      const week = programWeeks.find((w) => w.id === lastRun.weekId);
+      lastSession = {
+        label: week?.title?.trim()
+          ? week.title.trim()
+          : week
+            ? `Session ${week.week_number}`
+            : "Session",
+        when: formatSessionDate(lastRun.date),
+        exercises,
+      };
+    }
+  }
+
+  // Next session: same modulo logic as the Today page.
   const programDays = currentProgram
     ? listProgramDays(programWeeks, programItems)
     : [];
@@ -361,18 +567,39 @@ const ClientDashboard = () => {
     return Math.min(mins, 120);
   })();
 
-  const pendingChecks = checks.filter((c) => c.status === "pending").length;
-
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-sm text-muted-foreground uppercase tracking-wider">Welcome</p>
-        <h1 className="font-heading text-3xl md:text-4xl font-bold">
-          Hi {profile?.first_name ?? ""}
-        </h1>
+    <div className="space-y-5">
+      {/* Header + streak pill */}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm text-muted-foreground uppercase tracking-wider">
+            {currentProgram
+              ? `${currentProgram.title} · Week ${currentLoopWeek}`
+              : "Welcome"}
+          </p>
+          <h1 className="font-heading text-3xl md:text-4xl font-bold">
+            Hi {firstName}
+          </h1>
+        </div>
+        {currentProgram && sessionsPerLoop > 0 && (
+          <div
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 mt-1 shrink-0 ${
+              streakWeeks > 0
+                ? "bg-accent/10 border-accent/30 text-accent"
+                : "bg-muted/40 border-border text-muted-foreground"
+            }`}
+          >
+            <Flame size={14} />
+            <span className="text-xs font-semibold whitespace-nowrap">
+              {streakWeeks > 0
+                ? `${streakWeeks}-week streak`
+                : "Start your streak"}
+            </span>
+          </div>
+        )}
       </div>
 
-      {notifications.length > 0 && (
+      {!coachView && notifications.length > 0 && (
         <div className="space-y-2">
           {notifications.map((n) => (
             <button
@@ -398,35 +625,97 @@ const ClientDashboard = () => {
         </div>
       )}
 
-
       {/* Onboarding banner — guides the client through the two onboarding steps */}
-      {(() => {
-        if (onboardingLocked) return null;
-        if (!hasIntake) {
-          return (
-            <OnboardingBanner
-              to="/app/onboarding/intake"
-              icon={<ClipboardList size={20} />}
-              tag="Start here"
-              title="Complete your intake form"
-              desc="5 minutes to tell me where you are today. This is what I use to design your first program."
-            />
-          );
-        }
-        const expected = intakeAnswers ? visibleExercises(intakeAnswers).length : 0;
-        if (expected > 0 && assessmentCount < expected) {
-          return (
-            <OnboardingBanner
-              to="/app/onboarding/assessment"
-              icon={<Video size={20} />}
-              tag="Step 2"
-              title={`Upload your assessment videos (${assessmentCount}/${expected})`}
-              desc="Film the exercises I need to see. I'll use them to validate your level and build the right program."
-            />
-          );
-        }
-        return null;
-      })()}
+      {!coachView &&
+        (() => {
+          if (onboardingLocked) return null;
+          if (!hasIntake) {
+            return (
+              <OnboardingBanner
+                to="/app/onboarding/intake"
+                icon={<ClipboardList size={20} />}
+                tag="Start here"
+                title="Complete your intake form"
+                desc="5 minutes to tell me where you are today. This is what I use to design your first program."
+              />
+            );
+          }
+          const expected = intakeAnswers
+            ? visibleExercises(intakeAnswers).length
+            : 0;
+          if (expected > 0 && assessmentCount < expected) {
+            return (
+              <OnboardingBanner
+                to="/app/onboarding/assessment"
+                icon={<Video size={20} />}
+                tag="Step 2"
+                title={`Upload your assessment videos (${assessmentCount}/${expected})`}
+                desc="Film the exercises I need to see. I'll use them to validate your level and build the right program."
+              />
+            );
+          }
+          return null;
+        })()}
+
+      {/* Up next hero */}
+      {currentProgram ? (
+        <div className="bg-foreground text-background rounded-2xl p-5 md:p-6">
+          <p className="text-xs uppercase tracking-wider opacity-70 font-semibold mb-1">
+            Up next
+          </p>
+          <h2 className="font-heading text-2xl md:text-3xl font-bold mb-1">
+            {nextSessionLabel ?? currentProgram.title}
+          </h2>
+          {nextSession && (
+            <p className="text-sm opacity-70 flex items-center gap-3 flex-wrap">
+              <span className="inline-flex items-center gap-1.5">
+                <ClipboardList size={14} /> {nextSessionExerciseCount} exercise
+                {nextSessionExerciseCount === 1 ? "" : "s"}
+              </span>
+              {nextSessionMinutes != null && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock size={14} /> ~{nextSessionMinutes} min
+                </span>
+              )}
+              <span className="opacity-70">{currentProgram.title}</span>
+            </p>
+          )}
+
+          {coachView ? (
+            <p className="text-xs opacity-60 mt-4">
+              This is the session {firstName || "the client"} will see on
+              their Today page.
+            </p>
+          ) : (
+            <div className="flex items-center gap-4 flex-wrap mt-4">
+              <Link
+                to="/app/today"
+                className="inline-flex items-center justify-center gap-2 bg-accent text-white font-semibold rounded-full px-5 py-3 text-sm hover:opacity-95 transition w-full sm:w-auto"
+              >
+                Start Session {totalSessionsCompleted + 1}
+                <ArrowRight size={16} />
+              </Link>
+              <Link
+                to={`/app/programs/${currentProgram.slug}`}
+                className="text-xs opacity-60 hover:opacity-100 underline underline-offset-4"
+              >
+                Preview program
+              </Link>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-border p-6">
+          <h2 className="font-heading text-xl font-bold mb-2">
+            No active program
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {coachView
+              ? "This client has no active published block right now."
+              : "Your coach hasn't assigned an active program yet. Check the catalogue below or get in touch."}
+          </p>
+        </div>
+      )}
 
       {/* Week strip — training rhythm at a glance */}
       {currentProgram && sessionsPerLoop > 0 && (
@@ -483,56 +772,7 @@ const ClientDashboard = () => {
         </div>
       )}
 
-      {/* Current program hero */}
-      {currentProgram ? (
-        <div className="bg-foreground text-background rounded-2xl p-6">
-          <p className="text-xs uppercase tracking-wider opacity-70 font-semibold mb-1">
-            Next session
-          </p>
-          <h2 className="font-heading text-2xl md:text-3xl font-bold mb-1">
-            {nextSessionLabel ?? currentProgram.title}
-          </h2>
-          {nextSession && (
-            <p className="text-sm opacity-70 mb-4 flex items-center gap-3 flex-wrap">
-              <span className="inline-flex items-center gap-1.5">
-                <ClipboardList size={14} /> {nextSessionExerciseCount} exercise
-                {nextSessionExerciseCount === 1 ? "" : "s"}
-              </span>
-              {nextSessionMinutes != null && (
-                <span className="inline-flex items-center gap-1.5">
-                  <Clock size={14} /> ~{nextSessionMinutes} min
-                </span>
-              )}
-              <span className="opacity-70">{currentProgram.title}</span>
-            </p>
-          )}
-
-          <div className="flex items-center gap-3 flex-wrap">
-            <Link
-              to="/app/today"
-              className="inline-flex items-center gap-2 bg-accent text-white font-semibold rounded-full px-5 py-2.5 text-sm hover:opacity-95 transition"
-            >
-              Start Session {totalSessionsCompleted + 1}
-              <ArrowRight size={16} />
-            </Link>
-            <Link
-              to={`/app/programs/${currentProgram.slug}`}
-              className="inline-flex items-center rounded-full border border-background/40 px-4 py-2.5 text-xs opacity-80 hover:opacity-100"
-            >
-              Preview
-            </Link>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl border border-border p-6">
-          <h2 className="font-heading text-xl font-bold mb-2">No active program</h2>
-          <p className="text-sm text-muted-foreground">
-            Your coach hasn't assigned an active program yet. Check the catalogue below or get in touch.
-          </p>
-        </div>
-      )}
-
-      {/* Progress ring + streak */}
+      {/* Block progress + PRs tiles */}
       {currentProgram && expectedTotal > 0 && (
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white rounded-2xl border border-border p-4 flex items-center gap-3">
@@ -540,66 +780,172 @@ const ClientDashboard = () => {
               const pct = Math.min(1, totalSessionsCompleted / expectedTotal);
               const C = 2 * Math.PI * 18;
               return (
-                <svg width="52" height="52" viewBox="0 0 52 52" className="shrink-0">
-                  <circle cx="26" cy="26" r="18" fill="none" stroke="currentColor" strokeWidth="5" className="text-border" />
+                <svg
+                  width="52"
+                  height="52"
+                  viewBox="0 0 52 52"
+                  className="shrink-0"
+                >
                   <circle
-                    cx="26" cy="26" r="18" fill="none"
-                    stroke="currentColor" strokeWidth="5" strokeLinecap="round"
+                    cx="26"
+                    cy="26"
+                    r="18"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="5"
+                    className="text-border"
+                  />
+                  <circle
+                    cx="26"
+                    cy="26"
+                    r="18"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="5"
+                    strokeLinecap="round"
                     className={isOverdue ? "text-red-400" : "text-accent"}
                     strokeDasharray={`${Math.round(pct * C)} ${Math.round(C)}`}
                     transform="rotate(-90 26 26)"
                   />
-                  <text x="26" y="30" textAnchor="middle" fontSize="12" fontWeight="700" fill="currentColor" className="text-foreground">
-                    {totalSessionsCompleted}
+                  <text
+                    x="26"
+                    y="30"
+                    textAnchor="middle"
+                    fontSize="11"
+                    fontWeight="700"
+                    fill="currentColor"
+                    className="text-foreground"
+                  >
+                    {Math.round(progress)}%
                   </text>
                 </svg>
               );
             })()}
             <div className="min-w-0">
-              <p className="font-heading font-bold text-sm">
-                {totalSessionsCompleted} of {expectedTotal}
-              </p>
-              <p className="text-[11px] text-muted-foreground truncate">
-                {isOverdue
-                  ? `Ended ${Math.abs(daysLeft)}d ago`
-                  : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`}
+              <p className="font-heading font-bold text-sm">Block</p>
+              <p className="text-[11px] text-muted-foreground leading-tight">
+                {totalSessionsCompleted >= expectedTotal
+                  ? "All sessions done"
+                  : `Session ${totalSessionsCompleted + 1} of ${expectedTotal}`}
               </p>
             </div>
           </div>
           <div className="bg-white rounded-2xl border border-border p-4 flex items-center gap-3">
-            <Flame
-              size={26}
-              className={streakWeeks > 0 ? "text-accent shrink-0" : "text-muted-foreground/40 shrink-0"}
-            />
+            <div className="w-[52px] h-[52px] rounded-full bg-accent/10 flex items-center justify-center shrink-0">
+              <TrendingUp size={22} className="text-accent" />
+            </div>
             <div className="min-w-0">
               <p className="font-heading font-bold text-sm">
-                {streakWeeks} week{streakWeeks === 1 ? "" : "s"}
+                {prsThisBlock} PR{prsThisBlock === 1 ? "" : "s"}
               </p>
-              <p className="text-[11px] text-muted-foreground">Training streak</p>
+              <p className="text-[11px] text-muted-foreground leading-tight">
+                {prsThisWeek > 0
+                  ? `+${prsThisWeek} this week`
+                  : prsThisBlock > 0
+                    ? "this block"
+                    : "Beat a past best"}
+              </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Stats cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <StatCard
-          label="Reply from your coach"
-          value={unreadComments.length}
-          icon={<MessageCircle size={18} />}
-          to="/app/inbox"
-          highlight={unreadComments.length > 0}
-        />
-        <StatCard
-          label="Archived programs"
-          value={archivedCount}
-          icon={<Archive size={18} />}
-          to="/app/archived"
-        />
-      </div>
+      {/* Last session summary — workout exercises only */}
+      {lastSession && (
+        <div className="bg-white rounded-2xl border border-border p-4 md:p-5">
+          <div className="flex items-baseline justify-between gap-3 mb-2">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider shrink-0">
+              Last session
+            </span>
+            <span className="text-[11px] text-muted-foreground truncate">
+              {lastSession.label} · {lastSession.when}
+            </span>
+          </div>
+          <ul>
+            {lastSession.exercises.slice(0, 5).map((ex) => (
+              <li
+                key={ex.id}
+                className="flex items-center justify-between gap-3 py-2 border-b border-border last:border-0"
+              >
+                <span className="text-sm truncate">{ex.name}</span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1.5">
+                  {ex.perf}
+                  {ex.isPr && (
+                    <span className="bg-accent/10 text-accent font-bold text-[10px] px-1.5 py-0.5 rounded-full">
+                      PR
+                    </span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] text-muted-foreground mt-2">
+            {lastSession.exercises.length > 5 && (
+              <>+ {lastSession.exercises.length - 5} more exercises · </>
+            )}
+            {coachView ? (
+              <span>full log on the client page</span>
+            ) : (
+              <Link
+                to="/app/history"
+                className="text-accent font-semibold hover:underline"
+              >
+                View full log
+              </Link>
+            )}
+          </p>
+        </div>
+      )}
+
+      {/* Latest coach note */}
+      {latestCoachComment &&
+        (() => {
+          const exName = latestCoachComment.program_items?.custom_name
+            ? stripSection(latestCoachComment.program_items.custom_name)
+            : null;
+          const inner = (
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-accent text-white flex items-center justify-center shrink-0">
+                <MessageCircle size={15} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold flex items-center gap-2">
+                  Note from your coach
+                  {unreadComments.length > 0 && (
+                    <span className="bg-accent text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                      {unreadComments.length} new
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                  {exName ? `${exName}: ` : ""}
+                  {latestCoachComment.body}
+                </p>
+              </div>
+              <span className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0">
+                {formatRelative(latestCoachComment.created_at, now)}
+              </span>
+            </div>
+          );
+          const cardClass = `block rounded-2xl border p-4 ${
+            unreadComments.length > 0
+              ? "bg-accent/10 border-accent/40"
+              : "bg-white border-border"
+          }`;
+          return coachView ? (
+            <div className={cardClass}>{inner}</div>
+          ) : (
+            <Link
+              to="/app/inbox#messages"
+              className={`${cardClass} hover:shadow-md transition`}
+            >
+              {inner}
+            </Link>
+          );
+        })()}
 
       {/* Program ending / overdue warning */}
-      {currentProgram && (isOverdue || daysLeft <= 7) && (
+      {!coachView && currentProgram && (isOverdue || daysLeft <= 7) && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
           <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
           <div className="text-sm">
@@ -609,75 +955,31 @@ const ClientDashboard = () => {
                 : `Your program ends in ${daysLeft} day${daysLeft > 1 ? "s" : ""}`}
             </p>
             <p className="text-amber-800 mt-0.5">
-              Drop a message in any exercise's comments and Maxime will pick it up.
+              Drop a message in any exercise's comments and Maxime will pick it
+              up.
             </p>
           </div>
         </div>
       )}
 
-      {/* Recent coach messages */}
-      {unreadComments.length > 0 && (
-        <div className="bg-white rounded-2xl border border-border p-5">
-          <h2 className="font-heading text-xl font-bold mb-3 flex items-center gap-2">
-            <MessageCircle size={18} className="text-accent" />
-            New from your coach
-          </h2>
-          <ul className="space-y-2">
-            {unreadComments.slice(0, 5).map((c) => (
-              <li key={c.id}>
-                <Link
-                  to="/app/inbox#messages"
-                  className="flex items-start gap-3 py-2 border-b border-border last:border-0 hover:bg-muted/30 rounded px-2 -mx-2"
-                >
-                  <Dumbbell size={14} className="text-muted-foreground mt-0.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold">
-                      {c.program_items?.custom_name
-                        ?.replace(/^\[[^\]]+\]\s*/, "") ?? "Exercise"}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">{c.body}</p>
-                  </div>
-                  <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                    {formatRelative(c.created_at, now)}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+      {/* Archived programs */}
+      {!coachView && archivedCount > 0 && (
+        <Link
+          to="/app/archived"
+          className="flex items-center justify-between bg-white border border-border rounded-2xl px-4 py-3 hover:shadow-md transition"
+        >
+          <span className="inline-flex items-center gap-2 text-sm font-semibold">
+            <Archive size={15} className="text-muted-foreground" /> Archived
+            programs
+          </span>
+          <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+            {archivedCount} <ArrowRight size={12} />
+          </span>
+        </Link>
       )}
     </div>
   );
 };
-
-const StatCard = ({
-  label,
-  value,
-  icon,
-  to,
-  highlight,
-}: {
-  label: string;
-  value: number;
-  icon: React.ReactNode;
-  to: string;
-  highlight?: boolean;
-}) => (
-  <Link
-    to={to}
-    className={`block rounded-2xl border p-4 hover:shadow-md transition ${
-      highlight && value > 0
-        ? "bg-accent/10 border-accent/40"
-        : "bg-white border-border"
-    }`}
-  >
-    <div className={`${highlight && value > 0 ? "text-accent" : "text-muted-foreground"} mb-1`}>
-      {icon}
-    </div>
-    <p className="font-heading text-3xl font-bold">{value}</p>
-    <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
-  </Link>
-);
 
 function formatRelative(dateStr: string, now: number): string {
   const diff = now - new Date(dateStr).getTime();
@@ -687,7 +989,10 @@ function formatRelative(dateStr: string, now: number): string {
   if (hours < 24) return `${hours}h`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d`;
-  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 const OnboardingBanner = ({
@@ -712,7 +1017,9 @@ const OnboardingBanner = ({
         {icon}
       </div>
       <div className="flex-1">
-        <p className="text-xs uppercase tracking-wider font-semibold text-accent">{tag}</p>
+        <p className="text-xs uppercase tracking-wider font-semibold text-accent">
+          {tag}
+        </p>
         <h2 className="font-heading text-xl font-bold mt-0.5">{title}</h2>
         <p className="text-sm text-muted-foreground mt-1">{desc}</p>
       </div>

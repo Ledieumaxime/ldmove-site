@@ -38,6 +38,7 @@ import AdminTemplateEdit from "./pages/app/admin/AdminTemplateEdit";
 import AdminFormChecks from "./pages/app/admin/AdminFormChecks";
 import AdminClientIntake from "./pages/app/admin/AdminClientIntake";
 import AdminClientDetail from "./pages/app/admin/AdminClientDetail";
+import AdminClientDashboard from "./pages/app/admin/AdminClientDashboard";
 import CheckoutSuccess from "./pages/app/CheckoutSuccess";
 import OnboardingIntake from "./pages/app/OnboardingIntake";
 import OnboardingAssessmentUpload from "./pages/app/OnboardingAssessmentUpload";
@@ -156,6 +157,14 @@ const App = () => (
                   element={
                     <ProtectedRoute requireRole="coach">
                       <AdminClientDetail />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="admin/clients/:id/dashboard"
+                  element={
+                    <ProtectedRoute requireRole="coach">
+                      <AdminClientDashboard />
                     </ProtectedRoute>
                   }
                 />

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Video,
   MessageCircle,
   Bell,
   ArrowRight,
+  Eye,
   PlusCircle,
   Inbox,
   UserPlus,
@@ -150,6 +151,7 @@ const STATUS_BAR_CLASS: Record<ClientStatus, string> = {
 
 const AdminDashboard = () => {
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const [programs, setPrograms] = useState<Program[]>([]);
   const [clients, setClients] = useState<Profile[]>([]);
   const [checks, setChecks] = useState<FormCheck[]>([]);
@@ -861,29 +863,42 @@ const AdminDashboard = () => {
                   <span className="inline-flex items-center gap-1 text-muted-foreground">
                     {describeLastTraining(e)}
                   </span>
-                  {(e.status === "ghosting" || e.status === "behind") && (
+                  <span className="ml-auto inline-flex items-center gap-2">
                     <button
                       type="button"
                       onClick={(ev) => {
                         ev.preventDefault();
                         ev.stopPropagation();
-                        if (!nudgedIds.has(e.client.id)) nudgeClient(e.client.id);
+                        navigate(`/app/admin/clients/${e.client.id}/dashboard`);
                       }}
-                      className={`ml-auto inline-flex items-center gap-1 font-semibold px-3 py-1 rounded-full border transition ${
-                        nudgedIds.has(e.client.id)
-                          ? "border-green-200 bg-green-50 text-green-700 cursor-default"
-                          : "border-border hover:bg-muted/50 text-foreground"
-                      }`}
+                      className="inline-flex items-center gap-1 font-semibold px-3 py-1 rounded-full border border-border hover:bg-muted/50 text-foreground transition"
                     >
-                      {nudgedIds.has(e.client.id) ? (
-                        <>Nudged ✓</>
-                      ) : (
-                        <>
-                          <Bell size={11} /> Nudge
-                        </>
-                      )}
+                      <Eye size={11} /> Dashboard
                     </button>
-                  )}
+                    {(e.status === "ghosting" || e.status === "behind") && (
+                      <button
+                        type="button"
+                        onClick={(ev) => {
+                          ev.preventDefault();
+                          ev.stopPropagation();
+                          if (!nudgedIds.has(e.client.id)) nudgeClient(e.client.id);
+                        }}
+                        className={`inline-flex items-center gap-1 font-semibold px-3 py-1 rounded-full border transition ${
+                          nudgedIds.has(e.client.id)
+                            ? "border-green-200 bg-green-50 text-green-700 cursor-default"
+                            : "border-border hover:bg-muted/50 text-foreground"
+                        }`}
+                      >
+                        {nudgedIds.has(e.client.id) ? (
+                          <>Nudged ✓</>
+                        ) : (
+                          <>
+                            <Bell size={11} /> Nudge
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </span>
                 </div>
               </Link>
             ))}

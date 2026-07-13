@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Lock, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Lock, ArrowLeft, ArrowRight, CheckCircle2, Dumbbell } from "lucide-react";
 import { sbGet, sbPost } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -195,11 +195,37 @@ const ProgramDetail = () => {
           <p className="text-xs text-muted-foreground mt-3 bg-muted/40 border border-border rounded-lg px-3 py-2">
             Want to add a form-check video to an exercise you already did?
             Scroll to any session below and use the upload button on that
-            exercise — you can do it any time, even after finishing the
+            exercise. You can do it any time, even after finishing the
             session.
           </p>
         )}
       </div>
+
+      {/* Clients sometimes run their whole session from this overview
+          page, where nothing gets logged, and their progress flatlines.
+          Point them at the Today page before they scroll into the
+          program. */}
+      {clientCanUploadFormCheck && (
+        <div className="bg-accent/10 border-2 border-accent/40 rounded-2xl p-4 flex items-start gap-3">
+          <div className="w-9 h-9 rounded-full bg-accent text-white flex items-center justify-center shrink-0">
+            <Dumbbell size={16} />
+          </div>
+          <div className="flex-1">
+            <p className="font-heading font-bold text-sm">Training right now?</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              This page is just the program overview: nothing you do here is
+              tracked. Use the Today page to log your sets so every session
+              counts toward your progress.
+            </p>
+            <Link
+              to="/app/today"
+              className="inline-flex items-center gap-1.5 mt-2.5 bg-accent text-white text-xs font-semibold rounded-full px-4 py-2 hover:opacity-95 transition"
+            >
+              Go to Today <ArrowRight size={12} />
+            </Link>
+          </div>
+        </div>
+      )}
 
       {!canView && (
         <div className="bg-white border-2 border-accent/30 rounded-2xl p-6 text-center">

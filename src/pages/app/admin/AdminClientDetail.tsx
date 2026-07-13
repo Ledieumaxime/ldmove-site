@@ -8,6 +8,7 @@ import {
   ChevronUp,
   ClipboardList,
   Edit2,
+  Eye,
   History as HistoryIcon,
   Loader2,
   MessageCircle,
@@ -621,13 +622,21 @@ const AdminClientDetail = () => {
         >
           <ArrowLeft size={16} /> Back to dashboard
         </Link>
-        <button
-          type="button"
-          onClick={() => setDeleteOpen(true)}
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-red-700 transition-colors"
-        >
-          <Trash2 size={12} /> Delete client
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            to={`/app/admin/clients/${clientId}/dashboard`}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold border border-border rounded-full px-3 py-1.5 hover:bg-muted/50 transition-colors"
+          >
+            <Eye size={12} /> View dashboard
+          </Link>
+          <button
+            type="button"
+            onClick={() => setDeleteOpen(true)}
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-red-700 transition-colors"
+          >
+            <Trash2 size={12} /> Delete client
+          </button>
+        </div>
       </div>
 
       <DeleteClientDialog
