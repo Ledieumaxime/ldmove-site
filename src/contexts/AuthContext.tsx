@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { sbGet } from "@/integrations/supabase/api";
+import { refreshAccessToken, sbGet } from "@/integrations/supabase/api";
 
 export type Profile = {
   id: string;
@@ -183,6 +183,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // sees a 'JWT expired' 401 the next time they save a workout log /
   // form check / anything from the client side. We swap the token
   // around T-2min and chain a new timeout each time.
+  //
+  // Both this and the visibility handler go through the shared
+  // refreshAccessToken helper: it dedupes concurrent refreshes,
+  // persists the renewed session, keeps the session on transient
+  // failures (network blip in the gym), and — the one case where
+  // keeping it is wrong — purges everything and redirects to login
+  // when the auth server definitively rejects the refresh token
+  // (revoked / rotated away). A dead token can never recover, so
+  // before this the app just sat broken with silent 401s.
   useEffect(() => {
     if (!session?.refresh_token) return;
     const refreshAt =
@@ -190,36 +199,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       2 * 60 * 1000; // 2 minutes before expiry
     const delay = Math.max(5_000, refreshAt - Date.now()); // never zero / negative
     const timer = window.setTimeout(async () => {
-      try {
-        const res = await fetch(
-          `${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,
-          {
-            method: "POST",
-            headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
-            body: JSON.stringify({ refresh_token: session.refresh_token }),
-          }
-        );
-        if (!res.ok) {
-          // Do NOT sign the user out here. A failed scheduled refresh
-          // is most often a transient network blip (training in a gym
-          // with weak signal), which used to log Cym out mid-session.
-          // Keep the current session; the api-layer refresh+retry and
-          // the visibility handler will renew it on the next action.
-          console.warn("[AUTH] scheduled refresh failed (keeping session)", res.status);
-          return;
-        }
-        const json = await res.json();
-        const next: SessionLike = {
-          access_token: json.access_token,
-          refresh_token: json.refresh_token ?? session.refresh_token,
-          expires_at:
-            json.expires_at ?? Math.floor(Date.now() / 1000) + 3600,
-          user: session.user,
-        };
-        setSession(next);
-      } catch (e) {
-        console.error("[AUTH] refresh token error", e);
+      const fresh = await refreshAccessToken();
+      if (!fresh) {
+        console.warn("[AUTH] scheduled refresh failed (keeping session)");
+        return;
       }
+      const stored = loadStoredSession();
+      if (stored) setSessionState(stored);
     }, delay);
     return () => window.clearTimeout(timer);
   }, [session?.access_token]);
@@ -237,36 +223,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!stored?.refresh_token) return;
       const msToExpiry = (stored.expires_at ?? 0) * 1000 - Date.now();
       if (msToExpiry > 2 * 60 * 1000) return; // still fresh
-      try {
-        const res = await fetch(
-          `${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,
-          {
-            method: "POST",
-            headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
-            body: JSON.stringify({ refresh_token: stored.refresh_token }),
-          }
-        );
-        // Same policy as the scheduled refresh: never sign out on a
-        // failed refresh, just keep the session and let the next API
-        // call heal it. Signing out mid-training is the worst outcome.
-        if (!res.ok) {
-          console.warn("[AUTH] visibility refresh failed (keeping session)", res.status);
-          return;
-        }
-        const json = await res.json();
-        setSession({
-          access_token: json.access_token,
-          refresh_token: json.refresh_token ?? stored.refresh_token,
-          expires_at:
-            json.expires_at ?? Math.floor(Date.now() / 1000) + 3600,
-          user: stored.user,
-        });
-      } catch (e) {
-        console.error("[AUTH] visibility refresh failed", e);
+      const fresh = await refreshAccessToken();
+      if (!fresh) {
+        console.warn("[AUTH] visibility refresh failed (keeping session)");
+        return;
       }
+      const renewed = loadStoredSession();
+      if (renewed) setSessionState(renewed);
     };
     document.addEventListener("visibilitychange", handler);
     return () => document.removeEventListener("visibilitychange", handler);
+  }, []);
+
+  // ---- Dead-session sign-out --------------------------------------------
+  // The api layer fires this after clearing localStorage, when the auth
+  // server definitively rejected our refresh token. Mirror it in React
+  // state so the UI (navbar, route guards) stops showing a logged-in
+  // user; on /app pages the api layer also redirects to the login page.
+  useEffect(() => {
+    const onExpired = () => {
+      setSessionState(null);
+      setProfile(null);
+    };
+    window.addEventListener("ldmove:session-expired", onExpired);
+    return () => window.removeEventListener("ldmove:session-expired", onExpired);
   }, []);
 
   const signUp: AuthContextValue["signUp"] = async (email, password, first_name, last_name) => {

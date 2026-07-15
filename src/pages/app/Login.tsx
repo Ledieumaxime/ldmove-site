@@ -1,5 +1,5 @@
 import { useState, FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,10 @@ const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 const Login = () => {
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  // Set by the api layer when it had to drop an unrecoverable session
+  // (refresh token definitively rejected by the auth server).
+  const [searchParams] = useSearchParams();
+  const sessionExpired = searchParams.get("expired") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +83,13 @@ const Login = () => {
             Sign in to your space
           </p>
         </div>
+
+        {sessionExpired && !error && !info && (
+          <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-4">
+            Your session expired after a long time away. Sign in again to
+            pick up where you left off.
+          </div>
+        )}
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>

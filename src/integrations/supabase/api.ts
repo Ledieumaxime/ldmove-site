@@ -24,6 +24,54 @@ const getToken = (): string | null => {
   }
 };
 
+// ---- Dead-session handling -------------------------------------------
+// When the auth server DEFINITIVELY rejects a refresh token (revoked,
+// rotated away, session deleted), the stored session can never recover:
+// every request 401s forever and the app just looks broken (the "stuck
+// after a long absence" failure). That case gets a clean sign-out +
+// redirect to login. Transient failures (network blip, 5xx, rate
+// limiting) still keep the session — signing someone out mid-workout
+// over a blip stays the worst outcome.
+const AUTH_PAGES = [
+  "/app/login",
+  "/app/signup",
+  "/app/welcome",
+  "/app/reset-password",
+];
+
+function isRefreshTokenDead(status: number, body: string): boolean {
+  if (status < 400 || status >= 500) return false;
+  if (status === 429) return false; // rate limited: retry later
+  // Observed GoTrue bodies (2026-07): a revoked/unknown token returns
+  // {"error_code":"refresh_token_not_found","msg":"Invalid Refresh
+  // Token: Refresh Token Not Found"}; a malformed one returns
+  // {"error_code":"validation_failed","msg":"Refresh token is not
+  // valid"}. The other markers cover older GoTrue versions.
+  const b = body.toLowerCase();
+  return (
+    b.includes("invalid_grant") ||
+    b.includes("refresh_token_not_found") ||
+    b.includes("invalid refresh token") ||
+    b.includes("refresh token not found") ||
+    b.includes("refresh token is not valid") ||
+    b.includes("already used")
+  );
+}
+
+function purgeDeadSession() {
+  try {
+    localStorage.removeItem(SESSION_KEY);
+  } catch {
+    // storage unavailable; nothing to purge
+  }
+  // Let AuthContext drop its in-memory session/profile state too.
+  window.dispatchEvent(new Event("ldmove:session-expired"));
+  const path = window.location.pathname;
+  if (path.startsWith("/app") && !AUTH_PAGES.some((p) => path.startsWith(p))) {
+    window.location.replace("/app/login?expired=1");
+  }
+}
+
 // Mint a fresh access token from the stored refresh_token and persist
 // it. Returns the new token, or null if the refresh itself failed.
 // Shared by every helper so a single expired/skewed token gets healed
@@ -49,7 +97,11 @@ export async function refreshAccessToken(): Promise<string | null> {
           body: JSON.stringify({ refresh_token: session.refresh_token }),
         }
       );
-      if (!res.ok) return null;
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        if (isRefreshTokenDead(res.status, body)) purgeDeadSession();
+        return null;
+      }
       const json = await res.json();
       const next = {
         access_token: json.access_token,
