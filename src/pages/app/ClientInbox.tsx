@@ -3,6 +3,7 @@ import { MessageCircle, Video, CheckCircle2, User, Clock, ChevronDown, ChevronUp
 import { sbGet } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import ExerciseComments from "@/components/ExerciseComments";
+import BackToDashboard from "@/components/BackToDashboard";
 
 type Comment = {
   id: string;
@@ -128,6 +129,7 @@ const ClientInbox = () => {
 
   return (
     <div className="space-y-8">
+      <BackToDashboard />
       <div>
         <h1 className="font-heading text-3xl md:text-4xl font-bold">Inbox</h1>
         <p className="text-muted-foreground text-sm">

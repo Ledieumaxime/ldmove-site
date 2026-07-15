@@ -12,6 +12,7 @@ import { sbGet, sbPatch, sbPost } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import ProgramItemCard, { ProgramItem } from "@/components/ProgramItemCard";
+import BackToDashboard from "@/components/BackToDashboard";
 import {
   CompletedLog,
   ProgramWeekLite,
@@ -300,6 +301,7 @@ const Today = () => {
 
   return (
     <div className="space-y-6 max-w-3xl">
+      <BackToDashboard />
       <div>
         <p className="text-xs font-semibold text-accent uppercase tracking-widest mb-1">
           Today's workout

@@ -116,7 +116,7 @@ const AdminTemplates = () => {
         to="/app/home"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft size={16} /> Back
+        <ArrowLeft size={16} /> Back to dashboard
       </Link>
 
       <div className="flex items-end justify-between gap-3 flex-wrap">

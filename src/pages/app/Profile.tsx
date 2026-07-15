@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { sbGet } from "@/integrations/supabase/api";
 import { Button } from "@/components/ui/button";
+import BackToDashboard from "@/components/BackToDashboard";
 import {
   LogOut,
   Mail,
@@ -33,6 +34,7 @@ const Profile = () => {
 
   return (
     <div className="space-y-6 max-w-2xl">
+      <BackToDashboard />
       <div>
         <h1 className="font-heading text-3xl md:text-4xl font-bold">Profile</h1>
       </div>

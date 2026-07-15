@@ -10,6 +10,7 @@ import {
 import { sbGet, sbSignUrl } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import BackToDashboard from "@/components/BackToDashboard";
 import {
   ASSESSMENT_EXERCISES,
   AssessmentExercise,
@@ -111,6 +112,7 @@ const ClientArchive = () => {
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
+      <BackToDashboard />
       <div>
         <p className="text-xs font-semibold text-accent uppercase tracking-widest mb-1">
           My archive
