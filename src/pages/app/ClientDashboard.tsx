@@ -381,14 +381,20 @@ export const ClientDashboardBody = ({
   const doneThisWeek = runsByWeek.get(weekDays[0].iso) ?? 0;
 
   // Streak: consecutive weeks (walking back) hitting the weekly target.
+  // The target is deliberately softer than the program's full session
+  // count: 3 sessions/week keeps the streak (coach's call, 2026-07-13),
+  // otherwise clients on 5-session blocks who train 3-4x would sit at
+  // zero forever and the pill would lose its pull. Programs with fewer
+  // than 3 sessions per loop use their own count.
+  const streakTarget = Math.min(3, sessionsPerLoop);
   let streakWeeks = 0;
-  if (sessionsPerLoop > 0) {
+  if (streakTarget > 0) {
     const cursor = mondayOf(new Date());
-    if ((runsByWeek.get(toISO(cursor)) ?? 0) >= sessionsPerLoop) streakWeeks++;
+    if ((runsByWeek.get(toISO(cursor)) ?? 0) >= streakTarget) streakWeeks++;
     for (let i = 1; i < 104; i++) {
       const d = new Date(cursor);
       d.setDate(cursor.getDate() - 7 * i);
-      if ((runsByWeek.get(toISO(d)) ?? 0) >= sessionsPerLoop) streakWeeks++;
+      if ((runsByWeek.get(toISO(d)) ?? 0) >= streakTarget) streakWeeks++;
       else break;
     }
   }
