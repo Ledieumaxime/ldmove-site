@@ -8,7 +8,7 @@ import Seo from "@/components/Seo";
 import SectionWrapper from "@/components/SectionWrapper";
 import { toast } from "sonner";
 import { useLang } from "@/contexts/LangContext";
-import { supabase } from "@/integrations/supabase/client";
+import { sbInvokeAnon } from "@/integrations/supabase/api";
 
 const MAX_TEXT = 200;
 const MAX_MESSAGE = 2000;
@@ -53,18 +53,14 @@ const ContactPage = () => {
     setSending(true);
 
     try {
-      const { error } = await supabase.functions.invoke("send-coaching-application", {
-        body: {
-          first_name: prenom,
-          last_name: nom,
-          email,
-          phone: form.noWhatsapp ? "No WhatsApp" : phone,
-          country: form.country,
-          message,
-        },
+      await sbInvokeAnon("send-coaching-application", {
+        first_name: prenom,
+        last_name: nom,
+        email,
+        phone: form.noWhatsapp ? "No WhatsApp" : phone,
+        country: form.country,
+        message,
       });
-
-      if (error) throw error;
 
       toast.success(t("contact.success"));
       setForm({

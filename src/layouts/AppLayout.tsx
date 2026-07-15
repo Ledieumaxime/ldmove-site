@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   Home,
@@ -10,6 +11,7 @@ import {
   Layers,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import RouteFallback from "@/components/RouteFallback";
 import logo from "@/assets/logo-ldmove.png";
 
 const AppLayout = () => {
@@ -57,7 +59,12 @@ const AppLayout = () => {
       </header>
 
       <main className="flex-1 container py-6 pb-24 md:pb-10">
-        <Outlet />
+        {/* Inner boundary: while a lazy page chunk downloads, the app
+            shell (header + bottom nav) stays in place instead of the
+            whole screen being replaced by the top-level fallback. */}
+        <Suspense fallback={<RouteFallback />}>
+          <Outlet />
+        </Suspense>
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-border md:static md:border-t-0">

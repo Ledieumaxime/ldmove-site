@@ -1,51 +1,58 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { LangProvider } from "@/contexts/LangContext";
-import Index from "./pages/Index";
-import CoachingPage from "./pages/Coaching";
-import ProgrammesPage from "./pages/Programmes";
-import AProposPage from "./pages/APropos";
-import ContactPage from "./pages/Contact";
-import ApplyPage from "./pages/Apply";
-import FAQPage from "./pages/FAQ";
-import ConsultationPage from "./pages/Consultation";
-import HandstandComingSoon from "./pages/HandstandComingSoon";
-import MiddleSplitComingSoon from "./pages/MiddleSplitComingSoon";
-import NotFound from "./pages/NotFound";
-import LegalNoticePage from "./pages/LegalNotice";
-import PrivacyPage from "./pages/Privacy";
-import OnboardingAssessmentPage from "./pages/OnboardingAssessment";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AppLayout from "@/layouts/AppLayout";
-import AppLogin from "./pages/app/Login";
-import AppSignup from "./pages/app/Signup";
-import AppHome from "./pages/app/Home";
-import AppPrograms from "./pages/app/Programs";
-import AppProgramDetail from "./pages/app/ProgramDetail";
-import AppProfile from "./pages/app/Profile";
-import ClientInbox from "./pages/app/ClientInbox";
-import ClientArchived from "./pages/app/ClientArchived";
-import ClientArchive from "./pages/app/ClientArchive";
-import AdminProgramNew from "./pages/app/admin/AdminProgramNew";
-import AdminProgramEdit from "./pages/app/admin/AdminProgramEdit";
-import AdminTemplates from "./pages/app/admin/AdminTemplates";
-import AdminTemplateEdit from "./pages/app/admin/AdminTemplateEdit";
-import AdminFormChecks from "./pages/app/admin/AdminFormChecks";
-import AdminClientIntake from "./pages/app/admin/AdminClientIntake";
-import AdminClientDetail from "./pages/app/admin/AdminClientDetail";
-import AdminClientDashboard from "./pages/app/admin/AdminClientDashboard";
-import CheckoutSuccess from "./pages/app/CheckoutSuccess";
-import OnboardingIntake from "./pages/app/OnboardingIntake";
-import OnboardingAssessmentUpload from "./pages/app/OnboardingAssessmentUpload";
-import ClientIntakeView from "./pages/app/ClientIntakeView";
-import Today from "./pages/app/Today";
-import History from "./pages/app/History";
-import SetPassword from "./pages/app/SetPassword";
+import RouteFallback from "@/components/RouteFallback";
+
+// Every page is lazy-loaded so Vite splits the bundle per route. A
+// client on a phone opening /app/home only downloads the shared core +
+// that page, instead of the whole site (public pages with framer-motion,
+// every admin editor, ...) in one 1MB+ file.
+const Index = lazy(() => import("./pages/Index"));
+const CoachingPage = lazy(() => import("./pages/Coaching"));
+const ProgrammesPage = lazy(() => import("./pages/Programmes"));
+const AProposPage = lazy(() => import("./pages/APropos"));
+const ContactPage = lazy(() => import("./pages/Contact"));
+const ApplyPage = lazy(() => import("./pages/Apply"));
+const FAQPage = lazy(() => import("./pages/FAQ"));
+const ConsultationPage = lazy(() => import("./pages/Consultation"));
+const HandstandComingSoon = lazy(() => import("./pages/HandstandComingSoon"));
+const MiddleSplitComingSoon = lazy(() => import("./pages/MiddleSplitComingSoon"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const LegalNoticePage = lazy(() => import("./pages/LegalNotice"));
+const PrivacyPage = lazy(() => import("./pages/Privacy"));
+const OnboardingAssessmentPage = lazy(() => import("./pages/OnboardingAssessment"));
+const AppLogin = lazy(() => import("./pages/app/Login"));
+const AppSignup = lazy(() => import("./pages/app/Signup"));
+const AppHome = lazy(() => import("./pages/app/Home"));
+const AppPrograms = lazy(() => import("./pages/app/Programs"));
+const AppProgramDetail = lazy(() => import("./pages/app/ProgramDetail"));
+const AppProfile = lazy(() => import("./pages/app/Profile"));
+const ClientInbox = lazy(() => import("./pages/app/ClientInbox"));
+const ClientArchived = lazy(() => import("./pages/app/ClientArchived"));
+const ClientArchive = lazy(() => import("./pages/app/ClientArchive"));
+const AdminProgramNew = lazy(() => import("./pages/app/admin/AdminProgramNew"));
+const AdminProgramEdit = lazy(() => import("./pages/app/admin/AdminProgramEdit"));
+const AdminTemplates = lazy(() => import("./pages/app/admin/AdminTemplates"));
+const AdminTemplateEdit = lazy(() => import("./pages/app/admin/AdminTemplateEdit"));
+const AdminFormChecks = lazy(() => import("./pages/app/admin/AdminFormChecks"));
+const AdminClientIntake = lazy(() => import("./pages/app/admin/AdminClientIntake"));
+const AdminClientDetail = lazy(() => import("./pages/app/admin/AdminClientDetail"));
+const AdminClientDashboard = lazy(() => import("./pages/app/admin/AdminClientDashboard"));
+const CheckoutSuccess = lazy(() => import("./pages/app/CheckoutSuccess"));
+const OnboardingIntake = lazy(() => import("./pages/app/OnboardingIntake"));
+const OnboardingAssessmentUpload = lazy(() => import("./pages/app/OnboardingAssessmentUpload"));
+const ClientIntakeView = lazy(() => import("./pages/app/ClientIntakeView"));
+const Today = lazy(() => import("./pages/app/Today"));
+const History = lazy(() => import("./pages/app/History"));
+const SetPassword = lazy(() => import("./pages/app/SetPassword"));
 
 const queryClient = new QueryClient();
 
@@ -58,7 +65,8 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <ScrollToTop />
-            <Routes>
+            <Suspense fallback={<RouteFallback fullScreen />}>
+              <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/coaching" element={<CoachingPage />} />
               <Route path="/programmes" element={<ProgrammesPage />} />
@@ -178,8 +186,9 @@ const App = () => (
                 />
               </Route>
 
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
           </BrowserRouter>
         </TooltipProvider>
       </AuthProvider>

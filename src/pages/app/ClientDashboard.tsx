@@ -120,6 +120,26 @@ const sectionOf = (name: string | null) => {
 };
 const isWarmupSection = (s: string) => s.includes("WARM");
 
+// In-memory snapshot of the last successful dashboard fetch, per
+// client. On remount (Today → back to Home, etc.) the page renders
+// instantly from the snapshot while a background refetch replaces it,
+// so navigation feels immediate instead of showing a spinner on every
+// visit. Module state: cleared on a full page reload.
+type DashboardSnapshot = {
+  programs: Program[];
+  comments: Comment[];
+  reads: CommentRead[];
+  hasIntake: boolean;
+  intakeAnswers: IntakeAnswers | null;
+  onboardingLocked: boolean;
+  assessmentCount: number;
+  notifications: Notification[];
+  programWeeks: ProgramWeekRef[];
+  programItems: ProgramItemRef[];
+  completedLogs: SetLog[];
+};
+const dashboardCache = new Map<string, DashboardSnapshot>();
+
 /**
  * The client's own dashboard. Thin wrapper: the body is shared with the
  * coach's "view as client" page (/app/admin/clients/:id/dashboard) so
@@ -146,18 +166,34 @@ export const ClientDashboardBody = ({
   coachView?: boolean;
 }) => {
   const navigate = useNavigate();
-  const [programs, setPrograms] = useState<Program[]>([]);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [reads, setReads] = useState<CommentRead[]>([]);
-  const [hasIntake, setHasIntake] = useState(true);
-  const [intakeAnswers, setIntakeAnswers] = useState<IntakeAnswers | null>(null);
-  const [onboardingLocked, setOnboardingLocked] = useState(false);
-  const [assessmentCount, setAssessmentCount] = useState(0);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [programWeeks, setProgramWeeks] = useState<ProgramWeekRef[]>([]);
-  const [programItems, setProgramItems] = useState<ProgramItemRef[]>([]);
-  const [completedLogs, setCompletedLogs] = useState<SetLog[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = `${clientId}|${coachView ? "coach" : "self"}`;
+  const cached = dashboardCache.get(cacheKey);
+  const [programs, setPrograms] = useState<Program[]>(cached?.programs ?? []);
+  const [comments, setComments] = useState<Comment[]>(cached?.comments ?? []);
+  const [reads, setReads] = useState<CommentRead[]>(cached?.reads ?? []);
+  const [hasIntake, setHasIntake] = useState(cached?.hasIntake ?? true);
+  const [intakeAnswers, setIntakeAnswers] = useState<IntakeAnswers | null>(
+    cached?.intakeAnswers ?? null
+  );
+  const [onboardingLocked, setOnboardingLocked] = useState(
+    cached?.onboardingLocked ?? false
+  );
+  const [assessmentCount, setAssessmentCount] = useState(
+    cached?.assessmentCount ?? 0
+  );
+  const [notifications, setNotifications] = useState<Notification[]>(
+    cached?.notifications ?? []
+  );
+  const [programWeeks, setProgramWeeks] = useState<ProgramWeekRef[]>(
+    cached?.programWeeks ?? []
+  );
+  const [programItems, setProgramItems] = useState<ProgramItemRef[]>(
+    cached?.programItems ?? []
+  );
+  const [completedLogs, setCompletedLogs] = useState<SetLog[]>(
+    cached?.completedLogs ?? []
+  );
+  const [loading, setLoading] = useState(!cached);
 
   useEffect(() => {
     if (!clientId) return;
@@ -216,51 +252,73 @@ export const ClientDashboardBody = ({
             !x.is_archived &&
             x.is_published
         );
+        let weeksOut: ProgramWeekRef[] = [];
+        let itemsOut: ProgramItemRef[] = [];
+        let logsOut: SetLog[] = [];
+        let commentsOut: Comment[] = co;
         if (current) {
-          const weeks = await sbGet<ProgramWeekRef[]>(
-            `program_weeks?select=id,program_id,week_number,title&program_id=eq.${current.id}&order=week_number.asc`
+          // One embedded request replaces the old weeks → items → logs
+          // waterfall (3+ serial round trips): every week with its
+          // items, every item with this client's completed logs. Only
+          // the top level is subject to the server's row cap and that's
+          // just the handful of program_weeks rows.
+          type WeekEmbed = ProgramWeekRef & {
+            program_items:
+              | (ProgramItemRef & { workout_logs: SetLog[] | null })[]
+              | null;
+          };
+          const weeks = await sbGet<WeekEmbed[]>(
+            `program_weeks?select=id,program_id,week_number,title,` +
+              `program_items(id,week_id,order_index,sets,reps,rest_seconds,custom_name,` +
+              `workout_logs(program_item_id,session_run_id,session_date,completed_at,set_number,reps_done,weight_kg))` +
+              `&program_id=eq.${current.id}&order=week_number.asc` +
+              `&program_items.workout_logs.client_id=eq.${clientId}` +
+              `&program_items.workout_logs.completed_at=not.is.null`
           );
-          setProgramWeeks(weeks);
-          const items =
-            weeks.length > 0
-              ? await sbGetIn<ProgramItemRef>(
-                  `program_items?select=id,week_id,order_index,sets,reps,rest_seconds,custom_name`,
-                  "week_id",
-                  weeks.map((w) => w.id)
-                )
-              : [];
-          setProgramItems(items);
-          const logs =
-            items.length > 0
-              ? await sbGetIn<SetLog>(
-                  `workout_logs?client_id=eq.${clientId}&completed_at=not.is.null&select=program_item_id,session_run_id,session_date,completed_at,set_number,reps_done,weight_kg`,
-                  "program_item_id",
-                  items.map((i) => i.id)
-                )
-              : [];
-          setCompletedLogs(logs);
-          if (coachView && items.length > 0) {
+          weeksOut = weeks.map(({ program_items: _pi, ...w }) => w);
+          itemsOut = weeks.flatMap((w) =>
+            (w.program_items ?? []).map(({ workout_logs: _wl, ...it }) => it)
+          );
+          logsOut = weeks.flatMap((w) =>
+            (w.program_items ?? []).flatMap((i) => i.workout_logs ?? [])
+          );
+          if (coachView && itemsOut.length > 0) {
             const cs = await sbGetIn<Comment>(
               `exercise_comments?select=*,program_items(custom_name,week_id)&author_role=eq.coach`,
               "item_id",
-              items.map((i) => i.id)
+              itemsOut.map((i) => i.id)
             );
             cs.sort(
               (a, b) =>
                 new Date(b.created_at).getTime() -
                 new Date(a.created_at).getTime()
             );
-            setComments(cs);
+            commentsOut = cs;
           }
-        } else {
-          setProgramWeeks([]);
-          setProgramItems([]);
-          setCompletedLogs([]);
         }
+        setProgramWeeks(weeksOut);
+        setProgramItems(itemsOut);
+        setCompletedLogs(logsOut);
+        if (coachView) setComments(commentsOut);
+
+        dashboardCache.set(cacheKey, {
+          programs: p,
+          comments: commentsOut,
+          reads: r,
+          hasIntake: coachView ? true : intake.length > 0,
+          intakeAnswers: intake[0] ?? null,
+          onboardingLocked: !!intake[0]?.locked_at,
+          assessmentCount: av.length,
+          notifications: notifs,
+          programWeeks: weeksOut,
+          programItems: itemsOut,
+          completedLogs: logsOut,
+        });
       } finally {
         setLoading(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId, coachView]);
 
   const dismissAndGo = async (n: Notification) => {

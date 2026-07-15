@@ -285,3 +285,22 @@ export async function sbDelete(path: string): Promise<void> {
   const res = await request("DELETE", path);
   if (!res.ok) throw new Error(`DELETE ${path} → ${res.status} ${await res.text()}`);
 }
+
+/**
+ * Call an Edge Function anonymously (public forms: contact / apply).
+ * Replaces supabase-js's functions.invoke: importing the whole client
+ * library for two forms added ~100KB to the bundle, and that client
+ * hangs with the new publishable key format anyway.
+ */
+export async function sbInvokeAnon(name: string, body: unknown): Promise<void> {
+  const res = await fetch(`${URL}/functions/v1/${name}`, {
+    method: "POST",
+    headers: {
+      apikey: KEY,
+      Authorization: `Bearer ${KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`${name} → ${res.status} ${await res.text()}`);
+}

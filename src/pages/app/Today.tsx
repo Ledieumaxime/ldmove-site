@@ -8,7 +8,7 @@ import {
   Link2,
   Trophy,
 } from "lucide-react";
-import { sbGet, sbGetIn, sbPatch, sbPost } from "@/integrations/supabase/api";
+import { sbGet, sbPatch, sbPost } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import ProgramItemCard, { ProgramItem } from "@/components/ProgramItemCard";
@@ -69,40 +69,43 @@ const Today = () => {
       const p = programs[0];
       setProgram(p);
 
-      const w = await sbGet<ProgramWeekLite[]>(
-        `program_weeks?select=id,week_number,title&program_id=eq.${p.id}&order=week_number.asc`
+      // One embedded request replaces the old weeks → items → logs
+      // waterfall (3 serial round trips, the logs one chunked): every
+      // week with its items (+ exercise description), every item with
+      // this client's logs. Only the top level is subject to the
+      // server's ~1000-row cap and that's just the program_weeks rows;
+      // scoping logs to this program's items (instead of a bare
+      // client_id filter) keeps long-time clients from hitting the cap
+      // and corrupting the completed-session count.
+      type WeekEmbed = ProgramWeekLite & {
+        program_items:
+          | Array<
+              ProgramItem & {
+                exercise: { description: string | null } | null;
+                workout_logs: CompletedLog[] | null;
+              }
+            >
+          | null;
+      };
+      const w = await sbGet<WeekEmbed[]>(
+        `program_weeks?select=id,week_number,title,` +
+          `program_items(id,week_id,order_index,custom_name,sets,reps,rest_seconds,notes,video_url,group_name,exercise:exercises(description),` +
+          `workout_logs(program_item_id,session_run_id,session_date,completed_at))` +
+          `&program_id=eq.${p.id}&order=week_number.asc` +
+          `&program_items.order=order_index.asc` +
+          `&program_items.workout_logs.client_id=eq.${user.id}`
       );
-      setWeeks(w);
+      setWeeks(w.map(({ program_items: _pi, ...week }) => week));
 
-      const weekIds = w.map((x) => x.id);
-      const it =
-        weekIds.length > 0
-          ? await sbGet<Array<ProgramItem & { exercise: { description: string | null } | null }>>(
-              `program_items?select=id,week_id,order_index,custom_name,sets,reps,rest_seconds,notes,video_url,group_name,exercise:exercises(description)` +
-                `&week_id=in.(${weekIds.join(",")})` +
-                `&order=order_index.asc`
-            ).then((rows) =>
-              rows.map(({ exercise, ...rest }) => ({
-                ...rest,
-                description: exercise?.description ?? null,
-              }))
-            )
-          : ([] as ProgramItem[]);
-
-      // Logs: scope to THIS program's items and paginate. An unfiltered
-      // `workout_logs?client_id=eq.X` hits PostgREST's silent ~1000-row
-      // cap once a long-time client accumulates history, which quietly
-      // corrupts the completed-session count (wrong "Session N", wrong
-      // next session).
-      const lg =
-        it.length > 0
-          ? await sbGetIn<CompletedLog>(
-              `workout_logs?select=program_item_id,session_run_id,session_date,completed_at` +
-                `&client_id=eq.${user.id}`,
-              "program_item_id",
-              it.map((x) => x.id)
-            )
-          : [];
+      const it: ProgramItem[] = [];
+      const lg: CompletedLog[] = [];
+      for (const week of w) {
+        for (const raw of week.program_items ?? []) {
+          const { exercise, workout_logs, ...rest } = raw;
+          it.push({ ...rest, description: exercise?.description ?? null });
+          if (workout_logs) lg.push(...workout_logs);
+        }
+      }
 
       setItems(it);
       setLogs(lg);

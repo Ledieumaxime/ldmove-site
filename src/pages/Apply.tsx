@@ -15,7 +15,7 @@ import Seo from "@/components/Seo";
 import SectionWrapper from "@/components/SectionWrapper";
 import { toast } from "sonner";
 import { useLang } from "@/contexts/LangContext";
-import { supabase } from "@/integrations/supabase/client";
+import { sbInvokeAnon } from "@/integrations/supabase/api";
 
 const MAX_TEXT = 200;
 const MAX_MESSAGE = 2000;
@@ -70,21 +70,17 @@ const ApplyPage = () => {
     setSending(true);
 
     try {
-      const { error } = await supabase.functions.invoke("send-coaching-application", {
-        body: {
-          first_name: prenom,
-          last_name: nom,
-          email,
-          phone: form.noWhatsapp ? "No WhatsApp" : phone,
-          country: form.country,
-          goal: form.goal,
-          level: form.level,
-          duration: form.duration,
-          message: form.message,
-        },
+      await sbInvokeAnon("send-coaching-application", {
+        first_name: prenom,
+        last_name: nom,
+        email,
+        phone: form.noWhatsapp ? "No WhatsApp" : phone,
+        country: form.country,
+        goal: form.goal,
+        level: form.level,
+        duration: form.duration,
+        message: form.message,
       });
-
-      if (error) throw error;
 
       toast.success(t("apply.success"));
       setForm({
