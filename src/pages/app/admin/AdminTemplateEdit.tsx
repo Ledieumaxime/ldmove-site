@@ -39,7 +39,7 @@ export type TemplateExercise = {
   video_url?: string | null;
 };
 
-type SetType = "Single" | "Superset" | "Drop set";
+type SetType = "Single" | "Superset" | "Drop set" | "Circuit";
 
 type UISet = {
   key: string;
@@ -61,7 +61,11 @@ const buildSets = (exercises: TemplateExercise[]): UISet[] => {
       if (gn !== currentGroupKey) {
         currentSet = {
           key: `${gn}-${i}`,
-          type: /drop/i.test(gn) ? "Drop set" : "Superset",
+          type: /drop/i.test(gn)
+            ? "Drop set"
+            : /circuit/i.test(gn)
+              ? "Circuit"
+              : "Superset",
           label: gn,
           group_name: gn,
           itemIdx: [i],
@@ -88,7 +92,12 @@ const buildSets = (exercises: TemplateExercise[]): UISet[] => {
 
 const nextGroupLabel = (type: SetType, sets: UISet[]): string | null => {
   if (type === "Single") return null;
-  const stem = type === "Superset" ? "Superset" : "Drop set";
+  const stem =
+    type === "Superset"
+      ? "Superset"
+      : type === "Circuit"
+        ? "Circuit"
+        : "Drop set";
   const taken = new Set(
     sets
       .filter(
@@ -324,7 +333,7 @@ const AdminTemplateEdit = () => {
             />
           ))}
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
             <Button
               type="button"
               variant="outline"
@@ -351,6 +360,15 @@ const AdminTemplateEdit = () => {
               className="gap-2 justify-start"
             >
               <Plus size={14} /> Drop set
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => addSet("Circuit")}
+              className="gap-2 justify-start"
+            >
+              <Plus size={14} /> Circuit
             </Button>
           </div>
         </div>

@@ -110,7 +110,7 @@ type Item = {
 };
 
 type Section = "WARMUP" | "WORKOUT";
-type SetType = "Single" | "Superset" | "Drop set";
+type SetType = "Single" | "Superset" | "Drop set" | "Circuit";
 
 const SECTION_LABEL: Record<Section, string> = {
   WARMUP: "Warm up",
@@ -194,7 +194,11 @@ const buildSets = (items: Item[], section: Section): UISet[] => {
       if (!existing) {
         existing = {
           key: `${section}-${gn}-${it.id}`,
-          type: /drop/i.test(gn) ? "Drop set" : "Superset",
+          type: /drop/i.test(gn)
+            ? "Drop set"
+            : /circuit/i.test(gn)
+              ? "Circuit"
+              : "Superset",
           label: gn,
           group_name: gn,
           items: [],
@@ -216,14 +220,19 @@ const buildSets = (items: Item[], section: Section): UISet[] => {
   return sets;
 };
 
-// Used when creating a new Superset / Drop set to pick the next free
-// numeric suffix in this section.
+// Used when creating a new Superset / Drop set / Circuit to pick the
+// next free numeric suffix in this section.
 const nextGroupLabel = (
   type: SetType,
   existingSets: UISet[]
 ): string | null => {
   if (type === "Single") return null;
-  const stem = type === "Superset" ? "Superset" : "Drop set";
+  const stem =
+    type === "Superset"
+      ? "Superset"
+      : type === "Circuit"
+        ? "Circuit"
+        : "Drop set";
   const taken = new Set(
     existingSets
       .filter((s) => s.group_name && new RegExp(`^${stem}\\s+\\d+$`, "i").test(s.group_name))
@@ -795,6 +804,7 @@ const AdminProgramEdit = () => {
     const sets = buildSets(sectionItems, section);
     let supersetN = 0;
     let dropsetN = 0;
+    let circuitN = 0;
     const updates: Array<{ id: string; group_name: string }> = [];
     for (const set of sets) {
       if (set.type === "Single" || !set.group_name) continue;
@@ -802,6 +812,9 @@ const AdminProgramEdit = () => {
       if (set.type === "Superset") {
         supersetN += 1;
         target = `Superset ${supersetN}`;
+      } else if (set.type === "Circuit") {
+        circuitN += 1;
+        target = `Circuit ${circuitN}`;
       } else {
         dropsetN += 1;
         target = `Drop set ${dropsetN}`;
@@ -1433,7 +1446,7 @@ const SectionBlock = ({
           />
         ))}
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
           <Button
             type="button"
             variant="outline"
@@ -1463,6 +1476,16 @@ const SectionBlock = ({
             title="Add a drop set (group of exercises with decreasing load)"
           >
             <Plus size={14} /> Drop set
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onAddSet("Circuit")}
+            className="gap-2 justify-start"
+            title="Add a circuit (loop through the exercises; each loop is one round)"
+          >
+            <Plus size={14} /> Circuit
           </Button>
         </div>
       </div>

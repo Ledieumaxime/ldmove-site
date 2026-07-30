@@ -395,7 +395,9 @@ const Today = () => {
                       </div>
                     </div>
                     <p className="text-[11px] text-muted-foreground italic mb-2">
-                      Chain exercises with no rest, then rest after the last one.
+                      {/circuit/i.test(b.name)
+                        ? "One round = every exercise once, in order. Rest, then start the next round."
+                        : "Chain exercises with no rest, then rest after the last one."}
                     </p>
                     <div className="space-y-2">
                       {b.items.map((it, i) => (

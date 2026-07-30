@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Lock, ArrowLeft, ArrowRight, CheckCircle2, Dumbbell } from "lucide-react";
+import { Lock, ArrowLeft, ArrowRight, CheckCircle2, Dumbbell, Link2 } from "lucide-react";
 import { sbGet, sbPost } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -352,8 +352,8 @@ const ProgramDetail = () => {
                                         className={`rounded-xl p-3 ${style.groupBox}`}
                                       >
                                         <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                                          <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded ${style.groupBadge}`}>
-                                            🔗 {b.name}
+                                          <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded ${style.groupBadge}`}>
+                                            <Link2 size={11} /> {b.name}
                                           </span>
                                           <div className="flex items-center gap-3 text-xs font-semibold">
                                             {groupSets != null && (
@@ -361,13 +361,15 @@ const ProgramDetail = () => {
                                             )}
                                             {groupRest != null && (
                                               <span className="text-muted-foreground">
-                                                ⏱ {groupRest}s rest between rounds
+                                                {groupRest}s rest between rounds
                                               </span>
                                             )}
                                           </div>
                                         </div>
                                         <p className="text-[11px] text-muted-foreground italic mb-2">
-                                          Chain exercises with no rest, then rest after the last one.
+                                          {/circuit/i.test(b.name)
+                                            ? "One round = every exercise once, in order. Rest, then start the next round."
+                                            : "Chain exercises with no rest, then rest after the last one."}
                                         </p>
                                         <div className="space-y-2">
                                           {b.items.map((it, i) => (
