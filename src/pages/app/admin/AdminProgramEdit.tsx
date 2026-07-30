@@ -31,6 +31,7 @@ import {
   ChevronDown,
   ChevronUp,
   Copy,
+  CopyPlus,
   Eye,
   Layers,
   Loader2,
@@ -50,6 +51,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  SessionLibraryEntry,
+  fetchSessionLibrary,
+  filterSessionLibrary,
+  libraryClientNames,
+  sessionDisplayName,
+} from "@/lib/sessionLibrary";
 import ExerciseSearchPopover, {
   ExerciseSearchSelection,
 } from "@/components/ExerciseSearchPopover";
@@ -256,6 +264,7 @@ const AdminProgramEdit = () => {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
     "idle"
   );
@@ -545,6 +554,80 @@ const AdminProgramEdit = () => {
         { session: String(newWeekNumber) },
         { replace: true }
       );
+    } catch (e) {
+      setError(String(e));
+      setSaveState("idle");
+    }
+  };
+
+  // Copy every item of a session from ANY program (typically another
+  // client's block) into the active session. Deep clone: new
+  // program_items rows, so editing the copy never touches the source.
+  // Group names are remapped to the next free label per section first,
+  // otherwise a "Superset 1" arriving in a session that already has a
+  // "Superset 1" would merge with it in buildSets; renumberSection then
+  // canonicalizes the numbering (Superset 1, 2, … in display order).
+  const importSessionFromWeek = async (sourceWeekId: string) => {
+    if (!activeWeek) return;
+    setSaveState("saving");
+    try {
+      const source = await sbGet<Item[]>(
+        `program_items?week_id=eq.${sourceWeekId}&select=*&order=order_index.asc`
+      );
+      if (source.length === 0) {
+        setSaveState("idle");
+        return;
+      }
+      const usedBySection = new Map<Section, Set<string>>();
+      for (const it of sessionItems) {
+        if (!it.group_name?.trim()) continue;
+        const sec = sectionOf(it.custom_name);
+        if (!usedBySection.has(sec)) usedBySection.set(sec, new Set());
+        usedBySection.get(sec)!.add(it.group_name.trim().toLowerCase());
+      }
+      const remap = new Map<string, string>();
+      for (const it of source) {
+        const gn = it.group_name?.trim();
+        if (!gn) continue;
+        const sec = sectionOf(it.custom_name);
+        const key = `${sec}|${gn.toLowerCase()}`;
+        if (remap.has(key)) continue;
+        const stem = /drop/i.test(gn)
+          ? "Drop set"
+          : /circuit/i.test(gn)
+            ? "Circuit"
+            : "Superset";
+        const used = usedBySection.get(sec) ?? new Set<string>();
+        let n = 1;
+        while (used.has(`${stem.toLowerCase()} ${n}`)) n++;
+        const label = `${stem} ${n}`;
+        used.add(label.toLowerCase());
+        usedBySection.set(sec, used);
+        remap.set(key, label);
+      }
+      const base = maxOrderIndex;
+      const payload = source.map((it, idx) => ({
+        week_id: activeWeek.id,
+        order_index: base + 1 + idx,
+        custom_name: it.custom_name,
+        sets: it.sets,
+        reps: it.reps,
+        rest_seconds: it.rest_seconds,
+        notes: it.notes,
+        video_url: it.video_url,
+        group_name: it.group_name?.trim()
+          ? remap.get(
+              `${sectionOf(it.custom_name)}|${it.group_name.trim().toLowerCase()}`
+            ) ?? it.group_name
+          : null,
+        exercise_id: it.exercise_id,
+      }));
+      const created = await sbPost<Item[]>("program_items", payload);
+      const after = [...items, ...created];
+      setItems(after);
+      flagSaved();
+      await renumberSection("WARMUP", after);
+      await renumberSection("WORKOUT", after);
     } catch (e) {
       setError(String(e));
       setSaveState("idle");
@@ -1214,6 +1297,16 @@ const AdminProgramEdit = () => {
                 type="button"
                 variant="outline"
                 size="sm"
+                onClick={() => setImportOpen(true)}
+                className="gap-1.5 shrink-0"
+                title="Copy a session from another client's block into this session"
+              >
+                <CopyPlus size={14} /> Import
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
                 onClick={deleteCurrentSession}
                 className="gap-1.5 shrink-0 text-red-600 hover:bg-red-50 hover:text-red-700 border-red-200"
                 title="Delete this session and all its exercises"
@@ -1238,6 +1331,13 @@ const AdminProgramEdit = () => {
           ))}
         </div>
       )}
+
+      <ImportSessionDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImport={importSessionFromWeek}
+        currentWeekId={activeWeek?.id ?? null}
+      />
 
       {/* ----- Footer ----- */}
       <div className="fixed bottom-4 left-4 right-4 z-30 max-w-5xl mx-auto bg-white border border-border rounded-2xl shadow-lg p-3 flex items-center justify-between gap-2">
@@ -1982,6 +2082,135 @@ const SaveBadge = ({ state }: { state: "idle" | "saving" | "saved" }) => {
         </>
       )}
     </span>
+  );
+};
+
+// ================================================ ImportSessionDialog ==
+// The session library, as a picker: every session of every client's
+// custom block (active and archived), searchable, newest first. Picking
+// one deep-clones its program_items into the session being edited, so
+// the copy is fully editable without ever touching the original.
+const ImportSessionDialog = ({
+  open,
+  onClose,
+  onImport,
+  currentWeekId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onImport: (sourceWeekId: string) => Promise<void>;
+  currentWeekId: string | null;
+}) => {
+  const [entries, setEntries] = useState<SessionLibraryEntry[] | null>(null);
+  const [query, setQuery] = useState("");
+  const [clientFilter, setClientFilter] = useState("");
+  const [importing, setImporting] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || entries) return;
+    fetchSessionLibrary()
+      .then(setEntries)
+      .catch(() => setEntries([]));
+  }, [open, entries]);
+
+  if (!open) return null;
+
+  const visible = filterSessionLibrary(
+    entries ?? [],
+    query,
+    clientFilter
+  ).filter((e) => e.weekId !== currentWeekId);
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/30" onClick={onClose} />
+      <div className="fixed z-50 inset-x-4 top-[6%] max-w-xl mx-auto bg-white border border-border rounded-2xl shadow-xl flex flex-col max-h-[85vh]">
+        <div className="p-5 pb-3 space-y-3 border-b border-border">
+          <div>
+            <h2 className="font-heading text-lg font-bold">Import a session</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Copy any existing session into this one. The copy is
+              independent: editing it never changes the original.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search a session, block or client…"
+              className="h-9 text-sm"
+              autoFocus
+            />
+            <select
+              value={clientFilter}
+              onChange={(e) => setClientFilter(e.target.value)}
+              className="h-9 rounded-md border border-input bg-white px-2 text-sm shrink-0 max-w-[40%]"
+            >
+              <option value="">All clients</option>
+              {libraryClientNames(entries ?? []).map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="overflow-y-auto flex-1">
+          {!entries ? (
+            <p className="text-xs text-muted-foreground px-5 py-4">
+              Loading the library…
+            </p>
+          ) : visible.length === 0 ? (
+            <p className="text-xs text-muted-foreground px-5 py-4">
+              No session matches.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {visible.map((e) => (
+                <li key={e.weekId}>
+                  <button
+                    type="button"
+                    disabled={importing !== null}
+                    onClick={async () => {
+                      setImporting(e.weekId);
+                      try {
+                        await onImport(e.weekId);
+                        onClose();
+                      } finally {
+                        setImporting(null);
+                      }
+                    }}
+                    className="w-full text-left px-5 py-2.5 hover:bg-muted/40 disabled:opacity-50 flex items-center justify-between gap-3"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold truncate">
+                        {sessionDisplayName(e)}
+                      </span>
+                      <span className="block text-[11px] text-muted-foreground truncate">
+                        {e.programTitle} · {e.clientName}
+                        {e.programArchived ? " · archived" : ""}
+                      </span>
+                    </span>
+                    <span className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0">
+                      {importing === e.weekId
+                        ? "Copying…"
+                        : `${e.itemCount} exercise${e.itemCount === 1 ? "" : "s"}`}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="p-3 border-t border-border flex justify-end">
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    </>
   );
 };
 

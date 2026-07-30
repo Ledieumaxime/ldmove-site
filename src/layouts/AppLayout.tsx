@@ -9,6 +9,7 @@ import {
   History,
   Inbox,
   Layers,
+  Library,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import RouteFallback from "@/components/RouteFallback";
@@ -81,6 +82,11 @@ const AppLayout = () => {
                 to="/app/admin/templates"
                 icon={<Layers size={20} />}
                 label="Templates"
+              />
+              <BottomLink
+                to="/app/admin/sessions"
+                icon={<Library size={20} />}
+                label="Sessions"
               />
             </>
           )}
