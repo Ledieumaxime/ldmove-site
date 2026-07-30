@@ -21,7 +21,11 @@ import BackToDashboard from "@/components/BackToDashboard";
 // URL signing goes through the shared helper so an expired access
 // token gets refreshed + retried instead of silently failing (which
 // used to leave the coach staring at unplayable videos).
-const signUrl = (path: string) => sbSignUrl("form-checks", path);
+// 6h expiry: the URLs are signed once when the page loads, and the
+// coach often works through the inbox over a long session. With the
+// old 30 min expiry, clicking play later hit a dead URL with no
+// visible error, just a player that never starts.
+const signUrl = (path: string) => sbSignUrl("form-checks", path, 6 * 3600);
 
 type FormCheck = {
   id: string;
@@ -645,15 +649,27 @@ const CheckCard = ({
       )}
 
       {videoSrc ? (
-        <video
-          src={videoSrc}
-          controls
-          // metadata-only: without this every mounted card preloads its
-          // whole video. Ten 40 MB form checks from one client saturate
-          // the connection and none of them ever buffer enough to play.
-          preload="metadata"
-          className="w-full rounded-lg max-h-[400px]"
-        />
+        <>
+          <video
+            src={videoSrc}
+            controls
+            // metadata-only: without this every mounted card preloads its
+            // whole video. Ten 40 MB form checks from one client saturate
+            // the connection and none of them ever buffer enough to play.
+            preload="metadata"
+            className="w-full rounded-lg max-h-[400px]"
+          />
+          {/* Escape hatch for heavy clips on a weak connection: phone
+              captures arrive at 10-15 Mbps, more than the wifi can
+              stream, so the player stalls forever. Downloading is
+              resumable and works at any speed. */}
+          <a
+            href={`${videoSrc}&download=`}
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mt-1.5"
+          >
+            <Video size={12} /> Download video (if playback stalls)
+          </a>
+        </>
       ) : (
         <p className="text-xs text-muted-foreground italic">
           Video unavailable.
