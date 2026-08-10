@@ -955,6 +955,44 @@ const AdminProgramEdit = () => {
     await addItem(section, set.group_name, {}, lastInSet);
   };
 
+  // Convert an existing set to another type without deleting anything.
+  // The type is carried entirely by group_name (null = Single,
+  // "Superset N" / "Drop set N" / "Circuit N" for groups), so switching
+  // is just a relabel of every row in the set:
+  //   - to Single  → group_name = null on each row, they become
+  //                  independent exercises keeping their prescription.
+  //   - to a group → the next free label of that type in the section.
+  // A group converted to Single keeps its rounds on every row (they
+  // were mirrored at the group level), which is what the coach expects:
+  // splitting a 3-round superset gives three 3-set exercises.
+  const changeSetType = async (
+    section: Section,
+    set: UISet,
+    nextType: SetType
+  ) => {
+    const currentType = set.type;
+    if (currentType === nextType) return;
+    const sets = buildSets(sessionItems, section);
+    const label =
+      nextType === "Single" ? null : nextGroupLabel(nextType, sets);
+    setSaveState("saving");
+    try {
+      for (const it of set.items) {
+        await sbPatch(`program_items?id=eq.${it.id}`, { group_name: label });
+      }
+      const ids = new Set(set.items.map((i) => i.id));
+      const after = items.map((it) =>
+        ids.has(it.id) ? { ...it, group_name: label } : it
+      );
+      setItems(after);
+      flagSaved();
+      await renumberSection(section, after);
+    } catch (e) {
+      setError(String(e));
+      setSaveState("idle");
+    }
+  };
+
   // Bulk-insert all exercises of a template (warm-up or workout) into
   // the active session's matching section, appending after any
   // existing items. We hit the exercises table once with name=in.(...)
@@ -1326,6 +1364,7 @@ const AdminProgramEdit = () => {
               onPatch={patchItem}
               onDelete={deleteItem}
               onMoveSet={(setIdx, dir) => moveSet(section, setIdx, dir)}
+              onChangeType={(set, type) => changeSetType(section, set, type)}
               onUseTemplate={(t) => applyTemplate(t, section)}
             />
           ))}
@@ -1390,6 +1429,7 @@ const SectionBlock = ({
   onPatch,
   onDelete,
   onMoveSet,
+  onChangeType,
   onUseTemplate,
 }: {
   section: Section;
@@ -1399,6 +1439,7 @@ const SectionBlock = ({
   onPatch: (id: string, patch: Partial<Item>) => void;
   onDelete: (id: string) => void;
   onMoveSet?: (setIdx: number, direction: "up" | "down") => Promise<void>;
+  onChangeType?: (set: UISet, type: SetType) => Promise<void>;
   onUseTemplate?: (template: TemplateRow) => Promise<void>;
 }) => {
   const sets = useMemo(() => buildSets(items, section), [items, section]);
@@ -1543,6 +1584,9 @@ const SectionBlock = ({
             onAddRow={() => onAddRow(set)}
             onPatch={onPatch}
             onDelete={onDelete}
+            onChangeType={
+              onChangeType ? (type) => onChangeType(set, type) : undefined
+            }
           />
         ))}
 
@@ -1605,6 +1649,7 @@ const SetCard = ({
   onAddRow,
   onPatch,
   onDelete,
+  onChangeType,
 }: {
   set: UISet;
   section: Section;
@@ -1615,8 +1660,11 @@ const SetCard = ({
   onAddRow: () => void;
   onPatch: (id: string, patch: Partial<Item>) => void;
   onDelete: (id: string) => void;
+  /** Convert this set to another type in place (no delete + rebuild). */
+  onChangeType?: (type: SetType) => Promise<void>;
 }) => {
   const isGroup = set.type !== "Single";
+  const [switching, setSwitching] = useState(false);
   // For supersets and drop sets, both the rounds count and the rest
   // between rounds belong to the whole group, not to each exercise.
   // We expose them at the SetCard header and mirror the value back
@@ -1679,6 +1727,32 @@ const SetCard = ({
     </div>
   );
 
+  // Convert this set to another type in place. Nothing is deleted: the
+  // exercises keep their prescription, only their grouping changes.
+  const typeSwitcher = onChangeType && (
+    <select
+      value={set.type}
+      disabled={switching}
+      onChange={async (ev) => {
+        const next = ev.target.value as SetType;
+        if (next === set.type) return;
+        setSwitching(true);
+        try {
+          await onChangeType(next);
+        } finally {
+          setSwitching(false);
+        }
+      }}
+      className="h-7 rounded-md border border-input bg-white px-1.5 text-[11px] font-semibold shrink-0 disabled:opacity-50"
+      title="Change this set's type. The exercises and their prescription are kept."
+    >
+      <option value="Single">Single</option>
+      <option value="Superset">Superset</option>
+      <option value="Drop set">Drop set</option>
+      <option value="Circuit">Circuit</option>
+    </select>
+  );
+
   return (
     <div
       className={`rounded-lg border ${
@@ -1698,6 +1772,7 @@ const SetCard = ({
             </span>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {typeSwitcher}
             <div className="flex items-center gap-1.5">
               <label className="text-[10px] font-semibold text-muted-foreground uppercase">
                 Rounds
@@ -1728,11 +1803,18 @@ const SetCard = ({
             </div>
           </div>
         </div>
-      ) : moveButtons ? (
-        // Single set: no native header — surface the move arrows as a
-        // small chip in the top-right so the coach can still reorder.
-        <div className="flex justify-end">{moveButtons}</div>
-      ) : null}
+      ) : (
+        // Single set: no native header, so surface the move arrows and
+        // the type switcher as a thin strip on top. The switcher is what
+        // lets a single exercise become a superset / circuit without
+        // deleting and rebuilding it.
+        (moveButtons || typeSwitcher) && (
+          <div className="flex justify-end items-center gap-2">
+            {typeSwitcher}
+            {moveButtons}
+          </div>
+        )
+      )}
 
       <div className="space-y-2">
         {set.items.map((it) => (
