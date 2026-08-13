@@ -10,6 +10,7 @@ import {
   Clock,
   Flame,
   MessageCircle,
+  SkipForward,
   TrendingUp,
   Video,
 } from "lucide-react";
@@ -19,6 +20,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { IntakeAnswers, visibleExercises } from "@/lib/assessment";
 import {
   dayDisplayLabel,
+  deferWeek,
+  getDeferredWeeks,
   listProgramDays,
   nextDay,
 } from "@/lib/workoutDay";
@@ -195,6 +198,9 @@ export const ClientDashboardBody = ({
     cached?.completedLogs ?? []
   );
   const [loading, setLoading] = useState(!cached);
+  // Deferrals live in sessionStorage (shared with the workout page);
+  // this counter just forces a re-render when one is added.
+  const [, setDeferTick] = useState(0);
 
   useEffect(() => {
     if (!clientId) return;
@@ -609,11 +615,23 @@ export const ClientDashboardBody = ({
     }
   }
 
-  // Next session: same modulo logic as the Today page.
+  // Next session: same rule as the Today page, minus anything the
+  // client pushed back with "Not today" during this visit.
   const programDays = currentProgram
     ? listProgramDays(programWeeks, programItems)
     : [];
-  const nextSession = nextDay(programDays, completedLogs);
+  const deferredWeeks =
+    currentProgram && !coachView ? getDeferredWeeks(currentProgram.id) : [];
+  const nextSession = nextDay(programDays, completedLogs, deferredWeeks);
+  // Deferring is only offered while another session is still pending.
+  const canDefer = (() => {
+    if (coachView || !nextSession) return false;
+    const other = nextDay(programDays, completedLogs, [
+      ...deferredWeeks,
+      nextSession.weekId,
+    ]);
+    return !!other && other.weekId !== nextSession.weekId;
+  })();
   const nextSessionLabel = nextSession ? dayDisplayLabel(nextSession) : null;
   const nextSessionExerciseCount = nextSession?.items.length ?? 0;
   // Duration estimate: ~45s of work per set + the prescribed rest per
@@ -751,21 +769,46 @@ export const ClientDashboardBody = ({
               their Today page.
             </p>
           ) : (
-            <div className="flex items-center gap-4 flex-wrap mt-4">
-              <Link
-                to="/app/today"
-                className="inline-flex items-center justify-center gap-2 bg-accent text-white font-semibold rounded-full px-5 py-3 text-sm hover:opacity-95 transition w-full sm:w-auto"
-              >
-                Start Session {totalSessionsCompleted + 1}
-                <ArrowRight size={16} />
-              </Link>
-              <Link
-                to={`/app/programs/${currentProgram.slug}`}
-                className="text-xs opacity-60 hover:opacity-100 underline underline-offset-4"
-              >
-                Preview program
-              </Link>
-            </div>
+            <>
+              <div className="flex items-center gap-4 flex-wrap mt-4">
+                <Link
+                  to="/app/today"
+                  className="inline-flex items-center justify-center gap-2 bg-accent text-white font-semibold rounded-full px-5 py-3 text-sm hover:opacity-95 transition w-full sm:w-auto"
+                >
+                  Start Session {totalSessionsCompleted + 1}
+                  <ArrowRight size={16} />
+                </Link>
+                <Link
+                  to={`/app/programs/${currentProgram.slug}`}
+                  className="text-xs opacity-60 hover:opacity-100 underline underline-offset-4"
+                >
+                  Preview program
+                </Link>
+              </div>
+              {/* The swap is decided here, before opening the session:
+                  the client sees what is coming and says no to it,
+                  rather than starting it and backing out. */}
+              {canDefer && nextSession && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    deferWeek(currentProgram.id, nextSession.weekId);
+                    setDeferTick((n) => n + 1);
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs opacity-60 hover:opacity-100 underline underline-offset-4 mt-3"
+                >
+                  <SkipForward size={12} /> Not today, show me another session
+                </button>
+              )}
+              {deferredWeeks.length > 0 && (
+                <p className="text-xs opacity-60 mt-3">
+                  {deferredWeeks.length === 1 ? "One session" : "Some sessions"}{" "}
+                  moved for now. You still have to do{" "}
+                  {deferredWeeks.length === 1 ? "it" : "them"} before this block
+                  loops.
+                </p>
+              )}
+            </>
           )}
         </div>
       ) : (

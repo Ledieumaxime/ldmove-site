@@ -18,8 +18,10 @@ import {
   CompletedLog,
   ProgramWeekLite,
   WorkoutDay,
+  clearDeferredWeeks,
   countCompletedSessions,
   dayDisplayLabel,
+  getDeferredWeeks,
   listProgramDays,
   nextDay,
 } from "@/lib/workoutDay";
@@ -140,27 +142,18 @@ const Today = () => {
     [days, logs]
   );
 
-  // Sessions the client pushed back today. Deliberately local state:
-  // a deferral is "not right now", not a decision worth storing. Come
-  // back tomorrow and the session is waiting again, which is what
-  // keeps the block honest.
-  const [deferred, setDeferred] = useState<string[]>([]);
+  // Sessions pushed back with "Not today" on the dashboard. Read from
+  // sessionStorage so this page shows the session the client actually
+  // chose to start, instead of the one they just declined.
+  const deferred = program ? getDeferredWeeks(program.id) : [];
 
   // The session to display: the first one still pending in this loop,
-  // stepping over anything deferred just now.
+  // minus anything deferred for this visit.
   const todaysWorkout: WorkoutDay<ProgramItem> | null = useMemo(
     () => nextDay(days, logs, deferred),
-    [days, logs, deferred]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [days, logs, deferred.join(",")]
   );
-
-  /** True while another session is still pending, so deferring has
-   *  somewhere to go. On the last pending session the button hides
-   *  rather than pretending to do something. */
-  const canDefer = useMemo(() => {
-    if (!todaysWorkout) return false;
-    const other = nextDay(days, logs, [...deferred, todaysWorkout.weekId]);
-    return !!other && other.weekId !== todaysWorkout.weekId;
-  }, [days, logs, deferred, todaysWorkout]);
 
   // Sequential session number for display ("Session 1", "Session 16", etc.).
   const displaySessionNumber = totalCompleted + 1;
@@ -232,6 +225,9 @@ const Today = () => {
       }
       // Reset the freshly-minted run id so the next session gets its own.
       freshRunIdRef.current = null;
+      // The loop moved on, so anything pushed back earlier is pending
+      // again on its own merits rather than still being stepped over.
+      clearDeferredWeeks(program.id);
       // Send the client back to the dashboard, where the next session
       // shows up as the new "Start Session N" CTA.
       navigate("/app/home");
@@ -334,18 +330,10 @@ const Today = () => {
         <p className="text-sm text-muted-foreground">
           {program.title} · {dayDisplayLabel(todaysWorkout)}
         </p>
-        {canDefer && (
-          <button
-            type="button"
-            onClick={() => setDeferred((prev) => [...prev, todaysWorkout.weekId])}
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mt-2 underline underline-offset-4"
-          >
-            <SkipForward size={12} /> Not today, move to the next session
-          </button>
-        )}
         {deferred.length > 0 && (
           <p className="text-xs text-muted-foreground mt-2">
-            Moved for now. You still have to do{" "}
+            {deferred.length === 1 ? "A session was" : "Sessions were"} moved
+            for now. You still have to do{" "}
             {deferred.length === 1 ? "it" : "them"} before this block loops.
           </p>
         )}

@@ -160,6 +160,45 @@ export function nextDay<T extends ProgramItemLite>(
   return (candidates[0] ?? pending[0]) ?? null;
 }
 
+// ---- Deferred sessions -------------------------------------------------
+// "Not today" is decided on the dashboard but has to be honoured by the
+// workout page too, so the choice lives in sessionStorage rather than in
+// either page's state: it survives the hop between them and a reload,
+// and dies with the browser tab. A deferral is worth exactly one visit.
+// Keyed per program so two blocks never share it.
+
+const deferKey = (programId: string) => `ldmove-deferred-${programId}`;
+
+export function getDeferredWeeks(programId: string): string[] {
+  try {
+    const raw = sessionStorage.getItem(deferKey(programId));
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function deferWeek(programId: string, weekId: string): string[] {
+  const next = [...new Set([...getDeferredWeeks(programId), weekId])];
+  try {
+    sessionStorage.setItem(deferKey(programId), JSON.stringify(next));
+  } catch {
+    // Private mode / storage full: the deferral just won't stick.
+  }
+  return next;
+}
+
+/** Called once a session is completed: the loop moved on, so whatever
+ *  was pushed back is pending again on its own merits. */
+export function clearDeferredWeeks(programId: string): void {
+  try {
+    sessionStorage.removeItem(deferKey(programId));
+  } catch {
+    // nothing to clear
+  }
+}
+
 /** Human-readable label for a session, used in headers. */
 export function dayDisplayLabel(day: WorkoutDay): string {
   return day.weekTitle?.trim() ? day.weekTitle.trim() : `Session ${day.weekNumber}`;
