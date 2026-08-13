@@ -14,6 +14,7 @@ import {
   Video,
 } from "lucide-react";
 import { sbGet, sbGetIn, sbPatch } from "@/integrations/supabase/api";
+import BlockCalendar from "@/components/BlockCalendar";
 import { useAuth } from "@/contexts/AuthContext";
 import { IntakeAnswers, visibleExercises } from "@/lib/assessment";
 import {
@@ -404,39 +405,38 @@ export const ClientDashboardBody = ({
     isOverdue = daysLeft < 0;
   }
 
+  // Blocks offered in the calendar picker: the client's own custom
+  // blocks, current one first. Archived ones are kept so they can look
+  // back at what they did.
+  const calendarBlocks = programs
+    .filter((p) => p.type === "custom" && p.assigned_client_id === clientId)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .map((p) => ({
+      id: p.id,
+      title: p.title,
+      isCurrent: p.id === currentProgram?.id,
+    }));
+
   const currentLoopWeek =
     sessionsPerLoop > 0
       ? Math.floor(totalSessionsCompleted / sessionsPerLoop) + 1
       : 1;
 
-  // ---- Week strip ----------------------------------------------------
-  const weekDays: { iso: string; label: string; isToday: boolean }[] = [];
-  {
-    const monday = mondayOf(new Date());
-    const todayIso = toISO(new Date());
-    const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      const iso = toISO(d);
-      weekDays.push({ iso, label: labels[i], isToday: iso === todayIso });
-    }
-  }
-
-  // Distinct completed runs, grouped by session_date and by week-monday.
+  // Distinct completed runs grouped by week-monday, for the streak.
+  // The old "This week" day strip was dropped when the block calendar
+  // arrived: it showed the same thing over seven days instead of the
+  // whole block.
   const runDates = new Map<string, string>(); // run_id → session_date
   for (const l of completedLogs) {
     if (!l.completed_at) continue;
     if (!runDates.has(l.session_run_id))
       runDates.set(l.session_run_id, l.session_date);
   }
-  const datesWithSession = new Set(runDates.values());
   const runsByWeek = new Map<string, number>(); // monday ISO → distinct runs
   for (const date of runDates.values()) {
     const wk = toISO(mondayOf(new Date(date + "T12:00:00")));
     runsByWeek.set(wk, (runsByWeek.get(wk) ?? 0) + 1);
   }
-  const doneThisWeek = runsByWeek.get(weekDays[0].iso) ?? 0;
 
   // Streak: consecutive weeks (walking back) hitting the weekly target.
   // The target is deliberately softer than the program's full session
@@ -781,59 +781,13 @@ export const ClientDashboardBody = ({
         </div>
       )}
 
-      {/* Week strip — training rhythm at a glance */}
-      {currentProgram && sessionsPerLoop > 0 && (
-        <div className="bg-white rounded-2xl border border-border p-4">
-          <div className="flex items-baseline justify-between mb-3">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              This week
-            </span>
-            <span
-              className={`text-xs font-semibold ${
-                doneThisWeek >= sessionsPerLoop
-                  ? "text-green-600"
-                  : "text-muted-foreground"
-              }`}
-            >
-              {Math.min(doneThisWeek, sessionsPerLoop)} of {sessionsPerLoop} done
-            </span>
-          </div>
-          <div className="flex justify-between">
-            {weekDays.map((d) => {
-              const done = datesWithSession.has(d.iso);
-              return (
-                <div key={d.iso} className="text-center">
-                  <p
-                    className={`text-[10px] mb-1 ${
-                      d.isToday
-                        ? "font-bold text-foreground"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {d.label}
-                  </p>
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      done
-                        ? "bg-green-100"
-                        : d.isToday
-                          ? "border-2 border-accent"
-                          : "border border-border"
-                    }`}
-                  >
-                    {done ? (
-                      <Check size={15} className="text-green-600" />
-                    ) : d.isToday ? (
-                      <span className="text-[11px] font-bold text-accent">
-                        {totalSessionsCompleted + 1}
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+      {/* Training calendar for the block, with access to past blocks */}
+      {calendarBlocks.length > 0 && (
+        <BlockCalendar
+          clientId={clientId}
+          blocks={calendarBlocks}
+          currentLogs={completedLogs}
+        />
       )}
 
       {/* Block progress + PRs tiles */}
