@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
+  Archive,
   Video,
   MessageCircle,
   Bell,
   ArrowRight,
+  ChevronDown,
+  ChevronUp,
   Eye,
   PlusCircle,
   Inbox,
@@ -53,6 +56,14 @@ type Profile = {
   last_name: string | null;
   email: string;
   created_at: string;
+  archived_at: string | null;
+  archive_reason: string | null;
+};
+
+const ARCHIVE_REASON_LABEL: Record<string, string> = {
+  stopped: "Stopped coaching",
+  paused: "On a break",
+  never_started: "Never started",
 };
 
 type FormCheck = {
@@ -154,6 +165,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const [programs, setPrograms] = useState<Program[]>([]);
   const [clients, setClients] = useState<Profile[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
   const [checks, setChecks] = useState<FormCheck[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [pendingAssessmentClients, setPendingAssessmentClients] = useState<
@@ -182,7 +194,7 @@ const AdminDashboard = () => {
         "programs?select=*&type=eq.custom&order=created_at.desc"
       ),
       sbGet<Profile[]>(
-        "profiles?select=id,first_name,last_name,email,created_at&role=eq.client&order=created_at.desc"
+        "profiles?select=id,first_name,last_name,email,created_at,archived_at,archive_reason&role=eq.client&order=created_at.desc"
       ),
       sbGet<FormCheck[]>(
         "form_check_submissions?select=*,profiles(first_name,last_name),program_items(custom_name)&order=created_at.desc&limit=50"
@@ -371,6 +383,8 @@ const AdminDashboard = () => {
     for (const p of programs) {
       const client = clients.find((c) => c.id === p.assigned_client_id);
       if (!client) continue;
+      // Archived clients have their own section at the bottom.
+      if (client.archived_at) continue;
 
       const start = new Date(p.created_at).getTime();
       const weeks = p.duration_weeks ?? 4;
@@ -492,6 +506,16 @@ const AdminDashboard = () => {
 
   // Clients without an active program. Either fresh onboards or
   // expired-and-not-renewed.
+  // Clients the coach has retired: out of every working list, kept in
+  // their own collapsed section so the history stays one click away.
+  const archivedClients = useMemo(
+    () =>
+      clients
+        .filter((c) => c.archived_at)
+        .sort((a, b) => (b.archived_at ?? "").localeCompare(a.archived_at ?? "")),
+    [clients]
+  );
+
   const idleEntries: IdleEntry[] = useMemo(() => {
     const activeClientIds = new Set(
       programs.map((p) => p.assigned_client_id).filter(Boolean) as string[]
@@ -499,6 +523,7 @@ const AdminDashboard = () => {
     const list: IdleEntry[] = [];
     for (const c of clients) {
       if (activeClientIds.has(c.id)) continue;
+      if (c.archived_at) continue;
       // Find their most recent custom program (might be archived).
       const past = allPrograms
         .filter((p) => p.assigned_client_id === c.id)
@@ -941,6 +966,54 @@ const AdminDashboard = () => {
               </Link>
             ))}
           </div>
+        </section>
+      )}
+
+      {/* ============ FORMER CLIENTS ============ */}
+      {archivedClients.length > 0 && (
+        <section>
+          <button
+            type="button"
+            onClick={() => setShowArchived((v) => !v)}
+            className="flex items-center gap-2 mb-3 text-base font-heading font-bold text-muted-foreground hover:text-foreground"
+          >
+            <Archive size={16} />
+            Former clients ({archivedClients.length})
+            {showArchived ? (
+              <ChevronUp size={14} />
+            ) : (
+              <ChevronDown size={14} />
+            )}
+          </button>
+          {showArchived && (
+            <div className="bg-white border border-border rounded-2xl divide-y divide-border">
+              {archivedClients.map((c) => (
+                <Link
+                  key={c.id}
+                  to={`/app/admin/clients/${c.id}`}
+                  className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/30"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate">
+                      {c.first_name ?? c.email}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {c.archive_reason
+                        ? ARCHIVE_REASON_LABEL[c.archive_reason] ??
+                          c.archive_reason
+                        : "Archived"}
+                      {c.archived_at
+                        ? ` · since ${new Date(c.archived_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
+                        : ""}
+                    </p>
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    Open →
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
       )}
 

@@ -53,12 +53,18 @@ Deno.serve(async (req: Request) => {
     const itemIds = (items ?? []).map((i: any) => i.id);
     if (itemIds.length === 0) return json({ ok: true, deleted: 0 }, 200);
 
-    // 2. Find all form_check_submissions with a video_url for these items
+    // 2. Find the form_check_submissions to wipe: every video of this
+    //    program EXCEPT the ones the coach archived as a progress
+    //    milestone. Those are the whole point of the archive feature —
+    //    they show up on the client's archive page next to their
+    //    assessment videos and must outlive the block. Without this
+    //    filter, archiving a block silently emptied every milestone.
     const { data: submissions } = await admin
       .from("form_check_submissions")
       .select("id, video_url")
       .in("item_id", itemIds)
-      .not("video_url", "is", null);
+      .not("video_url", "is", null)
+      .not("archived_as_progress", "is", true);
 
     let deleted = 0;
     const pathsToRemove: string[] = [];

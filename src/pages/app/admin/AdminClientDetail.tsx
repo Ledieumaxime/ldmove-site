@@ -46,7 +46,27 @@ type Client = {
   first_name: string | null;
   last_name: string | null;
   created_at: string;
+  archived_at: string | null;
+  archive_reason: string | null;
 };
+
+const ARCHIVE_REASONS: { value: string; label: string; help: string }[] = [
+  {
+    value: "stopped",
+    label: "Stopped coaching",
+    help: "You worked together and they decided to stop.",
+  },
+  {
+    value: "paused",
+    label: "On a break",
+    help: "They plan to come back. Unarchive them when they do.",
+  },
+  {
+    value: "never_started",
+    label: "Never started",
+    help: "Created an account but never really trained with you.",
+  },
+];
 
 type Program = {
   id: string;
@@ -188,6 +208,7 @@ const AdminClientDetail = () => {
   const navigate = useNavigate();
   const [client, setClient] = useState<Client | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const [programs, setPrograms] = useState<Program[]>([]);
   const [intake, setIntake] = useState<IntakeRow | null>(null);
   const [checks, setChecks] = useState<FormCheck[]>([]);
@@ -211,7 +232,7 @@ const AdminClientDetail = () => {
     if (!clientId) return;
     Promise.all([
       sbGet<Client[]>(
-        `profiles?select=id,email,first_name,last_name,created_at&id=eq.${clientId}&limit=1`
+        `profiles?select=id,email,first_name,last_name,created_at,archived_at,archive_reason&id=eq.${clientId}&limit=1`
       ),
       sbGet<Program[]>(
         `programs?select=*&type=eq.custom&assigned_client_id=eq.${clientId}&order=created_at.desc`
@@ -381,6 +402,63 @@ const AdminClientDetail = () => {
       sessionsPerLoop,
     };
   }, [currentProgram, weeks, items, logs, now]);
+
+  /** Archive the client themselves: they leave the coach's day-to-day
+   *  lists but keep everything that tells their story (programs, coach
+   *  notes, comments, logged sets, assessment videos, and any form
+   *  check flagged as progress). Their active block is archived at the
+   *  same time so they stop seeing a program that no longer runs, and
+   *  the ordinary form-check videos of that block are cleaned up.
+   *  Fully reversible from the same button. */
+  const archiveClient = async (reason: string) => {
+    if (!client) return;
+    setArchiving(true);
+    setError(null);
+    try {
+      await sbPatch(`profiles?id=eq.${client.id}`, {
+        archived_at: new Date().toISOString(),
+        archive_reason: reason,
+      });
+      if (currentProgram) {
+        await sbPatch(`programs?id=eq.${currentProgram.id}`, {
+          is_archived: true,
+        });
+        cleanupArchivedVideos(currentProgram.id).catch(() => {});
+        setPrograms((prev) =>
+          prev.map((p) =>
+            p.id === currentProgram.id ? { ...p, is_archived: true } : p
+          )
+        );
+      }
+      setClient({
+        ...client,
+        archived_at: new Date().toISOString(),
+        archive_reason: reason,
+      });
+      setArchiveOpen(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+  const unarchiveClient = async () => {
+    if (!client) return;
+    setArchiving(true);
+    setError(null);
+    try {
+      await sbPatch(`profiles?id=eq.${client.id}`, {
+        archived_at: null,
+        archive_reason: null,
+      });
+      setClient({ ...client, archived_at: null, archive_reason: null });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setArchiving(false);
+    }
+  };
 
   /** Flip the active block to archived. Lightweight confirm via the
    *  browser dialog — proper inline UX is queued for later. After the
@@ -629,15 +707,85 @@ const AdminClientDetail = () => {
           >
             <Eye size={12} /> View dashboard
           </Link>
+          {client.archived_at ? (
+            <button
+              type="button"
+              onClick={unarchiveClient}
+              disabled={archiving}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold border border-border rounded-full px-3 py-1.5 hover:bg-muted/50 transition-colors"
+            >
+              <Archive size={12} /> {archiving ? "…" : "Bring back as active"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setArchiveOpen(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold border border-border rounded-full px-3 py-1.5 hover:bg-muted/50 transition-colors"
+            >
+              <Archive size={12} /> Archive client
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setDeleteOpen(true)}
             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-red-700 transition-colors"
           >
-            <Trash2 size={12} /> Delete client
+            <Trash2 size={12} /> Delete
           </button>
         </div>
       </div>
+
+      {archiveOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/30"
+            onClick={() => setArchiveOpen(false)}
+          />
+          <div className="fixed z-50 inset-x-4 top-[12%] max-w-md mx-auto bg-white border border-border rounded-2xl shadow-xl p-5 space-y-4">
+            <div>
+              <h2 className="font-heading text-lg font-bold">
+                Archive {displayName}
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                They leave your client lists but nothing of their work is
+                lost. Their programs, your notes, the comments, every set
+                they logged, their assessment videos and any form check you
+                flagged as progress all stay. Only the ordinary form-check
+                videos of their current block are cleaned up.
+              </p>
+              {currentProgram && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Their active block, {currentProgram.title}, is archived at
+                  the same time.
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              {ARCHIVE_REASONS.map((r) => (
+                <button
+                  key={r.value}
+                  type="button"
+                  disabled={archiving}
+                  onClick={() => archiveClient(r.value)}
+                  className="w-full text-left border border-border rounded-xl px-3 py-2.5 hover:bg-muted/40 disabled:opacity-50"
+                >
+                  <p className="text-sm font-semibold">{r.label}</p>
+                  <p className="text-xs text-muted-foreground">{r.help}</p>
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setArchiveOpen(false)}
+                className="text-xs font-semibold border border-border rounded-full px-4 py-2 hover:bg-muted/50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       <DeleteClientDialog
         open={deleteOpen}
@@ -650,6 +798,26 @@ const AdminClientDetail = () => {
           navigate("/app/home");
         }}
       />
+
+      {client.archived_at && (
+        <div className="bg-muted/50 border border-border rounded-2xl px-4 py-3 flex items-center gap-3 text-sm">
+          <Archive size={16} className="text-muted-foreground shrink-0" />
+          <p className="text-muted-foreground">
+            <span className="font-semibold text-foreground">
+              Archived client
+            </span>{" "}
+            since {formatDate(client.archived_at)}
+            {client.archive_reason
+              ? ` · ${
+                  ARCHIVE_REASONS.find(
+                    (r) => r.value === client.archive_reason
+                  )?.label ?? client.archive_reason
+                }`
+              : ""}
+            . Their history is intact and they keep access to it.
+          </p>
+        </div>
+      )}
 
       {/* ============ HEADER ============ */}
       <section className="bg-white border border-border rounded-2xl p-5">
