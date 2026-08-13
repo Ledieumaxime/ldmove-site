@@ -48,6 +48,7 @@ import {
   sbPatch,
   sbPost,
 } from "@/integrations/supabase/api";
+import { cleanupArchivedVideos } from "@/integrations/supabase/notify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -1104,6 +1105,38 @@ const AdminProgramEdit = () => {
     await safeSave(() =>
       sbPatch(`programs?id=eq.${program.id}`, { is_published: next })
     );
+
+    // Publishing a new block used to leave the previous one active:
+    // the client then had two live programs, and only the most recent
+    // one drives their dashboard and Today page, so the old one just
+    // lingered in their program list. Offer to retire it here, where
+    // the coach is already thinking about the switch.
+    if (!next || !program.assigned_client_id) return;
+    try {
+      const others = await sbGet<
+        { id: string; title: string }[]
+      >(
+        `programs?type=eq.custom&assigned_client_id=eq.${program.assigned_client_id}` +
+          `&is_archived=eq.false&is_published=eq.true&id=neq.${program.id}` +
+          `&select=id,title&order=created_at.asc`
+      );
+      if (others.length === 0) return;
+      const list = others.map((p) => `  · ${p.title}`).join("\n");
+      const ok = window.confirm(
+        `Published.\n\n${others.length === 1 ? "This block is" : "These blocks are"} still active for this client:\n\n${list}\n\n` +
+          `Archive ${others.length === 1 ? "it" : "them"} now? The client keeps access to ${others.length === 1 ? "it" : "them"} in their archive, and ${others.length === 1 ? "its" : "their"} form-check videos are cleaned up.`
+      );
+      if (!ok) return;
+      setSaveState("saving");
+      for (const p of others) {
+        await sbPatch(`programs?id=eq.${p.id}`, { is_archived: true });
+        cleanupArchivedVideos(p.id).catch(() => {});
+      }
+      flagSaved();
+    } catch (e) {
+      setError(String(e));
+      setSaveState("idle");
+    }
   };
 
   // ----- render ----------------------------------------------------------
