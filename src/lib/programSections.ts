@@ -8,6 +8,9 @@ export type SectionStyle = {
   groupBox: string;
   groupBadge: string;
   groupBullet: string;
+  /** Outlined pill for the group's sets / rounds and rest, so the
+   *  prescription reads as loudly as the group name itself. */
+  groupMeta: string;
 };
 
 /** A circuit loops through its exercises, so its repetitions are
@@ -46,6 +49,7 @@ export function sectionStyle(section: string): SectionStyle {
       groupBox: "border-2 border-sky-500 bg-sky-50/60",
       groupBadge: "bg-sky-200 text-sky-900",
       groupBullet: "bg-sky-500",
+      groupMeta: "border-2 border-sky-500 bg-white text-sky-900",
     };
   }
   return {
@@ -54,5 +58,6 @@ export function sectionStyle(section: string): SectionStyle {
     groupBox: "border-2 border-red-500 bg-red-50/60",
     groupBadge: "bg-red-200 text-red-900",
     groupBullet: "bg-red-500",
+    groupMeta: "border-2 border-red-500 bg-white text-red-900",
   };
 }

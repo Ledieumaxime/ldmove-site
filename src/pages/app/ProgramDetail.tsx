@@ -360,12 +360,14 @@ const ProgramDetail = () => {
                                           <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded ${style.groupBadge}`}>
                                             <Link2 size={11} /> {b.name}
                                           </span>
-                                          <div className="flex items-center gap-3 text-xs font-semibold">
+                                          <div className="flex items-center gap-2 flex-wrap">
                                             {groupSets != null && (
-                                              <span className="text-foreground">{groupSetsLabel(b.name, groupSets)}</span>
+                                              <span className={`inline-flex items-center rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${style.groupMeta}`}>
+                                                {groupSetsLabel(b.name, groupSets)}
+                                              </span>
                                             )}
                                             {groupRest != null && (
-                                              <span className="text-muted-foreground">
+                                              <span className={`inline-flex items-center rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${style.groupMeta}`}>
                                                 {groupRestLabel(b.name, groupRest)}
                                               </span>
                                             )}
