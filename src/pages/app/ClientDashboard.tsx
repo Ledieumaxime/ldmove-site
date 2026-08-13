@@ -20,10 +20,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { IntakeAnswers, visibleExercises } from "@/lib/assessment";
 import {
   dayDisplayLabel,
-  deferWeek,
   getDeferredWeeks,
   listProgramDays,
   nextDay,
+  pendingDays,
+  skipToWeek,
 } from "@/lib/workoutDay";
 
 type Program = {
@@ -201,6 +202,7 @@ export const ClientDashboardBody = ({
   // Deferrals live in sessionStorage (shared with the workout page);
   // this counter just forces a re-render when one is added.
   const [, setDeferTick] = useState(0);
+  const [skipOpen, setSkipOpen] = useState(false);
 
   useEffect(() => {
     if (!clientId) return;
@@ -623,15 +625,13 @@ export const ClientDashboardBody = ({
   const deferredWeeks =
     currentProgram && !coachView ? getDeferredWeeks(currentProgram.id) : [];
   const nextSession = nextDay(programDays, completedLogs, deferredWeeks);
-  // Deferring is only offered while another session is still pending.
-  const canDefer = (() => {
-    if (coachView || !nextSession) return false;
-    const other = nextDay(programDays, completedLogs, [
-      ...deferredWeeks,
-      nextSession.weekId,
-    ]);
-    return !!other && other.weekId !== nextSession.weekId;
-  })();
+  // What the client can jump to: the sessions still owed this loop.
+  // Anything already done is off the list, so skipping reorders the
+  // block without ever letting a session be dropped.
+  const pending = pendingDays(programDays, completedLogs);
+  const skipOptions = pending.filter(
+    (d) => d.weekId !== nextSession?.weekId
+  );
   const nextSessionLabel = nextSession ? dayDisplayLabel(nextSession) : null;
   const nextSessionExerciseCount = nextSession?.items.length ?? 0;
   // Duration estimate: ~45s of work per set + the prescribed rest per
@@ -788,16 +788,13 @@ export const ClientDashboardBody = ({
               {/* The swap is decided here, before opening the session:
                   the client sees what is coming and says no to it,
                   rather than starting it and backing out. */}
-              {canDefer && nextSession && (
+              {skipOptions.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => {
-                    deferWeek(currentProgram.id, nextSession.weekId);
-                    setDeferTick((n) => n + 1);
-                  }}
+                  onClick={() => setSkipOpen(true)}
                   className="inline-flex items-center gap-1.5 text-xs opacity-60 hover:opacity-100 underline underline-offset-4 mt-3"
                 >
-                  <SkipForward size={12} /> Not today, show me another session
+                  <SkipForward size={12} /> Skip session
                 </button>
               )}
               {deferredWeeks.length > 0 && (
@@ -822,6 +819,83 @@ export const ClientDashboardBody = ({
               : "Your coach hasn't assigned an active program yet. Check the catalogue below or get in touch."}
           </p>
         </div>
+      )}
+
+      {/* Skip dialog: pick the session, but read why order matters
+          first. The warning is the point — skipping is allowed, not
+          encouraged. */}
+      {skipOpen && currentProgram && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/40"
+            onClick={() => setSkipOpen(false)}
+          />
+          <div className="fixed z-50 inset-x-4 top-[10%] max-w-md mx-auto bg-white border border-border rounded-2xl shadow-xl p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+            <div>
+              <h2 className="font-heading text-lg font-bold">Skip session</h2>
+              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                Your block is built in a set order: the sessions balance
+                each other across the week, and following that order is
+                what makes it work. Skipping now and then is fine when
+                life gets in the way. Making a habit of it is not, and
+                your coach will see it.
+              </p>
+              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                Whatever you skip is not lost. It comes back and you still
+                have to do it before this block loops.
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                Train this instead
+              </p>
+              <ul className="border border-border rounded-xl divide-y divide-border overflow-hidden">
+                {skipOptions.map((d) => (
+                  <li key={d.weekId}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        skipToWeek(
+                          currentProgram.id,
+                          pending.map((p) => p.weekId),
+                          d.weekId
+                        );
+                        setSkipOpen(false);
+                        setDeferTick((n) => n + 1);
+                      }}
+                      className="w-full text-left px-3 py-2.5 hover:bg-muted/40 flex items-center justify-between gap-2"
+                    >
+                      <span className="text-sm font-semibold">
+                        {/* The position matters: a PPL block repeats
+                            "Push" and "Pull", so the name alone can't
+                            tell two sessions apart. */}
+                        <span className="text-muted-foreground mr-1.5">
+                          {d.weekNumber}.
+                        </span>
+                        {dayDisplayLabel(d)}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                        {d.items.length} exercise
+                        {d.items.length === 1 ? "" : "s"}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSkipOpen(false)}
+                className="text-xs font-semibold border border-border rounded-full px-4 py-2 hover:bg-muted/50"
+              >
+                Keep {nextSessionLabel ?? "my session"}
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Training calendar for the block, with access to past blocks */}

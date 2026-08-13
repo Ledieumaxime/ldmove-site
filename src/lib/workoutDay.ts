@@ -143,21 +143,29 @@ export function completionsByDay(
 export function nextDay<T extends ProgramItemLite>(
   days: WorkoutDay<T>[],
   logs: CompletedLog[],
-  /** Sessions to step over this once, e.g. the one just deferred. */
+  /** Sessions to step over this once, e.g. the one just skipped. */
   skipWeekIds: string[] = []
 ): WorkoutDay<T> | null {
-  if (days.length === 0) return null;
-  const playable = days.filter((d) => !d.isEmpty);
-  if (playable.length === 0) return days[0] ?? null;
-
-  const counts = completionsByDay(days, logs);
-  const loop = Math.min(...playable.map((d) => counts.get(d.weekId) ?? 0));
-  const pending = playable.filter((d) => (counts.get(d.weekId) ?? 0) === loop);
-
+  const pending = pendingDays(days, logs);
+  if (pending.length === 0) return days[0] ?? null;
   const skip = new Set(skipWeekIds);
-  // Deferring only makes sense while something else is pending.
+  // Skipping only makes sense while something else is pending.
   const candidates = pending.filter((d) => !skip.has(d.weekId));
   return (candidates[0] ?? pending[0]) ?? null;
+}
+
+/** Every session still owed in the current loop, in program order.
+ *  This is what the client picks from when they skip: offering a
+ *  session they already did this loop would let them dodge one. */
+export function pendingDays<T extends ProgramItemLite>(
+  days: WorkoutDay<T>[],
+  logs: CompletedLog[]
+): WorkoutDay<T>[] {
+  const playable = days.filter((d) => !d.isEmpty);
+  if (playable.length === 0) return [];
+  const counts = completionsByDay(days, logs);
+  const loop = Math.min(...playable.map((d) => counts.get(d.weekId) ?? 0));
+  return playable.filter((d) => (counts.get(d.weekId) ?? 0) === loop);
 }
 
 // ---- Deferred sessions -------------------------------------------------
@@ -179,12 +187,27 @@ export function getDeferredWeeks(programId: string): string[] {
   }
 }
 
-export function deferWeek(programId: string, weekId: string): string[] {
-  const next = [...new Set([...getDeferredWeeks(programId), weekId])];
+/** Jump straight to a chosen session by stepping over everything else
+ *  still pending ahead of it. Nothing is marked done: the skipped
+ *  sessions are simply pushed behind the chosen one for this visit.
+ *
+ *  `pendingWeekIds` is the full ordered list of sessions still owed
+ *  this loop, so the stored list is REPLACED, never merged. Merging
+ *  made the choice one-way: after skipping Legs to reach Pull, picking
+ *  Legs again would have left Legs in the skip list and served Pull
+ *  once more. */
+export function skipToWeek(
+  programId: string,
+  pendingWeekIds: string[],
+  chosenWeekId: string
+): string[] {
+  const cut = pendingWeekIds.indexOf(chosenWeekId);
+  const next = cut > 0 ? pendingWeekIds.slice(0, cut) : [];
   try {
-    sessionStorage.setItem(deferKey(programId), JSON.stringify(next));
+    if (next.length === 0) sessionStorage.removeItem(deferKey(programId));
+    else sessionStorage.setItem(deferKey(programId), JSON.stringify(next));
   } catch {
-    // Private mode / storage full: the deferral just won't stick.
+    // Private mode / storage full: the choice just won't stick.
   }
   return next;
 }

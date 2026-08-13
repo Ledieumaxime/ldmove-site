@@ -1,10 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   CompletedLog,
   ProgramItemLite,
   ProgramWeekLite,
+  clearDeferredWeeks,
+  getDeferredWeeks,
   listProgramDays,
   nextDay,
+  pendingDays,
+  skipToWeek,
 } from "./workoutDay";
 
 // A block of four sessions, two exercises each, mirroring how the app
@@ -81,21 +85,21 @@ describe("nextDay", () => {
     expect(titleOf(nextDay(days, logs))).toBe("Legs");
   });
 
-  it("defers a session without losing it", () => {
+  it("skips a session without losing it", () => {
     const logs = [...run("w1", "r1")];
-    // Legs is up next but the client defers it.
+    // Legs is up next but the client skips it.
     expect(titleOf(nextDay(days, logs, ["w2"]))).toBe("Pull");
     // Nothing was logged, so Legs is still pending on the next visit.
     expect(titleOf(nextDay(days, logs))).toBe("Legs");
   });
 
-  it("still serves the session when it is the only one left to defer", () => {
+  it("still serves the session when it is the only one left to skip", () => {
     const logs = [
       ...run("w1", "r1"),
       ...run("w3", "r3"),
       ...run("w4", "r4"),
     ];
-    // Legs is the last one pending: deferring it has nowhere to go.
+    // Legs is the last one pending: skipping it has nowhere to go.
     expect(titleOf(nextDay(days, logs, ["w2"]))).toBe("Legs");
   });
 
@@ -110,5 +114,63 @@ describe("nextDay", () => {
 
   it("returns null on a block with no session at all", () => {
     expect(nextDay([], [])).toBeNull();
+  });
+});
+
+describe("skipToWeek", () => {
+  const programId = "p1";
+  const pendingIds = ["w2", "w3", "w4"]; // Legs, Pull, Handstand
+
+  beforeEach(() => sessionStorage.clear());
+
+  it("steps over only what sits ahead of the chosen session", () => {
+    expect(skipToWeek(programId, pendingIds, "w4")).toEqual(["w2", "w3"]);
+    expect(getDeferredWeeks(programId)).toEqual(["w2", "w3"]);
+  });
+
+  it("lets the client come back to a session they skipped", () => {
+    skipToWeek(programId, pendingIds, "w3"); // skip Legs, take Pull
+    expect(getDeferredWeeks(programId)).toEqual(["w2"]);
+    // Changing their mind back to Legs must clear the skip, not stack
+    // onto it, otherwise Legs stays unreachable for the whole visit.
+    expect(skipToWeek(programId, pendingIds, "w2")).toEqual([]);
+    expect(getDeferredWeeks(programId)).toEqual([]);
+  });
+
+  it("is forgotten once a session is completed", () => {
+    skipToWeek(programId, pendingIds, "w4");
+    clearDeferredWeeks(programId);
+    expect(getDeferredWeeks(programId)).toEqual([]);
+  });
+});
+
+describe("pendingDays", () => {
+  it("offers every session still owed this loop, in program order", () => {
+    const logs = [...run("w1", "r1")];
+    expect(pendingDays(days, logs).map((d) => d.weekTitle)).toEqual([
+      "Legs",
+      "Pull",
+      "Handstand",
+    ]);
+  });
+
+  it("never offers a session already done this loop", () => {
+    // Push is done, so it must not be pickable again until the loop
+    // restarts — otherwise the client could dodge a session for good.
+    const logs = [...run("w1", "r1")];
+    expect(pendingDays(days, logs).map((d) => d.weekId)).not.toContain("w1");
+  });
+
+  it("offers the whole block again once the loop restarts", () => {
+    const logs = weeks.flatMap((w, i) => run(w.id, `r${i}`));
+    expect(pendingDays(days, logs)).toHaveLength(4);
+  });
+
+  it("leaves out sessions the coach hasn't filled", () => {
+    const withEmpty = listProgramDays(
+      weeks,
+      items.filter((i) => i.week_id !== "w2")
+    );
+    expect(pendingDays(withEmpty, []).map((d) => d.weekId)).not.toContain("w2");
   });
 });
