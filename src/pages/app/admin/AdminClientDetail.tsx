@@ -28,6 +28,7 @@ import {
 } from "@/lib/workoutDay";
 import { detectTracking, stripSection } from "@/components/ProgramItemCard";
 import DeleteClientDialog from "@/components/DeleteClientDialog";
+import BlockCalendar from "@/components/BlockCalendar";
 
 /**
  * Coach's per-client workspace. Combines everything the coach needs
@@ -630,6 +631,36 @@ const AdminClientDetail = () => {
     );
   }, [logs]);
 
+  // Calendar inputs: every block of this client (newest first) and the
+  // logs of the current one, which are already in memory. Past blocks
+  // are fetched by the component only if the coach opens them.
+  const calendarBlocks = useMemo(
+    () =>
+      [...programs]
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+        .map((p) => ({
+          id: p.id,
+          title: p.title,
+          isCurrent: p.id === currentProgram?.id,
+        })),
+    [programs, currentProgram?.id]
+  );
+
+  const currentBlockLogs = useMemo(() => {
+    const target = currentProgram?.id ?? calendarBlocks[0]?.id;
+    if (!target) return [];
+    return logs
+      .filter(
+        (l) => l.program_items?.program_weeks?.program_id === target
+      )
+      .map((l) => ({
+        program_item_id: l.program_item_id,
+        session_run_id: l.session_run_id,
+        session_date: l.session_date,
+        completed_at: l.completed_at,
+      }));
+  }, [logs, currentProgram?.id, calendarBlocks]);
+
   // Activity timeline: form checks + client comments + coach replies +
   // session completions, mixed chronologically.
   const timeline = useMemo(() => {
@@ -1005,6 +1036,16 @@ const AdminClientDetail = () => {
             </section>
           )}
 
+
+          {/* Training calendar — the rhythm, before the detail of the
+              sessions below. Same component the client sees. */}
+          {calendarBlocks.length > 0 && (
+            <BlockCalendar
+              clientId={client.id}
+              blocks={calendarBlocks}
+              currentLogs={currentBlockLogs}
+            />
+          )}
 
           {/* Recent training */}
           <section className="bg-white rounded-2xl border border-border p-5">
