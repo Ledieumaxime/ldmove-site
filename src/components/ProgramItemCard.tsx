@@ -153,6 +153,9 @@ type Props = {
   /** UUID of the current session run. Required when the logger is
    *  interactive; ignored in read-only / coach views. */
   sessionRunId?: string;
+  /** Drops the card's own border and rounding so it can sit flush
+   *  under a block header strip, the block container owning both. */
+  flush?: boolean;
 };
 
 const ProgramItemCard = ({
@@ -168,6 +171,7 @@ const ProgramItemCard = ({
   loggerReadOnly = false,
   setsOverride = null,
   sessionRunId = "00000000-0000-0000-0000-000000000000",
+  flush = false,
 }: Props) => {
   const { tempo, load, comment } = parseNotes(item.notes);
   const displayName = stripSection(item.custom_name);
@@ -185,10 +189,15 @@ const ProgramItemCard = ({
 
   return (
     <div
-      className={`bg-white border border-border rounded-lg ${
-        compact ? "p-3" : "p-4"
-      } hover:shadow-sm transition-shadow ${accent}`}
+      className={`bg-white ${
+        flush ? "" : "border border-border rounded-lg hover:shadow-sm"
+      } ${compact ? "p-3" : "p-4"} transition-shadow ${flush ? "" : accent}`}
     >
+      {/* Sets and rest are never listed here: the page announces them
+          in the block's coloured header strip, the same way for a
+          single exercise and for a group. This card only carries what
+          varies exercise by exercise. */}
+
       <div className="flex items-start justify-between gap-2 mb-1">
         <h4
           className={`font-semibold ${
@@ -229,13 +238,14 @@ const ProgramItemCard = ({
         </div>
       </div>
 
+      {/* Sets and rest are never listed here: the page renders them as
+          framed pills in the block header above the card, the same way
+          a superset announces its sets and rest. This card only shows
+          what varies exercise by exercise. */}
       {(() => {
         const rows: Array<[string, string]> = [];
-        if (!inSuperset && item.sets != null) rows.push(["Set", String(item.sets)]);
         if (formattedReps) rows.push(["Rep", formattedReps]);
         if (hasLoad) rows.push(["Load", load!]);
-        if (!inSuperset && item.rest_seconds != null)
-          rows.push(["Rest", `${item.rest_seconds}s`]);
         if (tempo) rows.push(["Tempo", tempo]);
         if (rows.length === 0) return null;
         return (

@@ -23,8 +23,8 @@ import {
   nextDay,
 } from "@/lib/workoutDay";
 import {
-  groupRestLabel,
-  groupSetsLabel,
+  blockStatsLabel,
+  groupTypeLabel,
   isCircuitGroup,
   sectionStyle,
 } from "@/lib/programSections";
@@ -353,18 +353,60 @@ const Today = () => {
             </div>
             <div className="space-y-2.5">
               {blocks.map((b, bIdx) => {
+                // Every block of the section is numbered in one
+                // continuous run, whether it is a single exercise or a
+                // group. Before, only the groups carried a number, so
+                // the client could not tell how far into the session
+                // they were.
+                const blockPill = (
+                  <span
+                    className={`absolute left-0 top-3 w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center ${style.groupBullet}`}
+                  >
+                    {bIdx + 1}
+                  </span>
+                );
+                // Header strip shared by every block: kind on the left,
+                // the whole prescription in ONE pill on the right. Two
+                // separate badges wrapped onto three lines at 375px.
+                const strip = (kind: string, stats: string | null) => (
+                  <div
+                    className={`flex items-center justify-between gap-2 px-3 py-2 ${style.strip}`}
+                  >
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-white">
+                      {kind !== "Set" && <Link2 size={12} />}
+                      {kind}
+                    </span>
+                    {stats && (
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold whitespace-nowrap ${style.stripPill}`}
+                      >
+                        {stats}
+                      </span>
+                    )}
+                  </div>
+                );
                 if (b.type === "solo") {
                   return (
-                    <ProgramItemCard
-                      key={b.item.id}
-                      item={b.item}
-                      canComment
-                      canUploadFormCheck
-                      accent={style.border}
-                      loggerClientId={user?.id ?? null}
-                      loggerReadOnly={false}
-                      sessionRunId={sessionRunId}
-                    />
+                    <div key={b.item.id} className="relative pl-9">
+                      {blockPill}
+                      <div
+                        className={`rounded-xl overflow-hidden border-2 ${style.blockBorder}`}
+                      >
+                        {strip(
+                          "Set",
+                          blockStatsLabel(null, b.item.sets, b.item.rest_seconds)
+                        )}
+                        <ProgramItemCard
+                          item={b.item}
+                          canComment
+                          canUploadFormCheck
+                          loggerClientId={user?.id ?? null}
+                          loggerReadOnly={false}
+                          sessionRunId={sessionRunId}
+                          flush
+                        />
+                      </div>
+                    </div>
                   );
                 }
                 const groupSets =
@@ -376,33 +418,16 @@ const Today = () => {
                       (it) => it.rest_seconds != null && it.rest_seconds > 0
                     )?.rest_seconds ?? null;
                 return (
-                  <div
-                    key={`g-${bIdx}`}
-                    className={`rounded-xl p-3 ${style.groupBox}`}
-                  >
-                    <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                      <span
-                        className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded ${style.groupBadge}`}
-                      >
-                        <Link2 size={11} /> {b.name}
-                      </span>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {groupSets != null && (
-                          <span
-                            className={`inline-flex items-center rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${style.groupMeta}`}
-                          >
-                            {groupSetsLabel(b.name, groupSets)}
-                          </span>
-                        )}
-                        {groupRest != null && (
-                          <span
-                            className={`inline-flex items-center rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${style.groupMeta}`}
-                          >
-                            {groupRestLabel(b.name, groupRest)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                  <div key={`g-${bIdx}`} className="relative pl-9">
+                    {blockPill}
+                    <div
+                      className={`rounded-xl overflow-hidden border-2 ${style.blockBorder}`}
+                    >
+                    {strip(
+                      groupTypeLabel(b.name),
+                      blockStatsLabel(b.name, groupSets, groupRest)
+                    )}
+                    <div className={`p-3 ${style.groupBox} !border-0 rounded-none`}>
                     <p className="text-[11px] text-muted-foreground italic mb-2">
                       {isCircuitGroup(b.name)
                         ? "One round = every exercise once, in order. Rest, then start the next round."
@@ -429,6 +454,8 @@ const Today = () => {
                           />
                         </div>
                       ))}
+                    </div>
+                    </div>
                     </div>
                   </div>
                 );
