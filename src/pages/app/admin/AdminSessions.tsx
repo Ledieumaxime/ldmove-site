@@ -4,6 +4,7 @@ import { sbGet } from "@/integrations/supabase/api";
 import { Input } from "@/components/ui/input";
 import BackToDashboard from "@/components/BackToDashboard";
 import { stripSection } from "@/components/ProgramItemCard";
+import { groupSetsLabel } from "@/lib/programSections";
 import {
   SessionLibraryEntry,
   fetchSessionLibrary,
@@ -212,7 +213,9 @@ const SessionDetail = ({ items }: { items: SessionItem[] | undefined }) => {
                       const rounds = block.items.find(
                         (i) => i.sets != null
                       )?.sets;
-                      return rounds != null ? ` · ${rounds} rounds` : "";
+                      return rounds != null
+                        ? ` · ${groupSetsLabel(block.group, rounds)}`
+                        : "";
                     })()}
                   </p>
                   {block.items.map((it, i) => (

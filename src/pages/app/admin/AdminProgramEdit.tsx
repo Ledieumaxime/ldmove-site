@@ -1775,7 +1775,10 @@ const SetCard = ({
             {typeSwitcher}
             <div className="flex items-center gap-1.5">
               <label className="text-[10px] font-semibold text-muted-foreground uppercase">
-                Rounds
+                {/* A circuit loops through its exercises, so it counts
+                    rounds. A superset / drop set is one set of the
+                    whole chain. */}
+                {set.type === "Circuit" ? "Rounds" : "Sets"}
               </label>
               <Input
                 type="number"

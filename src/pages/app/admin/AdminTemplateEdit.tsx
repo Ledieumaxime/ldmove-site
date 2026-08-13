@@ -467,7 +467,7 @@ const TemplateSetCard = ({
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-1.5">
               <label className="text-[10px] font-semibold text-muted-foreground uppercase">
-                Rounds
+                {set.type === "Circuit" ? "Rounds" : "Sets"}
               </label>
               <Input
                 type="number"

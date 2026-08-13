@@ -22,7 +22,12 @@ import {
   listProgramDays,
   nextDay,
 } from "@/lib/workoutDay";
-import { sectionStyle } from "@/lib/programSections";
+import {
+  groupRestLabel,
+  groupSetsLabel,
+  isCircuitGroup,
+  sectionStyle,
+} from "@/lib/programSections";
 
 type Program = {
   id: string;
@@ -384,18 +389,18 @@ const Today = () => {
                       <div className="flex items-center gap-3 text-xs font-semibold">
                         {groupSets != null && (
                           <span className="text-foreground">
-                            {groupSets} rounds
+                            {groupSetsLabel(b.name, groupSets)}
                           </span>
                         )}
                         {groupRest != null && (
                           <span className="text-muted-foreground">
-                            {groupRest}s rest between rounds
+                            {groupRestLabel(b.name, groupRest)}
                           </span>
                         )}
                       </div>
                     </div>
                     <p className="text-[11px] text-muted-foreground italic mb-2">
-                      {/circuit/i.test(b.name)
+                      {isCircuitGroup(b.name)
                         ? "One round = every exercise once, in order. Rest, then start the next round."
                         : "Chain exercises with no rest, then rest after the last one."}
                     </p>
