@@ -244,6 +244,11 @@ const AdminClientDetail = () => {
   const [milestones, setMilestones] = useState<ProgressVideo[]>([]);
   const [milestoneUrls, setMilestoneUrls] = useState<Record<string, string>>({});
   const [milestonesOpen, setMilestonesOpen] = useState(false);
+  // Recent training and the timeline both grow with the client's history
+  // and pushed everything below them off-screen. Show the freshest few,
+  // the rest is one click away.
+  const [sessionsExpanded, setSessionsExpanded] = useState(false);
+  const [timelineExpanded, setTimelineExpanded] = useState(false);
 
   useEffect(() => {
     if (!clientId) return;
@@ -1111,7 +1116,10 @@ const AdminClientDetail = () => {
               </p>
             ) : (
               <ul className="space-y-2">
-                {recentSessions.map((s) => {
+                {(sessionsExpanded
+                  ? recentSessions
+                  : recentSessions.slice(0, COLLAPSED_ROWS)
+                ).map((s) => {
                   const isOpen = expandedSessions.has(s.runId);
                   return (
                     <li
@@ -1237,6 +1245,12 @@ const AdminClientDetail = () => {
                 })}
               </ul>
             )}
+            <ShowMore
+              total={recentSessions.length}
+              expanded={sessionsExpanded}
+              onToggle={() => setSessionsExpanded((v) => !v)}
+              label="session"
+            />
           </section>
 
           {/* Activity timeline */}
@@ -1246,7 +1260,10 @@ const AdminClientDetail = () => {
                 Activity timeline
               </h2>
               <ul className="space-y-3">
-                {timeline.map((t, i) => (
+                {(timelineExpanded
+                  ? timeline
+                  : timeline.slice(0, COLLAPSED_ROWS)
+                ).map((t, i) => (
                   <li
                     key={i}
                     className="flex gap-3 pb-3 border-b border-border last:border-0 last:pb-0"
@@ -1274,6 +1291,13 @@ const AdminClientDetail = () => {
                   </li>
                 ))}
               </ul>
+              <ShowMore
+                total={timeline.length}
+                expanded={timelineExpanded}
+                onToggle={() => setTimelineExpanded((v) => !v)}
+                label="entry"
+                plural="entries"
+              />
             </section>
           )}
         </div>
@@ -1468,6 +1492,40 @@ const AdminClientDetail = () => {
       </div>
 
     </div>
+  );
+};
+
+/** How many rows a long list shows before it has to be unfolded. */
+const COLLAPSED_ROWS = 3;
+
+/** Footer toggle for the lists that grow with the client's history.
+ *  Renders nothing while everything already fits, so a new client never
+ *  sees a control that would do nothing. */
+const ShowMore = ({
+  total,
+  expanded,
+  onToggle,
+  label,
+  plural,
+}: {
+  total: number;
+  expanded: boolean;
+  onToggle: () => void;
+  label: string;
+  plural?: string;
+}) => {
+  if (total <= COLLAPSED_ROWS) return null;
+  const hidden = total - COLLAPSED_ROWS;
+  const noun = hidden > 1 ? (plural ?? `${label}s`) : label;
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="w-full mt-3 pt-3 border-t border-border flex items-center justify-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition"
+    >
+      {expanded ? "Show less" : `Show ${hidden} more ${noun}`}
+      {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+    </button>
   );
 };
 
