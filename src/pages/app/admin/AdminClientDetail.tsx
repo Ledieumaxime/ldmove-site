@@ -18,7 +18,7 @@ import {
   ArrowRight,
   Send,
 } from "lucide-react";
-import { sbGet, sbGetAll, sbPatch } from "@/integrations/supabase/api";
+import { sbGet, sbGetAll, sbPatch, sbSignUrl } from "@/integrations/supabase/api";
 import { cleanupArchivedVideos } from "@/integrations/supabase/notify";
 import {
   CompletedLog,
@@ -103,6 +103,19 @@ type FormCheck = {
   created_at: string;
   client_id: string;
   item_id: string | null;
+  program_items?: { custom_name: string | null } | null;
+};
+
+/** A form check the coach marked "Archive as progress": the client keeps
+ *  it for life under Progress milestones. Fetched on its own rather than
+ *  filtered out of `checks`, whose 50-row window would drop the oldest
+ *  milestones on a client with a long form-check history. */
+type ProgressVideo = {
+  id: string;
+  video_url: string | null;
+  archived_note: string | null;
+  archived_at: string | null;
+  created_at: string;
   program_items?: { custom_name: string | null } | null;
 };
 
@@ -228,6 +241,9 @@ const AdminClientDetail = () => {
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(
     new Set()
   );
+  const [milestones, setMilestones] = useState<ProgressVideo[]>([]);
+  const [milestoneUrls, setMilestoneUrls] = useState<Record<string, string>>({});
+  const [milestonesOpen, setMilestonesOpen] = useState(false);
 
   useEffect(() => {
     if (!clientId) return;
@@ -243,6 +259,12 @@ const AdminClientDetail = () => {
       ),
       sbGet<FormCheck[]>(
         `form_check_submissions?select=*,program_items(custom_name)&client_id=eq.${clientId}&order=created_at.desc&limit=50`
+      ),
+      // Milestones are few by nature and must never age out of the 50-row
+      // window above, so they get their own unbounded read.
+      sbGet<ProgressVideo[]>(
+        `form_check_submissions?select=id,video_url,archived_note,archived_at,created_at,program_items(custom_name)` +
+          `&client_id=eq.${clientId}&archived_as_progress=eq.true&order=archived_at.desc`
       ),
       sbGet<Comment[]>(
         `exercise_comments?select=*,program_items(custom_name)&order=created_at.desc&limit=200`
@@ -266,7 +288,7 @@ const AdminClientDetail = () => {
         `workout_logs?select=id,program_item_id,session_run_id,session_date,set_number,reps_done,weight_kg,completed_at,program_items(id,custom_name,sets,reps,rest_seconds,notes,video_url,group_name,week_id,order_index,program_weeks(title,week_number,program_id))&client_id=eq.${clientId}&order=completed_at.desc.nullslast,set_number.asc&limit=5000`
       ),
     ])
-      .then(([cl, p, i, f, co, w, it, lg]) => {
+      .then(([cl, p, i, f, ms, co, w, it, lg]) => {
         if (cl.length === 0) {
           setError("Client not found");
           return;
@@ -275,6 +297,18 @@ const AdminClientDetail = () => {
         setPrograms(p);
         setIntake(i[0] ?? null);
         setChecks(f);
+        setMilestones(ms);
+        // Private bucket: each video needs its own signed URL. 6h matches
+        // the form-check inbox, long enough to watch a few in one sitting.
+        (async () => {
+          const signed: Record<string, string> = {};
+          for (const m of ms) {
+            if (!m.video_url) continue;
+            const u = await sbSignUrl("form-checks", m.video_url, 6 * 3600);
+            if (u) signed[m.id] = u;
+          }
+          setMilestoneUrls(signed);
+        })();
         // Filter comments to threads where the latest item involves this
         // client. Cheaper: filter on program_items belonging to this
         // client's programs. Simpler: just keep comments where author
@@ -1339,6 +1373,65 @@ const AdminClientDetail = () => {
                   </p>
                   <p className="text-xs">{formatDate(intake.submitted_at)}</p>
                 </div>
+              )}
+            </section>
+          )}
+
+          {/* Progress milestones: the form checks archived as proof a
+              skill was unlocked. The client sees these for life under
+              /app/archive; the coach needs the same view to prep a call
+              or a next block without digging through the inbox. */}
+          {milestones.length > 0 && (
+            <section className="bg-white border border-border rounded-2xl p-5">
+              <button
+                onClick={() => setMilestonesOpen((o) => !o)}
+                className="w-full flex items-center justify-between gap-2 text-left"
+              >
+                <h2 className="font-heading text-base font-bold flex items-center gap-2">
+                  <Video size={16} /> Progress milestones
+                  <span className="text-[11px] font-normal text-muted-foreground">
+                    ({milestones.length})
+                  </span>
+                </h2>
+                {milestonesOpen ? (
+                  <ChevronUp size={16} className="text-muted-foreground" />
+                ) : (
+                  <ChevronDown size={16} className="text-muted-foreground" />
+                )}
+              </button>
+              {milestonesOpen && (
+                <ul className="space-y-3 mt-4 border-t border-border pt-4">
+                  {milestones.map((m) => (
+                    <li
+                      key={m.id}
+                      className="bg-muted/30 border border-border rounded-xl p-3"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <p className="font-semibold text-xs">
+                          {m.archived_note ||
+                            (m.program_items?.custom_name
+                              ? stripSection(m.program_items.custom_name)
+                              : "Skill achievement")}
+                        </p>
+                        <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                          {formatDate(m.archived_at ?? m.created_at)}
+                        </span>
+                      </div>
+                      {milestoneUrls[m.id] ? (
+                        <video
+                          src={milestoneUrls[m.id]}
+                          controls
+                          preload="metadata"
+                          className="w-full rounded-lg bg-black"
+                        />
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground">
+                          {m.video_url ? "Loading video…" : "No video"}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               )}
             </section>
           )}
