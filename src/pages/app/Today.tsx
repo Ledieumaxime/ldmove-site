@@ -18,10 +18,10 @@ import {
   CompletedLog,
   ProgramWeekLite,
   WorkoutDay,
-  clearDeferredWeeks,
+  clearChosenWeek,
   countCompletedSessions,
   dayDisplayLabel,
-  getDeferredWeeks,
+  getChosenWeek,
   listProgramDays,
   nextDay,
 } from "@/lib/workoutDay";
@@ -142,17 +142,13 @@ const Today = () => {
     [days, logs]
   );
 
-  // Sessions pushed back with "Not today" on the dashboard. Read from
-  // sessionStorage so this page shows the session the client actually
-  // chose to start, instead of the one they just declined.
-  const deferred = program ? getDeferredWeeks(program.id) : [];
+  // The session picked with "Skip session" on the dashboard, read from
+  // sessionStorage so this page opens what the client actually chose.
+  const chosenWeek = program ? getChosenWeek(program.id) : null;
 
-  // The session to display: the first one still pending in this loop,
-  // minus anything deferred for this visit.
   const todaysWorkout: WorkoutDay<ProgramItem> | null = useMemo(
-    () => nextDay(days, logs, deferred),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [days, logs, deferred.join(",")]
+    () => nextDay(days, logs, chosenWeek),
+    [days, logs, chosenWeek]
   );
 
   // Sequential session number for display ("Session 1", "Session 16", etc.).
@@ -227,7 +223,7 @@ const Today = () => {
       freshRunIdRef.current = null;
       // The loop moved on, so anything pushed back earlier is pending
       // again on its own merits rather than still being stepped over.
-      clearDeferredWeeks(program.id);
+      clearChosenWeek(program.id);
       // Send the client back to the dashboard, where the next session
       // shows up as the new "Start Session N" CTA.
       navigate("/app/home");
@@ -330,11 +326,10 @@ const Today = () => {
         <p className="text-sm text-muted-foreground">
           {program.title} · {dayDisplayLabel(todaysWorkout)}
         </p>
-        {deferred.length > 0 && (
+        {chosenWeek && (
           <p className="text-xs text-muted-foreground mt-2">
-            {deferred.length === 1 ? "A session was" : "Sessions were"} moved
-            for now. You still have to do{" "}
-            {deferred.length === 1 ? "it" : "them"} before this block loops.
+            You picked this session for today. What you skipped is still
+            owed before this block loops.
           </p>
         )}
       </div>

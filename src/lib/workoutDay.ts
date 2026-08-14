@@ -143,15 +143,18 @@ export function completionsByDay(
 export function nextDay<T extends ProgramItemLite>(
   days: WorkoutDay<T>[],
   logs: CompletedLog[],
-  /** Sessions to step over this once, e.g. the one just skipped. */
-  skipWeekIds: string[] = []
+  /** Session the client picked from "Skip session", for this visit. */
+  chosenWeekId: string | null = null
 ): WorkoutDay<T> | null {
+  if (chosenWeekId) {
+    const chosen = days.find((d) => d.weekId === chosenWeekId && !d.isEmpty);
+    // Honouring the choice can't break the block: doing a session a
+    // second time only pushes its own count up, so anything still owed
+    // stays owed and comes back until it's done.
+    if (chosen) return chosen;
+  }
   const pending = pendingDays(days, logs);
-  if (pending.length === 0) return days[0] ?? null;
-  const skip = new Set(skipWeekIds);
-  // Skipping only makes sense while something else is pending.
-  const candidates = pending.filter((d) => !skip.has(d.weekId));
-  return (candidates[0] ?? pending[0]) ?? null;
+  return pending[0] ?? days[0] ?? null;
 }
 
 /** Every session still owed in the current loop, in program order.
@@ -168,55 +171,41 @@ export function pendingDays<T extends ProgramItemLite>(
   return playable.filter((d) => (counts.get(d.weekId) ?? 0) === loop);
 }
 
-// ---- Deferred sessions -------------------------------------------------
-// "Not today" is decided on the dashboard but has to be honoured by the
-// workout page too, so the choice lives in sessionStorage rather than in
-// either page's state: it survives the hop between them and a reload,
-// and dies with the browser tab. A deferral is worth exactly one visit.
-// Keyed per program so two blocks never share it.
+// ---- Chosen session ----------------------------------------------------
+// "Skip session" is decided on the dashboard but has to be honoured by
+// the workout page too, so the choice lives in sessionStorage rather
+// than in either page's state: it survives the hop between them and a
+// reload, and dies with the browser tab. Keyed per program.
+//
+// We store the session the client PICKED, not the ones they stepped
+// over. Storing skips made the choice one-way (walking back to a
+// skipped session left it in the list) and could not express "train
+// something from the next cycle", which is the only way out when the
+// last session of the loop is the one they can't do today.
 
-const deferKey = (programId: string) => `ldmove-deferred-${programId}`;
+const choiceKey = (programId: string) => `ldmove-chosen-${programId}`;
 
-export function getDeferredWeeks(programId: string): string[] {
+export function getChosenWeek(programId: string): string | null {
   try {
-    const raw = sessionStorage.getItem(deferKey(programId));
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
+    return sessionStorage.getItem(choiceKey(programId));
   } catch {
-    return [];
+    return null;
   }
 }
 
-/** Jump straight to a chosen session by stepping over everything else
- *  still pending ahead of it. Nothing is marked done: the skipped
- *  sessions are simply pushed behind the chosen one for this visit.
- *
- *  `pendingWeekIds` is the full ordered list of sessions still owed
- *  this loop, so the stored list is REPLACED, never merged. Merging
- *  made the choice one-way: after skipping Legs to reach Pull, picking
- *  Legs again would have left Legs in the skip list and served Pull
- *  once more. */
-export function skipToWeek(
-  programId: string,
-  pendingWeekIds: string[],
-  chosenWeekId: string
-): string[] {
-  const cut = pendingWeekIds.indexOf(chosenWeekId);
-  const next = cut > 0 ? pendingWeekIds.slice(0, cut) : [];
+export function chooseWeek(programId: string, weekId: string): void {
   try {
-    if (next.length === 0) sessionStorage.removeItem(deferKey(programId));
-    else sessionStorage.setItem(deferKey(programId), JSON.stringify(next));
+    sessionStorage.setItem(choiceKey(programId), weekId);
   } catch {
     // Private mode / storage full: the choice just won't stick.
   }
-  return next;
 }
 
-/** Called once a session is completed: the loop moved on, so whatever
- *  was pushed back is pending again on its own merits. */
-export function clearDeferredWeeks(programId: string): void {
+/** Called once a session is completed: the loop moved on, so the next
+ *  session is whatever the block rule says again. */
+export function clearChosenWeek(programId: string): void {
   try {
-    sessionStorage.removeItem(deferKey(programId));
+    sessionStorage.removeItem(choiceKey(programId));
   } catch {
     // nothing to clear
   }

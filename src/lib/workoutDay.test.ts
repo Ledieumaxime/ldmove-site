@@ -3,12 +3,12 @@ import {
   CompletedLog,
   ProgramItemLite,
   ProgramWeekLite,
-  clearDeferredWeeks,
-  getDeferredWeeks,
+  chooseWeek,
+  clearChosenWeek,
+  getChosenWeek,
   listProgramDays,
   nextDay,
   pendingDays,
-  skipToWeek,
 } from "./workoutDay";
 
 // A block of four sessions, two exercises each, mirroring how the app
@@ -85,22 +85,32 @@ describe("nextDay", () => {
     expect(titleOf(nextDay(days, logs))).toBe("Legs");
   });
 
-  it("skips a session without losing it", () => {
+  it("serves the session the client picked", () => {
     const logs = [...run("w1", "r1")];
-    // Legs is up next but the client skips it.
-    expect(titleOf(nextDay(days, logs, ["w2"]))).toBe("Pull");
-    // Nothing was logged, so Legs is still pending on the next visit.
+    // Legs is up next but the client picked Handstand instead.
+    expect(titleOf(nextDay(days, logs, "w4"))).toBe("Handstand");
+    // Nothing was logged, so Legs is still what's owed next visit.
     expect(titleOf(nextDay(days, logs))).toBe("Legs");
   });
 
-  it("still serves the session when it is the only one left to skip", () => {
+  it("lets the client start the next cycle when the last session is the one they can't do", () => {
+    // Only Legs is still owed, and that's exactly the session their
+    // sore legs rule out. They may run ahead on Push...
     const logs = [
       ...run("w1", "r1"),
       ...run("w3", "r3"),
       ...run("w4", "r4"),
     ];
-    // Legs is the last one pending: skipping it has nowhere to go.
-    expect(titleOf(nextDay(days, logs, ["w2"]))).toBe("Legs");
+    expect(titleOf(nextDay(days, logs, "w1"))).toBe("Push");
+    // ...but Legs stays owed and comes straight back, so the loop
+    // cannot close without it.
+    const after = [...logs, ...run("w1", "r1c")];
+    expect(titleOf(nextDay(days, after))).toBe("Legs");
+  });
+
+  it("ignores a pick pointing at a session the coach left empty", () => {
+    const withEmpty = listProgramDays(weeks, items.filter((i) => i.week_id !== "w2"));
+    expect(titleOf(nextDay(withEmpty, [], "w2"))).toBe("Push");
   });
 
   it("never parks the client on a session the coach left empty", () => {
@@ -117,30 +127,31 @@ describe("nextDay", () => {
   });
 });
 
-describe("skipToWeek", () => {
+describe("chooseWeek", () => {
   const programId = "p1";
-  const pendingIds = ["w2", "w3", "w4"]; // Legs, Pull, Handstand
 
   beforeEach(() => sessionStorage.clear());
 
-  it("steps over only what sits ahead of the chosen session", () => {
-    expect(skipToWeek(programId, pendingIds, "w4")).toEqual(["w2", "w3"]);
-    expect(getDeferredWeeks(programId)).toEqual(["w2", "w3"]);
+  it("remembers the pick across the hop to the workout page", () => {
+    chooseWeek(programId, "w4");
+    expect(getChosenWeek(programId)).toBe("w4");
   });
 
-  it("lets the client come back to a session they skipped", () => {
-    skipToWeek(programId, pendingIds, "w3"); // skip Legs, take Pull
-    expect(getDeferredWeeks(programId)).toEqual(["w2"]);
-    // Changing their mind back to Legs must clear the skip, not stack
-    // onto it, otherwise Legs stays unreachable for the whole visit.
-    expect(skipToWeek(programId, pendingIds, "w2")).toEqual([]);
-    expect(getDeferredWeeks(programId)).toEqual([]);
+  it("lets the client change their mind back", () => {
+    chooseWeek(programId, "w3");
+    chooseWeek(programId, "w2");
+    expect(getChosenWeek(programId)).toBe("w2");
   });
 
   it("is forgotten once a session is completed", () => {
-    skipToWeek(programId, pendingIds, "w4");
-    clearDeferredWeeks(programId);
-    expect(getDeferredWeeks(programId)).toEqual([]);
+    chooseWeek(programId, "w4");
+    clearChosenWeek(programId);
+    expect(getChosenWeek(programId)).toBeNull();
+  });
+
+  it("keeps blocks apart", () => {
+    chooseWeek("blockA", "w1");
+    expect(getChosenWeek("blockB")).toBeNull();
   });
 });
 
@@ -172,5 +183,33 @@ describe("pendingDays", () => {
       items.filter((i) => i.week_id !== "w2")
     );
     expect(pendingDays(withEmpty, []).map((d) => d.weekId)).not.toContain("w2");
+  });
+});
+
+describe("what the skip dialog offers", () => {
+  // Mirrors the dashboard: normally the other sessions still owed;
+  // on the last one, the rest of the block (i.e. the next cycle).
+  const optionsFor = (logs: CompletedLog[]) => {
+    const pending = pendingDays(days, logs);
+    const current = nextDay(days, logs);
+    const pool = pending.length > 1 ? pending : days.filter((d) => !d.isEmpty);
+    return pool.filter((d) => d.weekId !== current?.weekId);
+  };
+
+  it("offers the other sessions still owed", () => {
+    expect(optionsFor([...run("w1", "r1")]).map((d) => d.weekTitle)).toEqual([
+      "Pull",
+      "Handstand",
+    ]);
+  });
+
+  it("offers the next cycle rather than nothing on the last session", () => {
+    const logs = [...run("w1", "r1"), ...run("w3", "r3"), ...run("w4", "r4")];
+    expect(pendingDays(days, logs).map((d) => d.weekTitle)).toEqual(["Legs"]);
+    expect(optionsFor(logs).map((d) => d.weekTitle)).toEqual([
+      "Push",
+      "Pull",
+      "Handstand",
+    ]);
   });
 });

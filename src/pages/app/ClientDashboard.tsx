@@ -19,12 +19,12 @@ import BlockCalendar from "@/components/BlockCalendar";
 import { useAuth } from "@/contexts/AuthContext";
 import { IntakeAnswers, visibleExercises } from "@/lib/assessment";
 import {
+  chooseWeek,
   dayDisplayLabel,
-  getDeferredWeeks,
+  getChosenWeek,
   listProgramDays,
   nextDay,
   pendingDays,
-  skipToWeek,
 } from "@/lib/workoutDay";
 
 type Program = {
@@ -199,8 +199,8 @@ export const ClientDashboardBody = ({
     cached?.completedLogs ?? []
   );
   const [loading, setLoading] = useState(!cached);
-  // Deferrals live in sessionStorage (shared with the workout page);
-  // this counter just forces a re-render when one is added.
+  // The picked session lives in sessionStorage (shared with the
+  // workout page); this counter just forces a re-render on a pick.
   const [, setDeferTick] = useState(0);
   const [skipOpen, setSkipOpen] = useState(false);
 
@@ -622,16 +622,21 @@ export const ClientDashboardBody = ({
   const programDays = currentProgram
     ? listProgramDays(programWeeks, programItems)
     : [];
-  const deferredWeeks =
-    currentProgram && !coachView ? getDeferredWeeks(currentProgram.id) : [];
-  const nextSession = nextDay(programDays, completedLogs, deferredWeeks);
-  // What the client can jump to: the sessions still owed this loop.
-  // Anything already done is off the list, so skipping reorders the
-  // block without ever letting a session be dropped.
+  const chosenWeek =
+    currentProgram && !coachView ? getChosenWeek(currentProgram.id) : null;
+  const nextSession = nextDay(programDays, completedLogs, chosenWeek);
   const pending = pendingDays(programDays, completedLogs);
-  const skipOptions = pending.filter(
-    (d) => d.weekId !== nextSession?.weekId
-  );
+  // What the client can jump to. Normally the other sessions still
+  // owed this cycle, so a skip reorders the block without letting a
+  // session be dropped. On the last one owed there would be nothing
+  // left to offer, and that is exactly when a client with wrecked legs
+  // closes the app instead of training: they get the next cycle
+  // instead. The session they owe stays owed either way.
+  const isLastOfCycle = pending.length <= 1;
+  const skipPool = isLastOfCycle
+    ? programDays.filter((d) => !d.isEmpty)
+    : pending;
+  const skipOptions = skipPool.filter((d) => d.weekId !== nextSession?.weekId);
   const nextSessionLabel = nextSession ? dayDisplayLabel(nextSession) : null;
   const nextSessionExerciseCount = nextSession?.items.length ?? 0;
   // Duration estimate: ~45s of work per set + the prescribed rest per
@@ -797,12 +802,10 @@ export const ClientDashboardBody = ({
                   <SkipForward size={12} /> Skip session
                 </button>
               )}
-              {deferredWeeks.length > 0 && (
+              {chosenWeek && (
                 <p className="text-xs opacity-60 mt-3">
-                  {deferredWeeks.length === 1 ? "One session" : "Some sessions"}{" "}
-                  moved for now. You still have to do{" "}
-                  {deferredWeeks.length === 1 ? "it" : "them"} before this block
-                  loops.
+                  You picked this one for today. What you skipped is still
+                  owed before this block loops.
                 </p>
               )}
             </>
@@ -841,8 +844,9 @@ export const ClientDashboardBody = ({
                 your coach will see it.
               </p>
               <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-                Whatever you skip is not lost. It comes back and you still
-                have to do it before this block loops.
+                {isLastOfCycle
+                  ? `${nextSessionLabel ?? "This session"} is the last one of your current cycle. You can start the next one, but you still have to come back and do it before this cycle closes.`
+                  : "Whatever you skip is not lost. It comes back and you still have to do it before this block loops."}
               </p>
             </div>
 
@@ -856,11 +860,7 @@ export const ClientDashboardBody = ({
                     <button
                       type="button"
                       onClick={() => {
-                        skipToWeek(
-                          currentProgram.id,
-                          pending.map((p) => p.weekId),
-                          d.weekId
-                        );
+                        chooseWeek(currentProgram.id, d.weekId);
                         setSkipOpen(false);
                         setDeferTick((n) => n + 1);
                       }}
