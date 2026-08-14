@@ -12,7 +12,8 @@ import {
   Inbox as InboxIcon,
   Loader2,
 } from "lucide-react";
-import { sbGet, sbPatch, sbSignUrl } from "@/integrations/supabase/api";
+import { sbGet, sbPatch, sbPost, sbSignUrl } from "@/integrations/supabase/api";
+import { stripSection } from "@/components/ProgramItemCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ExerciseComments from "@/components/ExerciseComments";
@@ -584,10 +585,33 @@ const CheckCard = ({
   const archive = async () => {
     setSaving(true);
     try {
+      const note = archiveNote.trim();
       await sbPatch(`form_check_submissions?id=eq.${check.id}`, {
         archived_as_progress: true,
-        archived_note: archiveNote.trim() || null,
+        archived_note: note || null,
         archived_at: new Date().toISOString(),
+      });
+      // Tell the client: archiving is the coach saying "you unlocked
+      // this", and it is worth nothing if they never find out. The note
+      // is the skill the coach just credited them with, so it carries
+      // the message; without one we fall back to the exercise name.
+      const skill =
+        note ||
+        (check.program_items?.custom_name
+          ? stripSection(check.program_items.custom_name)
+          : "");
+      await sbPost("notifications", {
+        user_id: check.client_id,
+        type: "progress_archived",
+        title: "New progress milestone",
+        body: skill
+          ? `Maxime saved your ${skill} as a milestone. It is in your archive for good.`
+          : "Maxime saved one of your videos as a milestone. It is in your archive for good.",
+        link_url: "/app/archive",
+      }).catch((e) => {
+        // The archive itself succeeded; a failed notification must not
+        // make the coach think it didn't.
+        console.error("milestone notification failed", e);
       });
       setArchiveFormOpen(false);
       onUpdated();

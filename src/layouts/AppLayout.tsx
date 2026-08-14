@@ -1,5 +1,11 @@
-import { Suspense } from "react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import {
+  Link,
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import {
   Home,
   Dumbbell,
@@ -12,13 +18,46 @@ import {
   Library,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { sbGet } from "@/integrations/supabase/api";
 import RouteFallback from "@/components/RouteFallback";
 import logo from "@/assets/logo-ldmove.png";
+
+/** Fired by the archive page once it has marked the milestones as seen,
+ *  so the badge clears without waiting for a navigation. */
+export const MILESTONES_SEEN_EVENT = "ldmove:milestones-seen";
 
 const AppLayout = () => {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const isCoach = profile?.role === "coach";
+
+  // Unread "a milestone was archived for you" notifications. They are the
+  // count of videos the coach added since the client last opened their
+  // archive, which is exactly what the badge promises.
+  const [newVideos, setNewVideos] = useState(0);
+
+  const refreshBadge = useCallback(async () => {
+    if (!profile || isCoach) return;
+    try {
+      const rows = await sbGet<{ id: string }[]>(
+        `notifications?user_id=eq.${profile.id}&read=eq.false&type=eq.progress_archived&select=id`
+      );
+      setNewVideos(rows.length);
+    } catch {
+      // A failed count must never block the shell from rendering.
+    }
+  }, [profile, isCoach]);
+
+  useEffect(() => {
+    refreshBadge();
+  }, [refreshBadge, location.pathname]);
+
+  useEffect(() => {
+    const clear = () => setNewVideos(0);
+    window.addEventListener(MILESTONES_SEEN_EVENT, clear);
+    return () => window.removeEventListener(MILESTONES_SEEN_EVENT, clear);
+  }, []);
 
   const handleSignOut = async () => {
     await signOut();
@@ -106,6 +145,7 @@ const AppLayout = () => {
                 to="/app/archive"
                 icon={<Film size={20} />}
                 label="My videos"
+                badge={newVideos}
               />
             </>
           )}
@@ -119,22 +159,36 @@ const BottomLink = ({
   to,
   icon,
   label,
+  badge = 0,
 }: {
   to: string;
   icon: React.ReactNode;
   label: string;
+  /** Unread count. Zero renders nothing, so the dot only ever means
+   *  "there is something new in here". */
+  badge?: number;
 }) => (
   <NavLink
     to={to}
     className={({ isActive }) =>
-      `flex flex-col md:flex-row items-center gap-1 md:gap-2 px-3 py-1 rounded-md text-xs md:text-sm ${
+      `relative flex flex-col md:flex-row items-center gap-1 md:gap-2 px-3 py-1 rounded-md text-xs md:text-sm ${
         isActive
           ? "text-accent font-semibold"
           : "text-muted-foreground hover:text-foreground"
       }`
     }
   >
-    {icon}
+    <span className="relative">
+      {icon}
+      {badge > 0 && (
+        <span
+          aria-label={`${badge} new`}
+          className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-red-600 text-white text-[10px] font-bold leading-4 text-center"
+        >
+          {badge > 9 ? "9+" : badge}
+        </span>
+      )}
+    </span>
     <span>{label}</span>
   </NavLink>
 );

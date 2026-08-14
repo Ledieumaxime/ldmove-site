@@ -7,7 +7,8 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
-import { sbGet, sbSignUrl } from "@/integrations/supabase/api";
+import { sbGet, sbPatch, sbSignUrl } from "@/integrations/supabase/api";
+import { MILESTONES_SEEN_EVENT } from "@/layouts/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import BackToDashboard from "@/components/BackToDashboard";
@@ -80,6 +81,18 @@ const ClientArchive = () => {
           if (u) pSigs[p.id] = u;
         }
         setProgressUrls(pSigs);
+
+        // Landing here IS seeing them, so retire the milestone alerts and
+        // clear the nav badge. Anything else the coach sent stays unread.
+        try {
+          await sbPatch(
+            `notifications?user_id=eq.${user.id}&read=eq.false&type=eq.progress_archived`,
+            { read: true }
+          );
+          window.dispatchEvent(new Event(MILESTONES_SEEN_EVENT));
+        } catch {
+          // Badge will simply clear on the next visit.
+        }
       } finally {
         setLoading(false);
       }
