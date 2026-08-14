@@ -1404,26 +1404,43 @@ const AdminClientDetail = () => {
           {/* Progress milestones: the form checks archived as proof a
               skill was unlocked. The client sees these for life under
               /app/archive; the coach needs the same view to prep a call
-              or a next block without digging through the inbox. */}
-          {milestones.length > 0 && (
-            <section className="bg-white border border-border rounded-2xl p-5">
-              <button
-                onClick={() => setMilestonesOpen((o) => !o)}
-                className="w-full flex items-center justify-between gap-2 text-left"
-              >
-                <h2 className="font-heading text-base font-bold flex items-center gap-2">
-                  <Video size={16} /> Progress milestones
-                  <span className="text-[11px] font-normal text-muted-foreground">
-                    ({milestones.length})
-                  </span>
-                </h2>
-                {milestonesOpen ? (
+              or a next block without digging through the inbox.
+              Rendered even when empty, unlike the sections around it:
+              hidden, the feature is unlearnable until you already know
+              it exists, so the empty state carries the how-to instead. */}
+          <section className="bg-white border border-border rounded-2xl p-5">
+            <button
+              onClick={() => setMilestonesOpen((o) => !o)}
+              disabled={milestones.length === 0}
+              className="w-full flex items-center justify-between gap-2 text-left disabled:cursor-default"
+            >
+              <h2 className="font-heading text-base font-bold flex items-center gap-2">
+                <Video size={16} /> Progress milestones
+                <span className="text-[11px] font-normal text-muted-foreground">
+                  ({milestones.length})
+                </span>
+              </h2>
+              {milestones.length > 0 &&
+                (milestonesOpen ? (
                   <ChevronUp size={16} className="text-muted-foreground" />
                 ) : (
                   <ChevronDown size={16} className="text-muted-foreground" />
-                )}
-              </button>
-              {milestonesOpen && (
+                ))}
+            </button>
+            {milestones.length === 0 ? (
+              <p className="text-xs text-muted-foreground mt-3 pt-3 border-t border-border">
+                Nothing archived yet. On a form check that shows a skill
+                unlocked, use{" "}
+                <Link
+                  to={`/app/admin/form-checks#client-${client.id}`}
+                  className="text-accent font-semibold hover:underline"
+                >
+                  Archive as progress
+                </Link>{" "}
+                to keep it here and in the client's archive for life.
+              </p>
+            ) : (
+              milestonesOpen && (
                 <ul className="space-y-3 mt-4 border-t border-border pt-4">
                   {milestones.map((m) => (
                     <li
@@ -1456,9 +1473,9 @@ const AdminClientDetail = () => {
                     </li>
                   ))}
                 </ul>
-              )}
-            </section>
-          )}
+              )
+            )}
+          </section>
 
           {/* Past blocks */}
           {programs.filter((p) => p.is_archived).length > 0 && (
