@@ -50,7 +50,9 @@ const ClientArchive = () => {
   const [progressUrls, setProgressUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [assessmentOpen, setAssessmentOpen] = useState(false);
-  const [achievementsOpen, setAchievementsOpen] = useState(true);
+  // Closed like the assessment section above it: the page opens on a
+  // short list of headings rather than a wall of video players.
+  const [achievementsOpen, setAchievementsOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
