@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Lock, ArrowLeft, ArrowRight, CheckCircle2, Dumbbell, Link2 } from "lucide-react";
+import {
+  Lock,
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Dumbbell,
+  Link2,
+} from "lucide-react";
 import { sbGet, sbPost } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -62,6 +71,19 @@ const ProgramDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [unlocking, setUnlocking] = useState(false);
+  // Sessions and their sections both start collapsed: a block is five
+  // sessions of forty-odd exercises, so opened flat the page is a wall
+  // you have to scroll past to reach the session you came for. Keyed by
+  // id (and by `weekId:SECTION`) so two sessions never share a state.
+  const [openDays, setOpenDays] = useState<Set<string>>(new Set());
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set());
+
+  const toggle = (set: Set<string>, key: string) => {
+    const next = new Set(set);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -289,149 +311,186 @@ const ProgramDetail = () => {
                   }
                 }
 
+                const dayOpen = openDays.has(w.id);
+
                 return (
                   <div key={w.id} className="bg-white border border-border rounded-2xl overflow-hidden">
-                    <div className="bg-foreground text-background px-5 py-4">
-                      <h3 className="font-heading text-xl font-bold">
-                        {w.title?.trim() ? w.title : `Day ${w.week_number}`}
-                      </h3>
-                      {w.notes && <p className="text-sm opacity-80 mt-1">{w.notes}</p>}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setOpenDays((s) => toggle(s, w.id))}
+                      className="w-full bg-foreground text-background px-5 py-4 flex items-center gap-3 text-left"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-heading text-xl font-bold">
+                          {w.title?.trim() ? w.title : `Day ${w.week_number}`}
+                        </h3>
+                        {w.notes && <p className="text-sm opacity-80 mt-1">{w.notes}</p>}
+                      </div>
+                      {/* Collapsed, the count is the only clue to what is
+                          inside, so it has to survive the fold. */}
+                      <span className="text-xs opacity-70 whitespace-nowrap">
+                        {dayItems.length} exercise
+                        {dayItems.length !== 1 ? "s" : ""}
+                      </span>
+                      {dayOpen ? (
+                        <ChevronDown size={18} className="opacity-70 shrink-0" />
+                      ) : (
+                        <ChevronRight size={18} className="opacity-70 shrink-0" />
+                      )}
+                    </button>
 
-                    <div className="p-5 space-y-5">
-                      {sections.map((sec, sIdx) => {
-                        const style = sectionStyle(sec.section);
-                        // Build blocks (solo / group) for this section
-                        type Block =
-                          | { type: "solo"; item: Item }
-                          | { type: "group"; name: string; items: Item[] };
-                        const blocks: Block[] = [];
-                        for (const it of sec.items) {
-                          if (it.group_name) {
-                            const last = blocks[blocks.length - 1];
-                            if (last && last.type === "group" && last.name === it.group_name) {
-                              last.items.push(it);
+                    {dayOpen && (
+                      <div className="p-5 space-y-5">
+                        {sections.map((sec, sIdx) => {
+                          const style = sectionStyle(sec.section);
+                          // Build blocks (solo / group) for this section
+                          type Block =
+                            | { type: "solo"; item: Item }
+                            | { type: "group"; name: string; items: Item[] };
+                          const blocks: Block[] = [];
+                          for (const it of sec.items) {
+                            if (it.group_name) {
+                              const last = blocks[blocks.length - 1];
+                              if (last && last.type === "group" && last.name === it.group_name) {
+                                last.items.push(it);
+                              } else {
+                                blocks.push({ type: "group", name: it.group_name, items: [it] });
+                              }
                             } else {
-                              blocks.push({ type: "group", name: it.group_name, items: [it] });
+                              blocks.push({ type: "solo", item: it });
                             }
-                          } else {
-                            blocks.push({ type: "solo", item: it });
                           }
-                        }
-                        return (
-                          <div key={sIdx}>
-                            <div
-                              className={`inline-block text-sm md:text-base font-bold uppercase tracking-widest px-4 py-2 rounded-lg mb-4 shadow-sm ${style.badge}`}
-                            >
-                              {sec.section}
-                            </div>
-                            <div className="space-y-2.5">
-                              {blocks.map((b, bIdx) =>
-                                b.type === "solo" ? (
-                                  // Continuous numbering: every block of
-                                  // the section carries its position,
-                                  // single exercises included.
-                                  <div key={b.item.id} className="relative pl-9">
-                                    <span
-                                      className={`absolute left-0 top-3 w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center ${style.groupBullet}`}
-                                    >
-                                      {bIdx + 1}
-                                    </span>
-                                    <div className={`rounded-xl overflow-hidden border-2 ${style.blockBorder}`}>
-                                      <div className={`flex items-center justify-between gap-2 px-3 py-2 ${style.strip}`}>
-                                        <span className="text-[11px] font-bold uppercase tracking-widest text-white">
-                                          Set
-                                        </span>
-                                        {blockStatsLabel(null, b.item.sets, b.item.rest_seconds) && (
-                                          <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold whitespace-nowrap ${style.stripPill}`}>
-                                            {blockStatsLabel(null, b.item.sets, b.item.rest_seconds)}
-                                          </span>
-                                        )}
-                                      </div>
-                                      <ProgramItemCard
-                                        item={b.item}
-                                        canComment={program.type === "custom"}
-                                        commentsReadOnly={program.is_archived}
-                                        canUploadFormCheck={clientCanUploadFormCheck}
-                                        // Overview page: no interactive logger
-                                        // for the client. The coach keeps a
-                                        // read-only summary of what the client
-                                        // has logged, so coaching decisions
-                                        // stay data-driven.
-                                        loggerClientId={
-                                          isCoach ? program.assigned_client_id : null
-                                        }
-                                        loggerReadOnly
-                                        flush
-                                      />
-                                    </div>
-                                  </div>
+                          const secKey = `${w.id}:${sec.section}:${sIdx}`;
+                          const secOpen = openSections.has(secKey);
+                          return (
+                            <div key={sIdx}>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setOpenSections((s) => toggle(s, secKey))
+                                }
+                                className={`w-full flex items-center gap-2 text-sm md:text-base font-bold uppercase tracking-widest px-4 py-2 rounded-lg shadow-sm ${style.badge} ${secOpen ? "mb-4" : ""}`}
+                              >
+                                <span className="flex-1 text-left">{sec.section}</span>
+                                <span className="text-xs font-semibold opacity-70 normal-case tracking-normal">
+                                  {sec.items.length}
+                                </span>
+                                {secOpen ? (
+                                  <ChevronDown size={16} className="opacity-70" />
                                 ) : (
-                                  (() => {
-                                    // Aggregate sets and rest for the superset group
-                                    const groupSets = b.items.find((it) => it.sets != null)?.sets ?? null;
-                                    const groupRest =
-                                      [...b.items].reverse().find((it) => it.rest_seconds != null && it.rest_seconds > 0)?.rest_seconds ?? null;
-                                    return (
-                                      <div key={`g-${bIdx}`} className="relative pl-9">
+                                  <ChevronRight size={16} className="opacity-70" />
+                                )}
+                              </button>
+                              {secOpen && (
+                                <div className="space-y-2.5">
+                                  {blocks.map((b, bIdx) =>
+                                    b.type === "solo" ? (
+                                      // Continuous numbering: every block of
+                                      // the section carries its position,
+                                      // single exercises included.
+                                      <div key={b.item.id} className="relative pl-9">
                                         <span
                                           className={`absolute left-0 top-3 w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center ${style.groupBullet}`}
                                         >
                                           {bIdx + 1}
                                         </span>
                                         <div className={`rounded-xl overflow-hidden border-2 ${style.blockBorder}`}>
-                                        <div className={`flex items-center justify-between gap-2 px-3 py-2 ${style.strip}`}>
-                                          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-white">
-                                            <Link2 size={12} /> {groupTypeLabel(b.name)}
-                                          </span>
-                                          {blockStatsLabel(b.name, groupSets, groupRest) && (
-                                            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold whitespace-nowrap ${style.stripPill}`}>
-                                              {blockStatsLabel(b.name, groupSets, groupRest)}
+                                          <div className={`flex items-center justify-between gap-2 px-3 py-2 ${style.strip}`}>
+                                            <span className="text-[11px] font-bold uppercase tracking-widest text-white">
+                                              Set
                                             </span>
-                                          )}
-                                        </div>
-                                        <div className={`p-3 ${style.groupBox} !border-0 rounded-none`}>
-                                        <p className="text-[11px] text-muted-foreground italic mb-2">
-                                          {isCircuitGroup(b.name)
-                                            ? "One round = every exercise once, in order. Rest, then start the next round."
-                                            : "Chain exercises with no rest, then rest after the last one."}
-                                        </p>
-                                        <div className="space-y-2">
-                                          {b.items.map((it, i) => (
-                                            <div key={it.id} className="relative pl-7">
-                                              <span className={`absolute left-0 top-2 w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center ${style.groupBullet}`}>
-                                                {i + 1}
+                                            {blockStatsLabel(null, b.item.sets, b.item.rest_seconds) && (
+                                              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold whitespace-nowrap ${style.stripPill}`}>
+                                                {blockStatsLabel(null, b.item.sets, b.item.rest_seconds)}
                                               </span>
-                                              <ProgramItemCard
-                                                item={it}
-                                                compact
-                                                canComment={program.type === "custom"}
-                                    commentsReadOnly={program.is_archived}
-                                                canUploadFormCheck={clientCanUploadFormCheck}
-                                                inSuperset
-                                                loggerClientId={
-                                                  isCoach
-                                                    ? program.assigned_client_id
-                                                    : null
-                                                }
-                                                loggerReadOnly
-                                                setsOverride={groupSets}
-                                              />
-                                            </div>
-                                          ))}
-                                        </div>
-                                        </div>
+                                            )}
+                                          </div>
+                                          <ProgramItemCard
+                                            item={b.item}
+                                            canComment={program.type === "custom"}
+                                            commentsReadOnly={program.is_archived}
+                                            canUploadFormCheck={clientCanUploadFormCheck}
+                                            // Overview page: no interactive logger
+                                            // for the client. The coach keeps a
+                                            // read-only summary of what the client
+                                            // has logged, so coaching decisions
+                                            // stay data-driven.
+                                            loggerClientId={
+                                              isCoach ? program.assigned_client_id : null
+                                            }
+                                            loggerReadOnly
+                                            flush
+                                          />
                                         </div>
                                       </div>
-                                    );
-                                  })()
-                                )
+                                    ) : (
+                                      (() => {
+                                        // Aggregate sets and rest for the superset group
+                                        const groupSets = b.items.find((it) => it.sets != null)?.sets ?? null;
+                                        const groupRest =
+                                          [...b.items].reverse().find((it) => it.rest_seconds != null && it.rest_seconds > 0)?.rest_seconds ?? null;
+                                        return (
+                                          <div key={`g-${bIdx}`} className="relative pl-9">
+                                            <span
+                                              className={`absolute left-0 top-3 w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center ${style.groupBullet}`}
+                                            >
+                                              {bIdx + 1}
+                                            </span>
+                                            <div className={`rounded-xl overflow-hidden border-2 ${style.blockBorder}`}>
+                                            <div className={`flex items-center justify-between gap-2 px-3 py-2 ${style.strip}`}>
+                                              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-white">
+                                                <Link2 size={12} /> {groupTypeLabel(b.name)}
+                                              </span>
+                                              {blockStatsLabel(b.name, groupSets, groupRest) && (
+                                                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold whitespace-nowrap ${style.stripPill}`}>
+                                                  {blockStatsLabel(b.name, groupSets, groupRest)}
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className={`p-3 ${style.groupBox} !border-0 rounded-none`}>
+                                            <p className="text-[11px] text-muted-foreground italic mb-2">
+                                              {isCircuitGroup(b.name)
+                                                ? "One round = every exercise once, in order. Rest, then start the next round."
+                                                : "Chain exercises with no rest, then rest after the last one."}
+                                            </p>
+                                            <div className="space-y-2">
+                                              {b.items.map((it, i) => (
+                                                <div key={it.id} className="relative pl-7">
+                                                  <span className={`absolute left-0 top-2 w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center ${style.groupBullet}`}>
+                                                    {i + 1}
+                                                  </span>
+                                                  <ProgramItemCard
+                                                    item={it}
+                                                    compact
+                                                    canComment={program.type === "custom"}
+                                        commentsReadOnly={program.is_archived}
+                                                    canUploadFormCheck={clientCanUploadFormCheck}
+                                                    inSuperset
+                                                    loggerClientId={
+                                                      isCoach
+                                                        ? program.assigned_client_id
+                                                        : null
+                                                    }
+                                                    loggerReadOnly
+                                                    setsOverride={groupSets}
+                                                  />
+                                                </div>
+                                              ))}
+                                            </div>
+                                            </div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })()
+                                    )
+                                  )}
+                                </div>
                               )}
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
