@@ -9,3 +9,16 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .extract.js
+
+# Android / Capacitor
+# The signing keystore is irreplaceable: lose it and the app can never be
+# updated again, only republished under a new identity. It lives outside
+# this repo, and these rules make sure a stray copy can't be committed.
+*.keystore
+*.jks
+android/keystore.properties
+android/local.properties
+android/.gradle
+android/build
+android/app/build
+android/app/release

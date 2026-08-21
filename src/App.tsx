@@ -55,6 +55,8 @@ const Today = lazy(() => import("./pages/app/Today"));
 const History = lazy(() => import("./pages/app/History"));
 const SetPassword = lazy(() => import("./pages/app/SetPassword"));
 
+import NativeAppRedirect from "./components/NativeAppRedirect";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -66,6 +68,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <ScrollToTop />
+            <NativeAppRedirect />
             <Suspense fallback={<RouteFallback fullScreen />}>
               <Routes>
               <Route path="/" element={<Index />} />
