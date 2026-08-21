@@ -565,6 +565,29 @@ const CheckCard = ({
   const [archiveFormOpen, setArchiveFormOpen] = useState(false);
   const [archiveNote, setArchiveNote] = useState(check.archived_note ?? "");
 
+  /** Replying IS reviewing. The card used to offer only the button, so
+   *  a coach who wrote feedback still had to mark the check by hand and
+   *  the video sat at the top of the inbox as if nothing had happened.
+   *  Called after a comment goes out; the button stays for the case
+   *  where the form is clean and there is nothing to say. */
+  const markReviewedAfterComment = async () => {
+    if (check.status === "reviewed") {
+      onUpdated();
+      return;
+    }
+    try {
+      await sbPatch(`form_check_submissions?id=eq.${check.id}`, {
+        status: "reviewed",
+        reviewed_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      // The comment was posted, which is the part that matters. Leaving
+      // it pending is recoverable; hiding the failure is not.
+      console.error("could not mark the form check as reviewed", e);
+    }
+    onUpdated();
+  };
+
   const toggleReviewed = async () => {
     setSaving(true);
     try {
@@ -698,6 +721,18 @@ const CheckCard = ({
         <p className="text-xs text-muted-foreground italic">
           Video unavailable.
         </p>
+      )}
+
+      {/* The reply lives with the video it answers. Before this, feedback
+          had to be written on the exercise elsewhere, which is why a
+          reviewed clip kept sitting at the top of the inbox. */}
+      {check.item_id && (
+        <div className="mt-3 pt-3 border-t border-border">
+          <ExerciseComments
+            itemId={check.item_id}
+            onReplied={markReviewedAfterComment}
+          />
+        </div>
       )}
 
       <div className="mt-3 flex flex-wrap gap-2">
