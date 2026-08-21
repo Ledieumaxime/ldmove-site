@@ -527,7 +527,11 @@ const ThreadCard = ({
       </button>
       {open && (
         <div className="mt-3 pt-3 border-t border-border">
-          <ExerciseComments itemId={thread.item_id} onReplied={onReplied} />
+          <ExerciseComments
+            itemId={thread.item_id}
+            clientId={thread.clientId}
+            onReplied={onReplied}
+          />
           {thread.needsReply && thread.lastClientCommentId && (
             <div className="mt-2 flex justify-end">
               <button
@@ -730,6 +734,7 @@ const CheckCard = ({
         <div className="mt-3 pt-3 border-t border-border">
           <ExerciseComments
             itemId={check.item_id}
+            clientId={check.client_id}
             onReplied={markReviewedAfterComment}
           />
         </div>
@@ -827,7 +832,11 @@ const CheckCard = ({
 
       {check.item_id && (
         <div className="mt-4 pt-3 border-t border-border">
-          <ExerciseComments itemId={check.item_id} onReplied={onUpdated} />
+          <ExerciseComments
+            itemId={check.item_id}
+            clientId={check.client_id}
+            onReplied={onUpdated}
+          />
         </div>
       )}
     </div>

@@ -36,6 +36,41 @@ export async function notifyProgramPublished(programId: string): Promise<{ ok: b
   }
 }
 
+/** Clean up a draft comment into the client's language.
+ *
+ *  Unlike the notifications around it, this one is NOT silent-failure:
+ *  the coach is waiting on the result, so a failure has to say so
+ *  rather than leave a button spinning over nothing.
+ */
+// Flat shape rather than a discriminated union: this project compiles
+// with `strict: false`, where TypeScript cannot narrow `ok: true | false`
+// and every caller would have to cast.
+export async function rewriteComment(
+  draft: string,
+  clientId?: string | null
+): Promise<{ ok: boolean; text?: string; error?: string }> {
+  const token = getToken();
+  if (!token) return { ok: false, error: "Not signed in" };
+  try {
+    const res = await fetch(`${URL}/functions/v1/rewrite-comment`, {
+      method: "POST",
+      headers: {
+        apikey: KEY,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ draft, client_id: clientId ?? null }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.text) {
+      return { ok: false, error: data.error || `HTTP ${res.status}` };
+    }
+    return { ok: true, text: data.text };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
 export async function deleteClient(clientId: string): Promise<{
   ok: boolean;
   programs_deleted?: number;

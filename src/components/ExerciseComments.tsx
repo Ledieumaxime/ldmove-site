@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, FormEvent } from "react";
-import { MessageCircle, Send, Trash2 } from "lucide-react";
+import { MessageCircle, Send, Trash2, Wand2 } from "lucide-react";
 import { sbGet, sbPost, sbPatch, sbDelete } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useTouchInput } from "@/hooks/use-mobile";
+import { rewriteComment } from "@/integrations/supabase/notify";
 
 type Comment = {
   id: string;
@@ -75,11 +76,15 @@ const ExerciseComments = ({
   readOnly = false,
   previewLastOnly = false,
   onReplied,
+  clientId,
 }: {
   itemId: string;
   readOnly?: boolean;
   previewLastOnly?: boolean;
   onReplied?: () => void;
+  /** Whose thread this is. Only used to pick the language the rewrite
+   *  comes back in; without it the assistant defaults to English. */
+  clientId?: string | null;
 }) => {
   const { user, profile } = useAuth();
   const [open, setOpen] = useState(readOnly);
@@ -90,6 +95,11 @@ const ExerciseComments = ({
   const [sending, setSending] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [lastReadAt, setLastReadAt] = useState<string | null>(null);
+  const [rewriting, setRewriting] = useState(false);
+  // Keeps the draft as typed so one click can put it back: the rewrite
+  // is a suggestion, and changing your mind should not mean retyping.
+  const [beforeRewrite, setBeforeRewrite] = useState<string | null>(null);
+  const [rewriteError, setRewriteError] = useState<string | null>(null);
   const touchInput = useTouchInput();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // When set, focus the textarea on the next render that has it
@@ -396,6 +406,52 @@ const ExerciseComments = ({
               </div>
             );
           })}
+
+          {/* Coach only: the client writes in their own language and has
+              nothing to clean up. Sits above the field so the result is
+              read before sending, never sent on its behalf. */}
+          {profile?.role === "coach" && !readOnly && (
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={async () => {
+                  const draft = body.trim();
+                  if (!draft || rewriting) return;
+                  setRewriting(true);
+                  setRewriteError(null);
+                  const res = await rewriteComment(draft, clientId);
+                  setRewriting(false);
+                  if (!res.ok || !res.text) {
+                    setRewriteError(res.error || "Rewrite failed");
+                    return;
+                  }
+                  setBeforeRewrite(draft);
+                  setBody(res.text);
+                }}
+                disabled={!body.trim() || rewriting || sending}
+                className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground border border-border rounded-full px-2.5 py-1 disabled:opacity-40"
+                title="Clean up this draft in the client's language"
+              >
+                <Wand2 size={12} />
+                {rewriting ? "Rewriting…" : "Clean up"}
+              </button>
+              {beforeRewrite !== null && !rewriting && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBody(beforeRewrite);
+                    setBeforeRewrite(null);
+                  }}
+                  className="text-[11px] text-muted-foreground hover:text-foreground underline"
+                >
+                  Undo
+                </button>
+              )}
+              {rewriteError && (
+                <span className="text-[11px] text-red-700">{rewriteError}</span>
+              )}
+            </div>
+          )}
 
           <form onSubmit={send} className="flex gap-2 pt-1">
             <Textarea
