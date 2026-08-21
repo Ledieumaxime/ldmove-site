@@ -4,6 +4,7 @@ import { sbGet, sbPost, sbPatch, sbDelete } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useTouchInput } from "@/hooks/use-mobile";
 
 type Comment = {
   id: string;
@@ -89,6 +90,7 @@ const ExerciseComments = ({
   const [sending, setSending] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [lastReadAt, setLastReadAt] = useState<string | null>(null);
+  const touchInput = useTouchInput();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // When set, focus the textarea on the next render that has it
   // mounted. We can't focus directly inside the click handler because
@@ -401,7 +403,12 @@ const ExerciseComments = ({
               value={body}
               onChange={(e) => setBody(e.target.value)}
               onKeyDown={(e) => {
-                // Chat-style: Enter sends, Shift+Enter adds a newline.
+                // With a real keyboard, Enter sends and Shift+Enter adds a
+                // newline. On a touch keyboard that shortcut has no escape
+                // hatch (there is no Shift to hold), so Enter behaves the
+                // way every messaging app does: it breaks the line, and the
+                // send button sends.
+                if (touchInput) return;
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   if (body.trim() && !sending) {
@@ -409,7 +416,11 @@ const ExerciseComments = ({
                   }
                 }
               }}
-              placeholder="Write a comment…  (Shift+Enter for new line)"
+              placeholder={
+                touchInput
+                  ? "Write a comment…"
+                  : "Write a comment…  (Shift+Enter for new line)"
+              }
               rows={2}
               className="text-xs flex-1"
             />
