@@ -89,9 +89,19 @@ const empty = (cid: string): Intake => ({
   locked_at: null,
 });
 
+// Each language named in itself, the way every language picker does it:
+// someone who reads little English still recognises "Français".
+const ENGLISH_LABEL = "English";
+const FRENCH_LABEL = "Français";
+
 const OnboardingIntake = () => {
   const { user, profile } = useAuth();
   const [form, setForm] = useState<Intake | null>(null);
+  // Seeded from the profile so someone re-opening a submitted intake
+  // sees the choice they already made rather than the default.
+  const [language, setLanguage] = useState<"en" | "fr">(
+    profile?.language === "fr" ? "fr" : "en"
+  );
   const [loaded, setLoaded] = useState(false);
   const [existing, setExisting] = useState(false);
   const [sending, setSending] = useState(false);
@@ -188,6 +198,14 @@ const OnboardingIntake = () => {
       } else {
         await sbPost("client_intakes", payload);
       }
+      // Separate row, separate write: the language belongs to the person,
+      // not to this form. Failing here must not lose the intake the
+      // client just spent ten minutes on, so it is logged, not thrown.
+      try {
+        await sbPatch(`profiles?id=eq.${form.client_id}`, { language });
+      } catch (e) {
+        console.error("could not save the language preference", e);
+      }
       setSubmitted(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
@@ -277,6 +295,16 @@ const OnboardingIntake = () => {
             value={form.gender}
             onChange={(v) => update("gender", v)}
             options={["Male", "Female", "Other / prefer not to say"]}
+          />
+          {/* Not part of the intake row: this lives on the profile,
+              because it decides what language the coach's feedback is
+              written in for every message, not just at signup. */}
+          <RadioField
+            label="Language you'd like your coaching in"
+            required
+            value={language === "fr" ? FRENCH_LABEL : ENGLISH_LABEL}
+            onChange={(v) => setLanguage(v === FRENCH_LABEL ? "fr" : "en")}
+            options={[ENGLISH_LABEL, FRENCH_LABEL]}
           />
           <ThreeCols>
             <Field label="Age" required>

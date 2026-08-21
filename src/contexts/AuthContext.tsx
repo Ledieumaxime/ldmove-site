@@ -8,6 +8,8 @@ export type Profile = {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+  /** Language the coach's feedback is written in for this client. */
+  language: "en" | "fr";
 };
 
 type SessionLike = {

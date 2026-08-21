@@ -49,6 +49,9 @@ type Client = {
   created_at: string;
   archived_at: string | null;
   archive_reason: string | null;
+  /** Language the coach writes to this client in. Chosen by the client
+   *  at intake, corrigible here when they got it wrong or changed. */
+  language: "en" | "fr";
 };
 
 const ARCHIVE_REASONS: { value: string; label: string; help: string }[] = [
@@ -254,7 +257,7 @@ const AdminClientDetail = () => {
     if (!clientId) return;
     Promise.all([
       sbGet<Client[]>(
-        `profiles?select=id,email,first_name,last_name,created_at,archived_at,archive_reason&id=eq.${clientId}&limit=1`
+        `profiles?select=id,email,first_name,last_name,created_at,archived_at,archive_reason,language&id=eq.${clientId}&limit=1`
       ),
       sbGet<Program[]>(
         `programs?select=*&type=eq.custom&assigned_client_id=eq.${clientId}&order=created_at.desc`
@@ -908,6 +911,32 @@ const AdminClientDetail = () => {
             </div>
             <p className="text-sm text-muted-foreground mt-0.5">
               {client.email} · client since {formatDate(client.created_at)}
+              {" · "}
+              {/* The client picks this at intake; the coach corrects it
+                  here. It decides which language their feedback is
+                  written in, so it belongs next to the name rather than
+                  buried in the intake summary. */}
+              <select
+                value={client.language}
+                onChange={async (e) => {
+                  const next = e.target.value as "en" | "fr";
+                  const previous = client.language;
+                  setClient({ ...client, language: next });
+                  try {
+                    await sbPatch(`profiles?id=eq.${client.id}`, {
+                      language: next,
+                    });
+                  } catch (err) {
+                    console.error("could not change the language", err);
+                    setClient({ ...client, language: previous });
+                  }
+                }}
+                className="bg-transparent font-semibold text-foreground underline decoration-dotted underline-offset-2 cursor-pointer"
+                title="Language this client is coached in"
+              >
+                <option value="en">English</option>
+                <option value="fr">Français</option>
+              </select>
             </p>
             {intake?.main_goal && (
               <p className="text-xs text-muted-foreground mt-1">
