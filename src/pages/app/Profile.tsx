@@ -91,7 +91,7 @@ const Profile = () => {
         </Link>
       )}
 
-      <PushStatus />
+      <PushStatus isCoach={profile?.role === "coach"} />
 
       <div>
         <Button variant="outline" className="gap-2" onClick={handleSignOut}>
@@ -104,8 +104,14 @@ const Profile = () => {
 };
 
 /** Whether this phone is set up to receive notifications. Only rendered
- *  inside the app: on the website there is nothing to report. */
-const PushStatus = () => {
+ *  inside the app: on the website there is nothing to report.
+ *
+ *  A client gets one plain sentence either way. The underlying reason is
+ *  shown to the coach only: it is the sole way to tell a phone that
+ *  failed to register from one that simply has nothing to announce, and
+ *  it reads like a stack trace, which no client should ever be handed.
+ */
+const PushStatus = ({ isCoach }: { isCoach: boolean }) => {
   const [status, setStatus] = useState(getPushStatus());
 
   useEffect(() => onPushStatus(() => setStatus(getPushStatus())), []);
@@ -121,8 +127,15 @@ const PushStatus = () => {
           ok ? "text-emerald-700" : "text-muted-foreground"
         }`}
       >
-        {ok ? "This phone will be notified." : status}
+        {ok
+          ? "This phone will be notified."
+          : "This phone is not set up for notifications yet. Check that they are allowed for LD Move in your phone settings."}
       </p>
+      {isCoach && !ok && (
+        <p className="text-[11px] mt-2 text-muted-foreground font-mono break-all">
+          {status}
+        </p>
+      )}
     </div>
   );
 };
