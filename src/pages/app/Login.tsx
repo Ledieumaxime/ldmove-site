@@ -173,13 +173,6 @@ const Login = () => {
           </Link>
         </p>
 
-        {/* Pushed to the bottom of the screen on a phone, where the
-            mockup puts it, without floating on a short desktop window. */}
-        <p className="text-center text-xs text-muted-foreground mt-auto pt-10">
-          <Link to="/" className="hover:underline">
-            Back to site
-          </Link>
-        </p>
       </div>
     </div>
   );

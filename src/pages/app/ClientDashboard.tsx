@@ -7,7 +7,6 @@ import {
   Bell,
   Check,
   ClipboardList,
-  Clock,
   Flame,
   MessageCircle,
   SkipForward,
@@ -639,50 +638,22 @@ export const ClientDashboardBody = ({
   const skipOptions = skipPool.filter((d) => d.weekId !== nextSession?.weekId);
   const nextSessionLabel = nextSession ? dayDisplayLabel(nextSession) : null;
   const nextSessionExerciseCount = nextSession?.items.length ?? 0;
-  // Duration estimate: ~45s of work per set + the prescribed rest per
-  // set. Rounded to the nearest 5 minutes; floor of 15.
-  const nextSessionMinutes = (() => {
-    if (!nextSession || nextSession.items.length === 0) return null;
-    let seconds = 0;
-    for (const raw of nextSession.items) {
-      const it = raw as unknown as ProgramItemRef;
-      const sets = it.sets ?? 3;
-      const rest = it.rest_seconds ?? 45;
-      seconds += sets * 45 + sets * rest;
-    }
-    const mins = Math.max(15, Math.round(seconds / 60 / 5) * 5);
-    return Math.min(mins, 120);
-  })();
-
-  // Read once per render rather than per call: two reads either side of
-  // midnight would print two different days on the same screen.
-  const today = new Date();
+  // No duration estimate. One used to be guessed from 45s of work per set
+  // plus the prescribed rest, then capped at two hours, so any long
+  // session read "~120 min" whatever it actually held. A number a client
+  // plans their evening around has to be true, and this one was not.
 
   return (
     <div className="space-y-5">
-      {/* Date rail. The block name and week used to sit in one grey line
-          above the greeting; splitting them across a ruled row gives the
-          screen a masthead and tells the client what day they are on,
-          which is the thing a training log is actually about. */}
-      <div className="flex items-baseline justify-between gap-3 border-b-2 border-foreground pb-2">
-        <span className="text-xs font-bold uppercase tracking-widest">
-          {today.toLocaleDateString("en-US", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })}
-        </span>
-        {currentProgram && (
-          <span className="text-xs uppercase tracking-widest text-muted-foreground whitespace-nowrap">
-            {currentProgram.title} · Week {currentLoopWeek}
-          </span>
-        )}
-      </div>
-
-      {/* Greeting + streak pill */}
+      {/* Header + streak pill */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="font-heading text-4xl md:text-5xl font-bold">
+          <p className="text-sm text-muted-foreground uppercase tracking-wider">
+            {currentProgram
+              ? `${currentProgram.title} · Week ${currentLoopWeek}`
+              : "Welcome"}
+          </p>
+          <h1 className="font-heading text-3xl md:text-4xl font-bold">
             Hi {firstName}
           </h1>
         </div>
@@ -765,31 +736,21 @@ export const ClientDashboardBody = ({
       {/* Up next hero */}
       {currentProgram ? (
         <div className="bg-foreground text-background rounded-2xl p-5 md:p-6">
-          {/* The session name leads and its cost sits beside it: what a
-              client decides on is what they are about to do and how long
-              it will take. The counter goes underneath, where it reads as
-              a position in the block rather than as the headline. */}
-          <div className="flex items-baseline justify-between gap-3 flex-wrap">
-            <h2 className="font-heading text-2xl md:text-3xl font-bold">
-              {nextSessionLabel ?? currentProgram.title}
-            </h2>
-            {nextSession && (
-              <p className="text-sm opacity-70 flex items-center gap-3 flex-wrap">
-                <span className="inline-flex items-center gap-1.5">
-                  <ClipboardList size={14} /> {nextSessionExerciseCount}{" "}
-                  exercise{nextSessionExerciseCount === 1 ? "" : "s"}
-                </span>
-                {nextSessionMinutes != null && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Clock size={14} /> ~{nextSessionMinutes} min
-                  </span>
-                )}
-              </p>
-            )}
-          </div>
-          <p className="font-heading text-xl md:text-2xl font-bold opacity-80 mt-0.5">
-            Session {totalSessionsCompleted + 1}
+          <p className="text-xs uppercase tracking-wider opacity-70 font-semibold mb-1">
+            Up next
           </p>
+          <h2 className="font-heading text-2xl md:text-3xl font-bold mb-1">
+            {nextSessionLabel ?? currentProgram.title}
+          </h2>
+          {nextSession && (
+            <p className="text-sm opacity-70 flex items-center gap-3 flex-wrap">
+              <span className="inline-flex items-center gap-1.5">
+                <ClipboardList size={14} /> {nextSessionExerciseCount} exercise
+                {nextSessionExerciseCount === 1 ? "" : "s"}
+              </span>
+              <span className="opacity-70">{currentProgram.title}</span>
+            </p>
+          )}
 
           {coachView ? (
             <p className="text-xs opacity-60 mt-4">
@@ -798,35 +759,33 @@ export const ClientDashboardBody = ({
             </p>
           ) : (
             <>
-              {/* One full-width action. The session number moved up into
-                  the heading, so the button only has to say what it does. */}
-              <Link
-                to="/app/today"
-                className="flex items-center justify-center gap-2 bg-accent text-white font-semibold rounded-xl px-5 h-14 text-base hover:opacity-95 transition w-full mt-5"
-              >
-                Start
-                <ArrowRight size={18} />
-              </Link>
-              <div className="flex items-center gap-5 mt-4">
+              <div className="flex items-center gap-4 flex-wrap mt-4">
+                <Link
+                  to="/app/today"
+                  className="inline-flex items-center justify-center gap-2 bg-accent text-white font-semibold rounded-full px-5 py-3 text-sm hover:opacity-95 transition w-full sm:w-auto"
+                >
+                  Start Session {totalSessionsCompleted + 1}
+                  <ArrowRight size={16} />
+                </Link>
                 <Link
                   to={`/app/programs/${currentProgram.slug}`}
-                  className="text-sm opacity-60 hover:opacity-100"
+                  className="text-xs opacity-60 hover:opacity-100 underline underline-offset-4"
                 >
-                  Preview
+                  Preview program
                 </Link>
-                {/* The swap is decided here, before opening the session:
-                    the client sees what is coming and says no to it,
-                    rather than starting it and backing out. */}
-                {skipOptions.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setSkipOpen(true)}
-                    className="inline-flex items-center gap-1.5 text-sm opacity-60 hover:opacity-100"
-                  >
-                    <SkipForward size={13} /> Skip
-                  </button>
-                )}
               </div>
+              {/* The swap is decided here, before opening the session:
+                  the client sees what is coming and says no to it,
+                  rather than starting it and backing out. */}
+              {skipOptions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSkipOpen(true)}
+                  className="inline-flex items-center gap-1.5 text-xs opacity-60 hover:opacity-100 underline underline-offset-4 mt-3"
+                >
+                  <SkipForward size={12} /> Skip session
+                </button>
+              )}
               {chosenWeek && (
                 <p className="text-xs opacity-60 mt-3">
                   You picked this one for today. What you skipped is still
