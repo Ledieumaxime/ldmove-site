@@ -85,35 +85,36 @@ const AppLayout = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <header className="bg-white border-b border-border">
-        <div className="container flex items-center justify-between py-3">
-          <Link to="/app/home" className="flex items-center gap-2">
-            <img src={logo} alt="LD Move" className="h-9 w-auto" />
-            <span className="font-heading text-lg font-bold">LD Move</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link
-              to="/app/profile"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <User size={18} />
-              <span className="hidden md:inline">
-                {profile?.first_name} {profile?.last_name}
+      {/* Three columns rather than a row: it keeps the mark dead centre
+          whatever sits either side of it. The wordmark is gone — the logo
+          carries the name already — and so is the rule underneath, which
+          was drawing a line across a page that no longer needs one. */}
+      <header className="bg-white">
+        <div className="container grid grid-cols-3 items-center py-3">
+          <Link
+            to="/app/profile"
+            className="justify-self-start flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <User size={20} />
+            <span className="hidden md:inline">
+              {profile?.first_name} {profile?.last_name}
+            </span>
+            {isCoach && (
+              <span className="bg-accent/10 text-accent text-xs px-2 py-0.5 rounded-full">
+                Coach
               </span>
-              {isCoach && (
-                <span className="bg-accent/10 text-accent text-xs px-2 py-0.5 rounded-full">
-                  Coach
-                </span>
-              )}
-            </Link>
-            <button
-              onClick={handleSignOut}
-              aria-label="Sign out"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <LogOut size={18} />
-            </button>
-          </div>
+            )}
+          </Link>
+          <Link to="/app/home" className="justify-self-center">
+            <img src={logo} alt="LD Move" className="h-10 w-auto" />
+          </Link>
+          <button
+            onClick={handleSignOut}
+            aria-label="Sign out"
+            className="justify-self-end text-muted-foreground hover:text-foreground"
+          >
+            <LogOut size={20} />
+          </button>
         </div>
       </header>
 

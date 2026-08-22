@@ -104,12 +104,6 @@ const Signup = () => {
           </Button>
         </form>
 
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          Already a member?{" "}
-          <Link to="/app/login" className="text-accent font-semibold hover:underline">
-            Sign in
-          </Link>
-        </p>
       </div>
     </div>
   );
