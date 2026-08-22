@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useTouchInput } from "@/hooks/use-mobile";
-import { rewriteComment } from "@/integrations/supabase/notify";
+import { rewriteComment, sendPush } from "@/integrations/supabase/notify";
 
 type Comment = {
   id: string;
@@ -31,6 +31,38 @@ function getToken(): string | null {
     return JSON.parse(raw).access_token ?? null;
   } catch {
     return null;
+  }
+}
+
+/** Push the coach's feedback to the client's phone.
+ *
+ *  The screen that owns the thread usually knows who it belongs to and
+ *  passes `clientId`. When it doesn't, the exercise itself says so:
+ *  item -> week -> program -> assigned client. That lookup runs only for
+ *  the coach, and only on a send, so it costs nothing on the read path.
+ *
+ *  Silent-failure throughout: the comment is already posted and visible,
+ *  and a phone that cannot be reached must not look like a failed reply.
+ */
+async function notifyClientOfComment(
+  itemId: string,
+  clientId: string | null | undefined,
+  body: string
+) {
+  try {
+    let recipient = clientId ?? null;
+    if (!recipient) {
+      const rows = await sbGet<
+        { program_weeks?: { programs?: { assigned_client_id?: string } } }[]
+      >(
+        `program_items?id=eq.${itemId}&select=program_weeks(programs(assigned_client_id))&limit=1`
+      );
+      recipient = rows[0]?.program_weeks?.programs?.assigned_client_id ?? null;
+    }
+    if (!recipient) return;
+    await sendPush(recipient, "New feedback from Maxime", body, "/app/inbox");
+  } catch (e) {
+    console.error("could not push the comment", e);
   }
 }
 
@@ -217,6 +249,12 @@ const ExerciseComments = ({
           // Non-fatal: comment is posted, coach can mark manually if
           // the auto-update silently failed.
         });
+
+        // Ring the client's phone. Feedback is the whole point of the
+        // thread, and until now it waited for them to come looking:
+        // comments have their own unread system and never touched the
+        // `notifications` table, so nothing ever pushed.
+        void notifyClientOfComment(itemId, clientId, trimmed);
       }
       markRead(user.id, itemId);
       // Replace the temp row with the canonical one from the server.
