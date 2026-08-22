@@ -74,62 +74,81 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-sand flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
-        <div className="flex flex-col items-center mb-6">
-          <img src={logo} alt="LD Move" className="h-16 w-auto mb-2" />
-          <h1 className="font-heading text-2xl font-bold">Welcome</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Sign in to your space
-          </p>
-        </div>
+    // Full-bleed white rather than a card floating on sand: this is the
+    // app's first screen, and in the native shell it is the first thing
+    // anyone sees of LD Move. It should read as the product opening, not
+    // as a form dropped on a page.
+    <div className="min-h-screen bg-white flex flex-col px-6 py-12 md:items-center md:justify-center">
+      <div className="w-full max-w-sm mx-auto flex flex-col flex-1">
+        <img src={logo} alt="LD Move" className="h-28 w-28 -ml-2 mb-8" />
+
+        <h1 className="font-heading text-[2.5rem] leading-[1.1] font-bold tracking-tight">
+          Move with
+          <br />
+          your coach.
+        </h1>
+        <p className="text-muted-foreground mt-3 mb-8 leading-relaxed">
+          Your program, your sessions and your form checks, in one place.
+        </p>
 
         {sessionExpired && !error && !info && (
-          <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-4">
+          <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
             Your session expired after a long time away. Sign in again to
             pick up where you left off.
           </div>
         )}
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-1 block">Email</label>
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium mb-1 block">Password</label>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-            />
-          </div>
+        <form onSubmit={onSubmit} className="space-y-3">
+          {/* Labels carry the field for screen readers; the placeholder
+              carries it visually, as in the mockup. */}
+          <label className="sr-only" htmlFor="login-email">
+            Email
+          </label>
+          <Input
+            id="login-email"
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+            className="h-14 rounded-xl border-0 bg-muted px-4 text-base placeholder:text-muted-foreground"
+          />
+          <label className="sr-only" htmlFor="login-password">
+            Password
+          </label>
+          <Input
+            id="login-password"
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            autoComplete="current-password"
+            className="h-14 rounded-xl border-0 bg-muted px-4 text-base placeholder:text-muted-foreground"
+          />
 
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
               {error}
             </div>
           )}
           {info && (
-            <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
+            <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
               {info}
             </div>
           )}
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button
+            type="submit"
+            className="w-full h-14 rounded-xl text-base font-semibold bg-accent hover:bg-accent/90 text-white"
+            disabled={loading}
+          >
             {loading ? "Signing in…" : "Sign in"}
           </Button>
         </form>
 
-        <div className="text-center mt-4">
+        <div className="text-center mt-5">
           <button
             type="button"
             onClick={sendPasswordReset}
@@ -140,15 +159,21 @@ const Login = () => {
           </button>
         </div>
 
-        <p className="text-center text-sm text-muted-foreground mt-6">
+        <p className="text-center text-sm text-muted-foreground mt-3">
           No account yet?{" "}
-          <Link to="/app/signup" className="text-accent font-semibold hover:underline">
+          <Link
+            to="/app/signup"
+            className="text-accent font-semibold hover:underline"
+          >
             Create an account
           </Link>
         </p>
-        <p className="text-center text-xs text-muted-foreground mt-2">
+
+        {/* Pushed to the bottom of the screen on a phone, where the
+            mockup puts it, without floating on a short desktop window. */}
+        <p className="text-center text-xs text-muted-foreground mt-auto pt-10">
           <Link to="/" className="hover:underline">
-            ← Back to site
+            Back to site
           </Link>
         </p>
       </div>
