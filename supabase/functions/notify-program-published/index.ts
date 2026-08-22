@@ -94,13 +94,39 @@ Deno.serve(async (req: Request) => {
     }
 
     // Also create an in-app notification
+    const notifTitle = `New program: ${program.title}`;
+    const notifBody = `${firstName}, your program "${program.title}" is ready to start.`;
+    const notifLink = `/app/programs/${program.slug}`;
     await admin.from("notifications").insert({
       user_id: client.id,
       type: "program_published",
-      title: `New program: ${program.title}`,
-      body: `${firstName}, your program "${program.title}" is ready to start.`,
-      link_url: `/app/programs/${program.slug}`,
+      title: notifTitle,
+      body: notifBody,
+      link_url: notifLink,
     });
+
+    // And ring the phone. The coach's own token is forwarded: send-push
+    // authenticates the caller itself, and the coach is by definition the
+    // one publishing. A failure here must not undo the email that already
+    // went out, so it is caught and logged.
+    try {
+      await fetch(`${supabaseUrl}/functions/v1/send-push`, {
+        method: "POST",
+        headers: {
+          apikey: Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: client.id,
+          title: notifTitle,
+          body: notifBody,
+          link_url: notifLink,
+        }),
+      });
+    } catch (e) {
+      console.error("push notification failed", e);
+    }
 
     return json({ ok: true }, 200);
   } catch (e: any) {

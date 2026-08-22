@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { sbGet } from "@/integrations/supabase/api";
+import { registerForPush, PUSH_OPENED_EVENT } from "@/lib/push";
 import RouteFallback from "@/components/RouteFallback";
 import logo from "@/assets/logo-ldmove.png";
 
@@ -58,6 +59,24 @@ const AppLayout = () => {
     window.addEventListener(MILESTONES_SEEN_EVENT, clear);
     return () => window.removeEventListener(MILESTONES_SEEN_EVENT, clear);
   }, []);
+
+  // Claim this device for the signed-in user. No-op in a browser, and
+  // no-op until we know who is signed in: a token saved against nobody
+  // would ring for nobody.
+  useEffect(() => {
+    if (!profile?.id) return;
+    void registerForPush(profile.id);
+  }, [profile?.id]);
+
+  // Tapping a push opens the page it was about.
+  useEffect(() => {
+    const open = (e: Event) => {
+      const link = (e as CustomEvent<{ link: string }>).detail?.link;
+      if (link) navigate(link);
+    };
+    window.addEventListener(PUSH_OPENED_EVENT, open);
+    return () => window.removeEventListener(PUSH_OPENED_EVENT, open);
+  }, [navigate]);
 
   const handleSignOut = async () => {
     await signOut();

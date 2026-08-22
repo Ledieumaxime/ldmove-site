@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "19347015218",
+    "project_id": "ai-studio-applet-webapp-47ad7",
+    "storage_bucket": "ai-studio-applet-webapp-47ad7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:19347015218:android:4cc6b03834b0cbee4a9e2b",
+        "android_client_info": {
+          "package_name": "com.ldmove.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "19347015218-pslo5bgaqs7kcolbsdm6bj4rthkr3cia.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDBI-DOsnEWKw5Gu136XeRBybdpdA5XZUc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "19347015218-pslo5bgaqs7kcolbsdm6bj4rthkr3cia.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

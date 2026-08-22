@@ -71,6 +71,44 @@ export async function rewriteComment(
   }
 }
 
+/** Ring the client's phone about a notification that was just created.
+ *
+ *  Call this right after inserting into `notifications`: the row is what
+ *  the client sees inside the app, this is what reaches them when the app
+ *  is closed. Silent-failure and deliberately not awaited by callers, the
+ *  notification itself is already saved either way.
+ *
+ *  A client with no app installed simply has no device registered, which
+ *  the function reports as `sent: 0` rather than as an error.
+ */
+export async function sendPush(
+  userId: string,
+  title: string,
+  body?: string,
+  linkUrl?: string
+): Promise<void> {
+  const token = getToken();
+  if (!token) return;
+  try {
+    await fetch(`${URL}/functions/v1/send-push`, {
+      method: "POST",
+      headers: {
+        apikey: KEY,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        title,
+        body: body ?? "",
+        link_url: linkUrl ?? null,
+      }),
+    });
+  } catch (e) {
+    console.error("push notification failed", e);
+  }
+}
+
 export async function deleteClient(clientId: string): Promise<{
   ok: boolean;
   programs_deleted?: number;
