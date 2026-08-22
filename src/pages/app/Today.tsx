@@ -400,6 +400,15 @@ const Today = () => {
                       full-width colour banner that used to open every
                       block and outshout the exercises inside it. */}
                   <div className="flex items-center gap-[9px] flex-wrap">
+                    {/* The block's place in the session. Numbering only the
+                        exercises inside a group left a client unable to tell
+                        how far through the session they were. */}
+                    <span
+                      className="w-6 h-6 rounded-full text-white text-[11px] font-bold flex items-center justify-center shrink-0"
+                      style={{ background: accent.tick }}
+                    >
+                      {bIdx + 1}
+                    </span>
                     <span
                       aria-hidden
                       className="w-[3px] h-[13px] shrink-0"

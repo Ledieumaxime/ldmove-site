@@ -136,51 +136,35 @@ export function blockAccent(
   section: string,
   groupName: string | null | undefined
 ): BlockAccent {
-  // The group's kind wins over the section. A superset inside the warmup
-  // is still a superset, and it needs its rule and its sentence: the
-  // section only decides the colour of a plain, ungrouped exercise.
+  // Colour says WHICH PART OF THE SESSION you are in — blue for the
+  // warm-up, red for the workout — because that is the reading the coach
+  // and his clients already have. The block's KIND is carried by its
+  // label and by the rule down its left, not by a third and fourth hue:
+  // colouring both at once left neither with anything to mean.
   const raw = (groupName ?? "").trim();
-  if (/circuit/i.test(raw)) {
-    return {
-      tick: "hsl(42 75% 50%)",
-      label: "hsl(42 80% 30%)",
-      chain: "hsl(42 75% 50%)",
-      chained: true,
-      note: "Run every exercise once, then rest and start the next round.",
-    };
-  }
-  if (/drop/i.test(raw)) {
-    return {
-      tick: "hsl(14 62% 52%)",
-      label: "hsl(14 65% 38%)",
-      chain: "hsl(14 62% 52%)",
-      chained: true,
-      note: "Drop the load after each set, no rest in between.",
-    };
-  }
-  if (raw) {
-    return {
-      tick: "hsl(28 85% 55%)",
-      label: "hsl(28 85% 38%)",
-      chain: "hsl(28 85% 55%)",
-      chained: true,
-      note: "Chain exercises with no rest, then rest after the last one.",
-    };
-  }
+  const chained = Boolean(raw);
+  const note = !raw
+    ? ""
+    : /circuit/i.test(raw)
+      ? "Run every exercise once, then rest and start the next round."
+      : /drop/i.test(raw)
+        ? "Drop the load after each set, no rest in between."
+        : "Chain exercises with no rest, then rest after the last one.";
+
   if (section.toUpperCase().includes("WARM")) {
     return {
-      tick: "hsl(33 30% 62%)",
-      label: "hsl(30 25% 38%)",
-      chain: "hsl(33 30% 62%)",
-      chained: false,
-      note: "",
+      tick: "hsl(200 85% 52%)",
+      label: "hsl(200 80% 33%)",
+      chain: "hsl(200 85% 52%)",
+      chained,
+      note,
     };
   }
   return {
-    tick: "hsl(30 10% 45%)",
-    label: "hsl(30 10% 30%)",
-    chain: "hsl(30 10% 45%)",
-    chained: false,
-    note: "",
+    tick: "hsl(0 72% 51%)",
+    label: "hsl(0 68% 40%)",
+    chain: "hsl(0 72% 51%)",
+    chained,
+    note,
   };
 }
