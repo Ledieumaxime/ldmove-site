@@ -159,12 +159,10 @@ const Login = () => {
           </button>
         </div>
 
-        {/* Points at the application form, not at sign-up: clients are
-            invited by the coach and arrive with an account already made,
-            so a stranger on this screen is a prospect, not someone who
-            needs to register. */}
-        <p className="text-center text-sm text-muted-foreground mt-3">
-          No account?{" "}
+        {/* No "No account?" preamble: clients never make their own, the
+            coach creates them, so the question addressed nobody. What is
+            left is the one thing a stranger on this screen wants. */}
+        <p className="text-center text-sm mt-3">
           <Link
             to="/apply"
             className="text-accent font-semibold hover:underline"

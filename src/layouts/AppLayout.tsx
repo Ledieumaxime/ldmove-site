@@ -84,7 +84,7 @@ const AppLayout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-sand flex flex-col">
+    <div className="min-h-screen bg-white flex flex-col">
       <header className="bg-white border-b border-border">
         <div className="container flex items-center justify-between py-3">
           <Link to="/app/home" className="flex items-center gap-2">
