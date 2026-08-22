@@ -754,24 +754,19 @@ export const ClientDashboardBody = ({
       {/* Up next hero */}
       {currentProgram ? (
         <div className="bg-foreground text-background rounded-2xl p-5 md:p-6">
-          {/* The session name leads and its cost sits beside it: what a
-              client decides on is what they are about to do and how long
-              it will take. The counter goes underneath, where it reads as
-              a position in the block rather than as the headline. */}
-          <div className="flex items-baseline justify-between gap-3 flex-wrap">
-            <h2 className="font-heading text-2xl md:text-3xl font-bold">
-              {nextSessionLabel ?? currentProgram.title}
-            </h2>
-            {nextSession && (
-              <p className="text-sm opacity-70 inline-flex items-center gap-1.5">
-                <ClipboardList size={14} /> {nextSessionExerciseCount} exercise
-                {nextSessionExerciseCount === 1 ? "" : "s"}
-              </p>
-            )}
-          </div>
-          <p className="font-heading text-xl md:text-2xl font-bold opacity-80 mt-0.5">
-            Session {totalSessionsCompleted + 1}
-          </p>
+          <h2 className="font-heading text-2xl md:text-3xl font-bold mb-1">
+            {nextSessionLabel ?? currentProgram.title}
+          </h2>
+          {/* Exercise count only. The block name now sits in the date
+              rail above, and no number of minutes is shown: the estimate
+              that used to be here was capped at two hours, so any long
+              session read the same whatever it held. */}
+          {nextSession && (
+            <p className="text-sm opacity-70 inline-flex items-center gap-1.5">
+              <ClipboardList size={14} /> {nextSessionExerciseCount} exercise
+              {nextSessionExerciseCount === 1 ? "" : "s"}
+            </p>
+          )}
 
           {coachView ? (
             <p className="text-xs opacity-60 mt-4">
@@ -780,35 +775,33 @@ export const ClientDashboardBody = ({
             </p>
           ) : (
             <>
-              {/* One full-width action. The session number moved up into
-                  the heading, so the button only has to say what it does. */}
-              <Link
-                to="/app/today"
-                className="flex items-center justify-center gap-2 bg-accent text-white font-semibold rounded-xl px-5 h-14 text-base hover:opacity-95 transition w-full mt-5"
-              >
-                Start
-                <ArrowRight size={18} />
-              </Link>
-              <div className="flex items-center gap-5 mt-4">
+              <div className="flex items-center gap-4 flex-wrap mt-4">
+                <Link
+                  to="/app/today"
+                  className="inline-flex items-center justify-center gap-2 bg-accent text-white font-semibold rounded-full px-5 py-3 text-sm hover:opacity-95 transition w-full sm:w-auto"
+                >
+                  Start Session {totalSessionsCompleted + 1}
+                  <ArrowRight size={16} />
+                </Link>
                 <Link
                   to={`/app/programs/${currentProgram.slug}`}
-                  className="text-sm opacity-60 hover:opacity-100"
+                  className="text-xs opacity-60 hover:opacity-100 underline underline-offset-4"
                 >
-                  Preview
+                  Preview program
                 </Link>
-                {/* The swap is decided here, before opening the session:
-                    the client sees what is coming and says no to it,
-                    rather than starting it and backing out. */}
-                {skipOptions.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setSkipOpen(true)}
-                    className="inline-flex items-center gap-1.5 text-sm opacity-60 hover:opacity-100"
-                  >
-                    <SkipForward size={13} /> Skip
-                  </button>
-                )}
               </div>
+              {/* The swap is decided here, before opening the session:
+                  the client sees what is coming and says no to it,
+                  rather than starting it and backing out. */}
+              {skipOptions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSkipOpen(true)}
+                  className="inline-flex items-center gap-1.5 text-xs opacity-60 hover:opacity-100 underline underline-offset-4 mt-3"
+                >
+                  <SkipForward size={12} /> Skip session
+                </button>
+              )}
               {chosenWeek && (
                 <p className="text-xs opacity-60 mt-3">
                   You picked this one for today. What you skipped is still
