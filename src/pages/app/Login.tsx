@@ -159,17 +159,12 @@ const Login = () => {
           </button>
         </div>
 
-        {/* No "No account?" preamble: clients never make their own, the
-            coach creates them, so the question addressed nobody. What is
-            left is the one thing a stranger on this screen wants. */}
-        <p className="text-center text-sm mt-3">
-          <Link
-            to="/apply"
-            className="text-accent font-semibold hover:underline"
-          >
-            Apply for coaching
-          </Link>
-        </p>
+        <Link
+          to="/app/signup"
+          className="flex items-center justify-center w-full h-14 rounded-xl border border-border text-base font-semibold mt-3 hover:bg-muted transition"
+        >
+          Create account
+        </Link>
 
       </div>
     </div>
