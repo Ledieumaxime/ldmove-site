@@ -48,7 +48,10 @@ import {
   sbPatch,
   sbPost,
 } from "@/integrations/supabase/api";
-import { cleanupArchivedVideos } from "@/integrations/supabase/notify";
+import {
+  cleanupArchivedVideos,
+  notifyProgramPublished,
+} from "@/integrations/supabase/notify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -1105,6 +1108,16 @@ const AdminProgramEdit = () => {
     await safeSave(() =>
       sbPatch(`programs?id=eq.${program.id}`, { is_published: next })
     );
+
+    // Tell the client. This was written months ago and never wired up,
+    // so publishing quietly changed a flag and nobody heard about it.
+    // The function announces a program exactly once however many times
+    // it is toggled, so this can safely run on every publish.
+    if (next) {
+      notifyProgramPublished(program.id).then((res) => {
+        if (!res.ok) console.error("could not announce the program", res.error);
+      });
+    }
 
     // Publishing a new block used to leave the previous one active:
     // the client then had two live programs, and only the most recent

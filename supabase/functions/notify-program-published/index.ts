@@ -45,11 +45,18 @@ Deno.serve(async (req: Request) => {
     // Fetch program + client
     const { data: program } = await admin
       .from("programs")
-      .select("id, slug, title, description, assigned_client_id, type")
+      .select("id, slug, title, description, assigned_client_id, type, client_notified_at")
       .eq("id", program_id)
       .maybeSingle();
     if (!program) return json({ error: "Program not found" }, 404);
     if (!program.assigned_client_id) return json({ error: "Program has no assigned client" }, 400);
+
+    // Announce a program exactly once. This sends a real email, and a
+    // coach who un-publishes to fix a typo and publishes again must not
+    // put a second "your new program is ready" in a client's inbox.
+    if (program.client_notified_at) {
+      return json({ ok: true, skipped: "already announced" }, 200);
+    }
 
     const { data: client } = await admin
       .from("profiles")
@@ -131,6 +138,13 @@ Deno.serve(async (req: Request) => {
     } catch (e) {
       console.error("push notification failed", e);
     }
+
+    // Stamped only now: everything above has to have gone out for this
+    // program to count as announced.
+    await admin
+      .from("programs")
+      .update({ client_notified_at: new Date().toISOString() })
+      .eq("id", program.id);
 
     return json({ ok: true }, 200);
   } catch (e: any) {
