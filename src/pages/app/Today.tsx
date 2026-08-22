@@ -316,7 +316,10 @@ const Today = () => {
   return (
     <div className="space-y-6 max-w-3xl">
       <BackToDashboard />
-      <div>
+      {/* Centred, like the section badges below it: the page reads as one
+          column rather than a left-aligned header sitting over centred
+          content. */}
+      <div className="text-center">
         <p className="text-xs font-semibold text-accent uppercase tracking-widest mb-1">
           Today's workout
         </p>
@@ -362,7 +365,7 @@ const Today = () => {
         return (
           <section key={sIdx} className="space-y-3">
             <div
-              className={`inline-block text-sm md:text-base font-bold uppercase tracking-widest px-4 py-2 rounded-lg shadow-sm ${style.badge}`}
+              className={`block w-fit mx-auto text-sm md:text-base font-bold uppercase tracking-widest px-4 py-2 rounded-lg shadow-sm ${style.badge}`}
             >
               {sec.section}
             </div>
