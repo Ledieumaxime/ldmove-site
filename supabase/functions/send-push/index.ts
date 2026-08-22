@@ -196,7 +196,18 @@ Deno.serve(async (req: Request) => {
             // Read by the app when the user taps the notification, so it
             // opens on the thing the message is about.
             data: link_url ? { link_url } : {},
-            android: { priority: "high" },
+            android: {
+              priority: "high",
+              notification: {
+                // Without a tag, Firebase falls back to one shared per
+                // app, so every notification replaces the last one in the
+                // drawer: archive a milestone then publish a program and
+                // the client only ever sees the program. A unique tag
+                // makes them stack, which is what someone expects of
+                // messages about different things.
+                tag: crypto.randomUUID(),
+              },
+            },
           },
         }),
       });
