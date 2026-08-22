@@ -156,6 +156,10 @@ type Props = {
   /** Drops the card's own border and rounding so it can sit flush
    *  under a block header strip, the block container owning both. */
   flush?: boolean;
+  /** Drops the card's inner padding too. Used where the parent already
+   *  spaces its rows, so the exercise reads as a line in a list rather
+   *  than a box with air around it. */
+  noPadding?: boolean;
 };
 
 const ProgramItemCard = ({
@@ -172,6 +176,7 @@ const ProgramItemCard = ({
   setsOverride = null,
   sessionRunId = "00000000-0000-0000-0000-000000000000",
   flush = false,
+  noPadding = false,
 }: Props) => {
   const { tempo, load, comment } = parseNotes(item.notes);
   const displayName = stripSection(item.custom_name);
@@ -191,7 +196,9 @@ const ProgramItemCard = ({
     <div
       className={`bg-white ${
         flush ? "" : "border border-border rounded-lg hover:shadow-sm"
-      } ${compact ? "p-3" : "p-4"} transition-shadow ${flush ? "" : accent}`}
+      } ${noPadding ? "" : compact ? "p-3" : "p-4"} transition-shadow ${
+        flush ? "" : accent
+      }`}
     >
       {/* Sets and rest are never listed here: the page announces them
           in the block's coloured header strip, the same way for a

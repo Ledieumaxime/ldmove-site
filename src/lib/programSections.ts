@@ -102,3 +102,85 @@ export function blockStatsLabel(
   if (restSeconds != null) parts.push(`${restSeconds}s rest`);
   return parts.length ? parts.join(" · ") : null;
 }
+
+/**
+ * The colour a block carries on the session screen.
+ *
+ * Replaces the full-width coloured banner with a 3px tick and, for the
+ * chained kinds, a rule down the left of the group: the banner shouted
+ * the block's type louder than the exercises inside it, and a client
+ * reading a session needs the exercise names first.
+ *
+ * The palette is the brand's own warm family — taupe, charcoal, orange,
+ * terracotta, gold — rather than the cyan and magenta of the design
+ * reference, so the screen stays part of the same product as the
+ * dashboard it opens from.
+ *
+ * `tick` and `chain` take the raw colour; `label` takes a darker step
+ * wherever the raw one is too pale to read as small uppercase type on a
+ * light ground.
+ */
+export type BlockAccent = {
+  tick: string;
+  label: string;
+  chain: string;
+  /** Whether the exercises hang off a rule. True for the kinds where the
+   *  exercises are performed as one unit, which is exactly what the rule
+   *  is drawing. */
+  chained: boolean;
+  /** The sentence that makes the kind mean something to a client. */
+  note: string;
+};
+
+export function blockAccent(
+  section: string,
+  groupName: string | null | undefined
+): BlockAccent {
+  // The group's kind wins over the section. A superset inside the warmup
+  // is still a superset, and it needs its rule and its sentence: the
+  // section only decides the colour of a plain, ungrouped exercise.
+  const raw = (groupName ?? "").trim();
+  if (/circuit/i.test(raw)) {
+    return {
+      tick: "hsl(42 75% 50%)",
+      label: "hsl(42 80% 30%)",
+      chain: "hsl(42 75% 50%)",
+      chained: true,
+      note: "Run every exercise once, then rest and start the next round.",
+    };
+  }
+  if (/drop/i.test(raw)) {
+    return {
+      tick: "hsl(14 62% 52%)",
+      label: "hsl(14 65% 38%)",
+      chain: "hsl(14 62% 52%)",
+      chained: true,
+      note: "Drop the load after each set, no rest in between.",
+    };
+  }
+  if (raw) {
+    return {
+      tick: "hsl(28 85% 55%)",
+      label: "hsl(28 85% 38%)",
+      chain: "hsl(28 85% 55%)",
+      chained: true,
+      note: "Chain exercises with no rest, then rest after the last one.",
+    };
+  }
+  if (section.toUpperCase().includes("WARM")) {
+    return {
+      tick: "hsl(33 30% 62%)",
+      label: "hsl(30 25% 38%)",
+      chain: "hsl(33 30% 62%)",
+      chained: false,
+      note: "",
+    };
+  }
+  return {
+    tick: "hsl(30 10% 45%)",
+    label: "hsl(30 10% 30%)",
+    chain: "hsl(30 10% 45%)",
+    chained: false,
+    note: "",
+  };
+}

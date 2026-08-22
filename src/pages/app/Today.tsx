@@ -26,10 +26,9 @@ import {
   nextDay,
 } from "@/lib/workoutDay";
 import {
+  blockAccent,
   blockStatsLabel,
   groupTypeLabel,
-  isCircuitGroup,
-  sectionStyle,
 } from "@/lib/programSections";
 
 type Program = {
@@ -316,16 +315,21 @@ const Today = () => {
   return (
     <div className="space-y-6 max-w-3xl">
       <BackToDashboard />
+      {/* A masthead: the two rules under the dateline are what make a
+          page read as a front page rather than a form. */}
       <div>
-        <p className="text-xs font-semibold text-accent uppercase tracking-widest mb-1">
-          Today's workout
-        </p>
-        <h1 className="font-heading text-3xl md:text-4xl font-bold mb-1">
+        <div className="flex items-baseline justify-between gap-3 pb-2 border-b-2 border-foreground">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.16em]">
+            Today's workout
+          </span>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground/50 truncate">
+            {program.title} · {dayDisplayLabel(todaysWorkout)}
+          </span>
+        </div>
+        <div className="border-b border-foreground/30 mt-[3px]" />
+        <h1 className="font-heading text-[38px] leading-[1.05] font-bold tracking-[-0.02em] mt-5">
           Session {displaySessionNumber}
         </h1>
-        <p className="text-sm text-muted-foreground">
-          {program.title} · {dayDisplayLabel(todaysWorkout)}
-        </p>
         {chosenWeek && (
           <p className="text-xs text-muted-foreground mt-2">
             You picked this session for today. What you skipped is still
@@ -335,7 +339,6 @@ const Today = () => {
       </div>
 
       {sections.map((sec, sIdx) => {
-        const style = sectionStyle(sec.section);
         // Build blocks within the section: solo items vs supersets
         // (consecutive items sharing the same group_name).
         type Block =
@@ -359,138 +362,120 @@ const Today = () => {
           }
         }
 
+        const sectionCount = sec.items.length;
+
         return (
-          <section key={sIdx} className="space-y-3">
-            <div
-              className={`block w-fit mx-auto text-sm md:text-base font-bold uppercase tracking-widest px-4 py-2 rounded-lg shadow-sm ${style.badge}`}
-            >
-              {sec.section}
+          <section key={sIdx}>
+            {/* Section rule rather than a coloured badge: the section is
+                where you are in the session, not a thing to shout. */}
+            <div className="flex items-baseline justify-between pb-2 mb-5 border-b border-foreground/20">
+              <b className="font-heading text-[13px] font-semibold uppercase tracking-[0.18em]">
+                {sec.section}
+              </b>
+              <span className="text-[12.5px] text-foreground/45">
+                {sectionCount} exercise{sectionCount === 1 ? "" : "s"}
+              </span>
             </div>
-            <div className="space-y-2.5">
-              {blocks.map((b, bIdx) => {
-                // Every block of the section is numbered in one
-                // continuous run, whether it is a single exercise or a
-                // group. Before, only the groups carried a number, so
-                // the client could not tell how far into the session
-                // they were.
-                const blockPill = (
-                  <span
-                    className={`absolute left-0 top-3 w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center ${style.groupBullet}`}
-                  >
-                    {bIdx + 1}
-                  </span>
-                );
-                // Header strip shared by every block: kind on the left,
-                // the whole prescription in ONE pill on the right. Two
-                // separate badges wrapped onto three lines at 375px.
-                const strip = (kind: string, stats: string | null) => (
-                  <div
-                    className={`flex items-center justify-between gap-2 px-3 py-2 ${style.strip}`}
-                  >
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-white">
-                      {kind !== "Set" && <Link2 size={12} />}
+
+            {blocks.map((b, bIdx) => {
+              const isGroup = b.type === "group";
+              const groupName = isGroup ? b.name : null;
+              const accent = blockAccent(sec.section, groupName);
+              const groupSets = isGroup
+                ? b.items.find((it) => it.sets != null)?.sets ?? null
+                : b.item.sets;
+              const groupRest = isGroup
+                ? [...b.items]
+                    .reverse()
+                    .find((it) => it.rest_seconds != null && it.rest_seconds > 0)
+                    ?.rest_seconds ?? null
+                : b.item.rest_seconds;
+              const kind = isGroup ? groupTypeLabel(groupName) : "Set";
+              const stats = blockStatsLabel(groupName, groupSets, groupRest);
+              const items = isGroup ? b.items : [b.item];
+
+              return (
+                <div key={`b-${bIdx}`} className={bIdx === 0 ? "" : "mt-7"}>
+                  {/* A 3px tick and the kind in small caps, instead of the
+                      full-width colour banner that used to open every
+                      block and outshout the exercises inside it. */}
+                  <div className="flex items-center gap-[9px] flex-wrap">
+                    <span
+                      aria-hidden
+                      className="w-[3px] h-[13px] shrink-0"
+                      style={{ background: accent.tick }}
+                    />
+                    <span
+                      className="text-[11.5px] font-semibold uppercase tracking-[0.16em]"
+                      style={{ color: accent.label }}
+                    >
                       {kind}
                     </span>
                     {stats && (
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold whitespace-nowrap ${style.stripPill}`}
-                      >
+                      <span className="text-[12.5px] text-foreground/45">
                         {stats}
                       </span>
                     )}
                   </div>
-                );
-                if (b.type === "solo") {
-                  return (
-                    <div key={b.item.id} className="relative pl-9">
-                      {blockPill}
-                      <div
-                        className={`rounded-xl overflow-hidden border-2 ${style.blockBorder}`}
-                      >
-                        {strip(
-                          "Set",
-                          blockStatsLabel(null, b.item.sets, b.item.rest_seconds)
-                        )}
-                        <ProgramItemCard
-                          item={b.item}
-                          canComment
-                          canUploadFormCheck
-                          loggerClientId={user?.id ?? null}
-                          loggerReadOnly={false}
-                          sessionRunId={sessionRunId}
-                          flush
-                        />
-                      </div>
-                    </div>
-                  );
-                }
-                const groupSets =
-                  b.items.find((it) => it.sets != null)?.sets ?? null;
-                const groupRest =
-                  [...b.items]
-                    .reverse()
-                    .find(
-                      (it) => it.rest_seconds != null && it.rest_seconds > 0
-                    )?.rest_seconds ?? null;
-                return (
-                  <div key={`g-${bIdx}`} className="relative pl-9">
-                    {blockPill}
-                    <div
-                      className={`rounded-xl overflow-hidden border-2 ${style.blockBorder}`}
-                    >
-                    {strip(
-                      groupTypeLabel(b.name),
-                      blockStatsLabel(b.name, groupSets, groupRest)
-                    )}
-                    <div className={`p-3 ${style.groupBox} !border-0 rounded-none`}>
-                    <p className="text-[11px] text-muted-foreground italic mb-2">
-                      {isCircuitGroup(b.name)
-                        ? "One round = every exercise once, in order. Rest, then start the next round."
-                        : "Chain exercises with no rest, then rest after the last one."}
+
+                  {accent.note && (
+                    <p className="italic text-[13.5px] leading-[1.5] text-foreground/55 mt-2 pl-3">
+                      {accent.note}
                     </p>
-                    <div className="space-y-2">
-                      {b.items.map((it, i) => (
-                        <div key={it.id} className="relative pl-7">
-                          <span
-                            className={`absolute left-0 top-2 w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center ${style.groupBullet}`}
-                          >
-                            {i + 1}
-                          </span>
+                  )}
+
+                  {/* The rule down the left is what says "these are done
+                      as one thing", and where it stops says where the
+                      chain ends. Solo blocks get no rule. */}
+                  <div
+                    className="pl-3 mt-0.5"
+                    style={{
+                      borderLeft: `2px solid ${
+                        accent.chained ? accent.chain : "transparent"
+                      }`,
+                      opacity: 1,
+                    }}
+                  >
+                    {items.map((it, i) => (
+                      <div
+                        key={it.id}
+                        className="flex items-start gap-3 py-5 border-b border-foreground/10"
+                      >
+                        <span className="font-heading text-[13px] font-semibold text-foreground/40 w-4 shrink-0 pt-1">
+                          {i + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
                           <ProgramItemCard
                             item={it}
-                            compact
-                            inSuperset
+                            compact={isGroup}
+                            inSuperset={isGroup}
                             canComment
-                      canUploadFormCheck
+                            canUploadFormCheck
                             loggerClientId={user?.id ?? null}
                             loggerReadOnly={false}
-                            setsOverride={groupSets}
+                            setsOverride={isGroup ? groupSets : undefined}
                             sessionRunId={sessionRunId}
+                            flush
+                            noPadding
                           />
                         </div>
-                      ))}
-                    </div>
-                    </div>
-                    </div>
+                      </div>
+                    ))}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </section>
         );
       })}
 
-      <div className="sticky bottom-4 z-10 bg-white border border-border rounded-2xl shadow-lg p-4 flex items-center justify-between gap-3 flex-wrap">
-        <div className="text-sm">
-          <p className="font-semibold">Done with this session?</p>
-          <p className="text-muted-foreground text-xs">
-            Mark it complete to lock your numbers and unlock the next one.
-          </p>
-        </div>
+      {/* One full-width action, on a fade rather than in a floating card:
+          the content slides under it instead of stopping at its edge. */}
+      <div className="sticky bottom-0 z-10 -mx-4 px-4 pt-6 pb-6 bg-gradient-to-t from-white from-60% to-transparent">
         <Button
           onClick={completeWorkout}
           disabled={completing}
-          className="gap-2"
+          className="w-full h-[50px] rounded-full gap-2 bg-foreground text-white hover:bg-foreground/90 text-base font-semibold"
         >
           {completing ? (
             <Loader2 size={16} className="animate-spin" />
@@ -499,6 +484,9 @@ const Today = () => {
           )}
           {completing ? "Saving…" : "Complete workout"}
         </Button>
+        <p className="text-center text-[12.5px] text-foreground/45 mt-2">
+          Locks your numbers and unlocks the next session.
+        </p>
       </div>
 
       <div className="flex items-center justify-between text-xs text-muted-foreground">
