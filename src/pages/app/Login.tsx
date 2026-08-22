@@ -148,6 +148,13 @@ const Login = () => {
           </Button>
         </form>
 
+        <Link
+          to="/app/signup"
+          className="flex items-center justify-center w-full h-14 rounded-xl border border-border text-base font-semibold mt-3 hover:bg-muted transition"
+        >
+          Create account
+        </Link>
+
         <div className="text-center mt-5">
           <button
             type="button"
@@ -158,13 +165,6 @@ const Login = () => {
             {forgotLoading ? "Sending…" : "Forgot your password?"}
           </button>
         </div>
-
-        <Link
-          to="/app/signup"
-          className="flex items-center justify-center w-full h-14 rounded-xl border border-border text-base font-semibold mt-3 hover:bg-muted transition"
-        >
-          Create account
-        </Link>
 
       </div>
     </div>
