@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { sbGet } from "@/integrations/supabase/api";
 import { Button } from "@/components/ui/button";
 import BackToDashboard from "@/components/BackToDashboard";
+import { getPushStatus, onPushStatus, isNativeApp } from "@/lib/push";
 import {
   LogOut,
   Mail,
@@ -90,12 +91,38 @@ const Profile = () => {
         </Link>
       )}
 
+      <PushStatus />
+
       <div>
         <Button variant="outline" className="gap-2" onClick={handleSignOut}>
           <LogOut size={16} />
           Sign out
         </Button>
       </div>
+    </div>
+  );
+};
+
+/** Whether this phone is set up to receive notifications. Only rendered
+ *  inside the app: on the website there is nothing to report. */
+const PushStatus = () => {
+  const [status, setStatus] = useState(getPushStatus());
+
+  useEffect(() => onPushStatus(() => setStatus(getPushStatus())), []);
+
+  if (!isNativeApp()) return null;
+
+  const ok = status === "active";
+  return (
+    <div className="rounded-lg border border-border bg-white p-4">
+      <p className="font-heading font-bold text-sm">Notifications</p>
+      <p
+        className={`text-xs mt-1 ${
+          ok ? "text-emerald-700" : "text-muted-foreground"
+        }`}
+      >
+        {ok ? "This phone will be notified." : status}
+      </p>
     </div>
   );
 };

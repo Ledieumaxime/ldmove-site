@@ -35,11 +35,37 @@ export function isNativeApp(): boolean {
 
 let registered = false;
 
+/** Where registration got to, in words. Shown on the profile screen in
+ *  the app: a phone that silently fails to register is indistinguishable
+ *  from one that simply has nothing to announce, and there is no console
+ *  to read on someone else's handset. */
+let status = "not started";
+const listeners = new Set<() => void>();
+
+function setStatus(s: string) {
+  status = s;
+  listeners.forEach((fn) => fn());
+}
+
+export function getPushStatus(): string {
+  return status;
+}
+
+export function onPushStatus(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
 export async function registerForPush(userId: string): Promise<void> {
-  if (!isNativeApp() || registered) return;
+  if (!isNativeApp()) {
+    setStatus("not the app");
+    return;
+  }
+  if (registered) return;
   registered = true;
 
   try {
+    setStatus("checking permission");
     let perm = await PushNotifications.checkPermissions();
     if (perm.receive === "prompt" || perm.receive === "prompt-with-rationale") {
       perm = await PushNotifications.requestPermissions();
@@ -47,7 +73,7 @@ export async function registerForPush(userId: string): Promise<void> {
     // A refusal is a legitimate answer, not an error to retry on every
     // launch. The app keeps working, the phone just stays quiet.
     if (perm.receive !== "granted") {
-      console.warn("push permission not granted:", perm.receive);
+      setStatus(`permission refused (${perm.receive})`);
       return;
     }
 
@@ -55,6 +81,7 @@ export async function registerForPush(userId: string): Promise<void> {
 
     await PushNotifications.addListener("registration", (token) => {
       if (!token?.value) return;
+      setStatus("saving...");
       // Upsert: the same device relaunching must refresh last_seen_at
       // rather than fail on the primary key.
       void sbPost(
@@ -66,11 +93,13 @@ export async function registerForPush(userId: string): Promise<void> {
           last_seen_at: new Date().toISOString(),
         },
         { merge: true }
-      ).catch((e) => console.error("could not save the push token", e));
+      )
+        .then(() => setStatus("active"))
+        .catch((e) => setStatus(`could not save: ${String(e).slice(0, 120)}`));
     });
 
     await PushNotifications.addListener("registrationError", (e) => {
-      console.error("push registration failed", e);
+      setStatus(`Firebase refused: ${JSON.stringify(e).slice(0, 160)}`);
     });
 
     // Tapping a notification has to land on the thing it was about. The
@@ -88,9 +117,10 @@ export async function registerForPush(userId: string): Promise<void> {
       }
     );
 
+    setStatus("asking Firebase...");
     await PushNotifications.register();
   } catch (e) {
-    console.error("push setup failed", e);
+    setStatus(`failed: ${String(e).slice(0, 160)}`);
   }
 }
 
