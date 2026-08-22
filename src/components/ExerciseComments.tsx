@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useTouchInput } from "@/hooks/use-mobile";
 import { rewriteComment, sendPush } from "@/integrations/supabase/notify";
+import { notificationCopy } from "@/lib/notification-copy";
 
 type Comment = {
   id: string;
@@ -46,8 +47,7 @@ function getToken(): string | null {
  */
 async function notifyClientOfComment(
   itemId: string,
-  clientId: string | null | undefined,
-  body: string
+  clientId: string | null | undefined
 ) {
   try {
     let recipient = clientId ?? null;
@@ -62,8 +62,8 @@ async function notifyClientOfComment(
     if (!recipient) return;
     await sendPush(
       recipient,
-      "New feedback from Maxime",
-      body,
+      notificationCopy.comment.title,
+      notificationCopy.comment.body,
       "/app/inbox",
       "comment"
     );
@@ -260,7 +260,7 @@ const ExerciseComments = ({
         // thread, and until now it waited for them to come looking:
         // comments have their own unread system and never touched the
         // `notifications` table, so nothing ever pushed.
-        void notifyClientOfComment(itemId, clientId, trimmed);
+        void notifyClientOfComment(itemId, clientId);
       }
       markRead(user.id, itemId);
       // Replace the temp row with the canonical one from the server.

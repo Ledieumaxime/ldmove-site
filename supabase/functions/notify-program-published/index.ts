@@ -94,8 +94,12 @@ Deno.serve(async (req: Request) => {
     }
 
     // Also create an in-app notification
-    const notifTitle = `New program: ${program.title}`;
-    const notifBody = `${firstName}, your program "${program.title}" is ready to start.`;
+    // Wording decided with Maxime and kept in step with
+    // src/lib/notification-copy.ts, which holds the other four. A Deno
+    // function cannot import from that bundle, so this one is a copy:
+    // change it there, change it here.
+    const notifTitle = "Your new program is ready";
+    const notifBody = "";
     const notifLink = `/app/programs/${program.slug}`;
     await admin.from("notifications").insert({
       user_id: client.id,

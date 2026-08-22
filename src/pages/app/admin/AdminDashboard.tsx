@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { sbGet, sbGetAll, sbPost } from "@/integrations/supabase/api";
 import { sendPush } from "@/integrations/supabase/notify";
+import { notificationCopy } from "@/lib/notification-copy";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   CompletedLog,
@@ -590,17 +591,17 @@ const AdminDashboard = () => {
   const [nudgedIds, setNudgedIds] = useState<Set<string>>(new Set());
   const nudgeClient = async (clientId: string) => {
     try {
-      const nudgeBody = "Your next session is ready when you are. Jump back in.";
+      const copy = notificationCopy.nudge;
       await sbPost("notifications", {
         user_id: clientId,
         type: "nudge",
-        title: "A nudge from your coach",
-        body: nudgeBody,
+        title: copy.title,
+        body: copy.body,
         link_url: "/app/today",
       });
       // A nudge is the one notification that is worthless if it waits for
       // the client to open the app on their own.
-      void sendPush(clientId, "A nudge from your coach", nudgeBody, "/app/today");
+      void sendPush(clientId, copy.title, copy.body, "/app/today");
       setNudgedIds((prev) => new Set(prev).add(clientId));
     } catch (e) {
       console.error("nudge failed", e);

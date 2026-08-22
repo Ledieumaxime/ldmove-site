@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { sbGet, sbPatch, sbPost, sbSignUrl } from "@/integrations/supabase/api";
 import { sendPush } from "@/integrations/supabase/notify";
+import { notificationCopy } from "@/lib/notification-copy";
 import { stripSection } from "@/components/ProgramItemCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -628,26 +629,19 @@ const CheckCard = ({
         (check.program_items?.custom_name
           ? stripSection(check.program_items.custom_name)
           : "");
-      const milestoneBody = skill
-        ? `Maxime saved your ${skill} as a milestone. It is in your archive for good.`
-        : "Maxime saved one of your videos as a milestone. It is in your archive for good.";
+      const copy = notificationCopy.milestone(skill);
       await sbPost("notifications", {
         user_id: check.client_id,
         type: "progress_archived",
-        title: "New progress milestone",
-        body: milestoneBody,
+        title: copy.title,
+        body: copy.body,
         link_url: "/app/archive",
       }).catch((e) => {
         // The archive itself succeeded; a failed notification must not
         // make the coach think it didn't.
         console.error("milestone notification failed", e);
       });
-      void sendPush(
-        check.client_id,
-        "New progress milestone",
-        milestoneBody,
-        "/app/archive"
-      );
+      void sendPush(check.client_id, copy.title, copy.body, "/app/archive");
       setArchiveFormOpen(false);
       onUpdated();
     } catch (e) {

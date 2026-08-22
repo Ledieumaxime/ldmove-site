@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { sbGet, sbPatch, sbPost, sbSignUrl } from "@/integrations/supabase/api";
 import { sendPush } from "@/integrations/supabase/notify";
+import { notificationCopy } from "@/lib/notification-copy";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -225,21 +226,15 @@ const AdminClientIntake = () => {
       );
       if (rows[0]) setIntake(rows[0]);
       // Notify the client that their intake has been validated.
-      const intakeBody =
-        "Maxime reviewed your intake and assessment videos. See his feedback in your profile.";
+      const copy = notificationCopy.intakeValidated;
       await sbPost("notifications", {
         user_id: intake.client_id,
         type: "intake_validated",
-        title: "Your intake has been validated",
-        body: intakeBody,
+        title: copy.title,
+        body: copy.body,
         link_url: "/app/intake",
       });
-      void sendPush(
-        intake.client_id,
-        "Your intake has been validated",
-        intakeBody,
-        "/app/intake"
-      );
+      void sendPush(intake.client_id, copy.title, copy.body, "/app/intake");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
