@@ -899,6 +899,55 @@ export const ClientDashboardBody = ({
       )}
 
       {/* Training calendar for the block, with access to past blocks */}
+      {/* The coach's latest note, above the calendar: it is the one thing
+          here that is addressed to the client personally, and it used to
+          sit below three widgets where it needed scrolling to find. */}
+      {latestCoachComment &&
+        (() => {
+          const exName = latestCoachComment.program_items?.custom_name
+            ? stripSection(latestCoachComment.program_items.custom_name)
+            : null;
+          const inner = (
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-accent text-white flex items-center justify-center shrink-0">
+                <MessageCircle size={15} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold flex items-center gap-2">
+                  Note from your coach
+                  {unreadComments.length > 0 && (
+                    <span className="bg-accent text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                      {unreadComments.length} new
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                  {exName ? `${exName}: ` : ""}
+                  {latestCoachComment.body}
+                </p>
+              </div>
+              <span className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0">
+                {formatRelative(latestCoachComment.created_at, now)}
+              </span>
+            </div>
+          );
+          const cardClass = `block rounded-2xl border p-4 ${
+            unreadComments.length > 0
+              ? "bg-accent/10 border-accent/40"
+              : "bg-white border-border"
+          }`;
+          return coachView ? (
+            <div className={cardClass}>{inner}</div>
+          ) : (
+            <Link
+              to="/app/inbox#messages"
+              className={`${cardClass} hover:shadow-md transition`}
+            >
+              {inner}
+            </Link>
+          );
+        })()}
+
       {calendarBlocks.length > 0 && (
         <BlockCalendar
           clientId={clientId}
@@ -1033,51 +1082,6 @@ export const ClientDashboardBody = ({
       )}
 
       {/* Latest coach note */}
-      {latestCoachComment &&
-        (() => {
-          const exName = latestCoachComment.program_items?.custom_name
-            ? stripSection(latestCoachComment.program_items.custom_name)
-            : null;
-          const inner = (
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-accent text-white flex items-center justify-center shrink-0">
-                <MessageCircle size={15} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold flex items-center gap-2">
-                  Note from your coach
-                  {unreadComments.length > 0 && (
-                    <span className="bg-accent text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                      {unreadComments.length} new
-                    </span>
-                  )}
-                </p>
-                <p className="text-xs text-muted-foreground truncate mt-0.5">
-                  {exName ? `${exName}: ` : ""}
-                  {latestCoachComment.body}
-                </p>
-              </div>
-              <span className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0">
-                {formatRelative(latestCoachComment.created_at, now)}
-              </span>
-            </div>
-          );
-          const cardClass = `block rounded-2xl border p-4 ${
-            unreadComments.length > 0
-              ? "bg-accent/10 border-accent/40"
-              : "bg-white border-border"
-          }`;
-          return coachView ? (
-            <div className={cardClass}>{inner}</div>
-          ) : (
-            <Link
-              to="/app/inbox#messages"
-              className={`${cardClass} hover:shadow-md transition`}
-            >
-              {inner}
-            </Link>
-          );
-        })()}
 
       {/* Program ending / overdue warning */}
       {!coachView && currentProgram && (isOverdue || daysLeft <= 7) && (
