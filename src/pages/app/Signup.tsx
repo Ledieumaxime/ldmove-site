@@ -1,4 +1,5 @@
 import { useState, FormEvent } from "react";
+import { ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,18 @@ const Signup = () => {
   return (
     <div className="min-h-screen bg-sand flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
+        {/* A way out at the top. The "Already a member?" link at the
+            bottom of the form was the only one, and someone who landed
+            here by mistake should not have to read past every field to
+            find it. */}
+        <Link
+          to="/app/login"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
+        >
+          <ArrowLeft size={16} />
+          Back to sign in
+        </Link>
+
         <div className="flex flex-col items-center mb-6">
           <img src={logo} alt="LD Move" className="h-16 w-auto mb-2" />
           <h1 className="font-heading text-2xl font-bold">Create an account</h1>
