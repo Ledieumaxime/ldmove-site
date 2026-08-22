@@ -316,10 +316,7 @@ const Today = () => {
   return (
     <div className="space-y-6 max-w-3xl">
       <BackToDashboard />
-      {/* Centred, like the section badges below it: the page reads as one
-          column rather than a left-aligned header sitting over centred
-          content. */}
-      <div className="text-center">
+      <div>
         <p className="text-xs font-semibold text-accent uppercase tracking-widest mb-1">
           Today's workout
         </p>
