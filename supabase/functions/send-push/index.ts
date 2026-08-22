@@ -27,6 +27,11 @@ type ServiceAccount = {
   project_id: string;
 };
 
+/** How long one "your coach reviewed your work" notification stands for.
+ *  An hour covers a normal review session; a coach who works longer than
+ *  that has genuinely started a second one. */
+const COMMENT_PUSH_WINDOW_MS = 60 * 60 * 1000;
+
 /** Google's OAuth token, cached for the life of this isolate. Minting one
  *  costs a round trip and an RSA signature; they last an hour and a burst
  *  of notifications would otherwise pay for it on every single send. */
@@ -132,9 +137,32 @@ Deno.serve(async (req: Request) => {
       if (caller?.role !== "coach") return json({ error: "Coach only" }, 403);
     }
 
-    const { user_id, title, body, link_url } = await req.json();
+    const { user_id, title, body, link_url, type } = await req.json();
     if (!user_id || !title) {
       return json({ error: "user_id and title required" }, 400);
+    }
+
+    // Answering a stack of form checks in one sitting must not ring the
+    // client's phone once per reply. What they need to know is that their
+    // coach looked at their training, which is one event per session
+    // however many comments it holds. Every comment still lands in the
+    // inbox with its unread badge, so nothing is lost but the noise.
+    //
+    // The window runs from the notification we sent, not from the last
+    // comment written: otherwise a coach who keeps typing would keep
+    // pushing the deadline back and the client would never hear anything.
+    if (type === "comment") {
+      const { data: target } = await admin
+        .from("profiles")
+        .select("last_comment_push_at")
+        .eq("id", user_id)
+        .maybeSingle();
+      const last = target?.last_comment_push_at
+        ? new Date(target.last_comment_push_at).getTime()
+        : 0;
+      if (Date.now() - last < COMMENT_PUSH_WINDOW_MS) {
+        return json({ sent: 0, reason: "throttled" });
+      }
     }
 
     const { data: devices } = await admin
@@ -191,6 +219,16 @@ Deno.serve(async (req: Request) => {
 
     if (stale.length) {
       await admin.from("push_tokens").delete().in("token", stale);
+    }
+
+    // Only start the quiet window once a phone has actually been rung.
+    // Stamping it on a failed send would silence the next hour over a
+    // notification the client never got.
+    if (type === "comment" && sent > 0) {
+      await admin
+        .from("profiles")
+        .update({ last_comment_push_at: new Date().toISOString() })
+        .eq("id", user_id);
     }
 
     return json({ sent, devices: devices.length, pruned: stale.length });

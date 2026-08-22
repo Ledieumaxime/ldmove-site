@@ -85,7 +85,10 @@ export async function sendPush(
   userId: string,
   title: string,
   body?: string,
-  linkUrl?: string
+  linkUrl?: string,
+  /** Pass "comment" for coach feedback. Those arrive in bursts, and the
+   *  sender collapses a burst into one notification per review session. */
+  type?: "comment"
 ): Promise<void> {
   const token = getToken();
   if (!token) return;
@@ -102,6 +105,7 @@ export async function sendPush(
         title,
         body: body ?? "",
         link_url: linkUrl ?? null,
+        type: type ?? null,
       }),
     });
   } catch (e) {

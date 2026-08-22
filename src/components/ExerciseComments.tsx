@@ -60,7 +60,13 @@ async function notifyClientOfComment(
       recipient = rows[0]?.program_weeks?.programs?.assigned_client_id ?? null;
     }
     if (!recipient) return;
-    await sendPush(recipient, "New feedback from Maxime", body, "/app/inbox");
+    await sendPush(
+      recipient,
+      "New feedback from Maxime",
+      body,
+      "/app/inbox",
+      "comment"
+    );
   } catch (e) {
     console.error("could not push the comment", e);
   }
