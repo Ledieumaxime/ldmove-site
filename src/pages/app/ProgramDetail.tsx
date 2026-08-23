@@ -473,9 +473,17 @@ const ProgramDetail = () => {
                                               key={it.id}
                                               className="flex items-start gap-3 py-5 border-b border-foreground/10"
                                             >
-                                              <span className="font-heading text-[13px] font-semibold text-foreground/40 w-4 shrink-0 pt-1">
-                                                {i + 1}
-                                              </span>
+                                              {/* Numbered only inside a
+                                                  chained block, where the
+                                                  order is the instruction. */}
+                                              {isGroup && (
+                                                <span
+                                                  className="font-heading text-[13px] font-semibold w-4 shrink-0 pt-1 tabular-nums"
+                                                  style={{ color: accent.label }}
+                                                >
+                                                  {i + 1}
+                                                </span>
+                                              )}
                                               <div className="flex-1 min-w-0">
                                                 <ProgramItemCard
                                                   item={it}
