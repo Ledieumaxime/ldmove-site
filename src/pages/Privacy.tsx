@@ -60,6 +60,16 @@ const PrivacyPage = () => {
                   to us.
                 </li>
                 <li>
+                  <strong>Health and fitness information:</strong> the intake
+                  questionnaire you fill in before your first program (age,
+                  weight, height, training history, injuries, limitations and
+                  anything else you choose to tell your coach), and the sets,
+                  reps and loads you record while training. Your coach cannot
+                  write a safe program without them, so this is the only
+                  purpose they serve: they are never sold, never shared with
+                  advertisers, and never used to profile you.
+                </li>
+                <li>
                   <strong>Form-check uploads:</strong> videos you voluntarily
                   send to your coach for review, together with any comment
                   attached.
