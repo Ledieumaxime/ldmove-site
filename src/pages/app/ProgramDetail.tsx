@@ -8,7 +8,6 @@ import {
   ChevronDown,
   ChevronRight,
   Dumbbell,
-  Link2,
 } from "lucide-react";
 import { sbGet, sbPost } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,8 +16,7 @@ import ProgramItemCard from "@/components/ProgramItemCard";
 import {
   blockStatsLabel,
   groupTypeLabel,
-  isCircuitGroup,
-  sectionStyle,
+  blockAccent,
 } from "@/lib/programSections";
 
 type Program = {
@@ -339,10 +337,12 @@ const ProgramDetail = () => {
                       )}
                     </button>
 
+                    {/* Tight horizontal padding below: the rows indent
+                        themselves, and at p-5 the exercise names broke
+                        across three lines on a phone. */}
                     {dayOpen && (
-                      <div className="p-5 space-y-5">
+                      <div className="px-3 pt-4 pb-5 space-y-5">
                         {sections.map((sec, sIdx) => {
-                          const style = sectionStyle(sec.section);
                           // Build blocks (solo / group) for this section
                           type Block =
                             | { type: "solo"; item: Item }
@@ -362,128 +362,158 @@ const ProgramDetail = () => {
                           }
                           const secKey = `${w.id}:${sec.section}:${sIdx}`;
                           const secOpen = openSections.has(secKey);
+                          const sectionAccent = blockAccent(sec.section, null);
                           return (
-                            <div key={sIdx}>
+                            <div key={sIdx} className="mb-6">
+                              {/* Same language as the session screen: a
+                                  ruled heading in the section's colour,
+                                  ticks instead of banners, rows instead
+                                  of cards. Only the toggle is extra —
+                                  this page shows a whole block, so the
+                                  sections fold away. */}
                               <button
                                 type="button"
                                 onClick={() =>
                                   setOpenSections((s) => toggle(s, secKey))
                                 }
-                                className={`w-full flex items-center gap-2 text-sm md:text-base font-bold uppercase tracking-widest px-4 py-2 rounded-lg shadow-sm ${style.badge} ${secOpen ? "mb-4" : ""}`}
+                                className="w-full flex items-baseline justify-between gap-2 pb-2 mb-5 border-b border-foreground/20"
                               >
-                                <span className="flex-1 text-left">{sec.section}</span>
-                                <span className="text-xs font-semibold opacity-70 normal-case tracking-normal">
-                                  {sec.items.length}
+                                <span
+                                  className="font-heading text-[13px] font-semibold uppercase tracking-[0.18em]"
+                                  style={{ color: sectionAccent.label }}
+                                >
+                                  {sec.section}
                                 </span>
-                                {secOpen ? (
-                                  <ChevronDown size={16} className="opacity-70" />
-                                ) : (
-                                  <ChevronRight size={16} className="opacity-70" />
-                                )}
+                                <span className="flex items-center gap-2 text-[12.5px] text-foreground/45">
+                                  {sec.items.length} exercise
+                                  {sec.items.length === 1 ? "" : "s"}
+                                  {secOpen ? (
+                                    <ChevronDown size={14} />
+                                  ) : (
+                                    <ChevronRight size={14} />
+                                  )}
+                                </span>
                               </button>
                               {secOpen && (
-                                <div className="space-y-2.5">
-                                  {blocks.map((b, bIdx) =>
-                                    b.type === "solo" ? (
-                                      // Continuous numbering: every block of
-                                      // the section carries its position,
-                                      // single exercises included.
-                                      <div key={b.item.id} className="relative pl-9">
-                                        <span
-                                          className={`absolute left-0 top-3 w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center ${style.groupBullet}`}
-                                        >
-                                          {bIdx + 1}
-                                        </span>
-                                        <div className={`rounded-xl overflow-hidden border-2 ${style.blockBorder}`}>
-                                          <div className={`flex items-center justify-between gap-2 px-3 py-2 ${style.strip}`}>
-                                            <span className="text-[11px] font-bold uppercase tracking-widest text-white">
-                                              Set
-                                            </span>
-                                            {blockStatsLabel(null, b.item.sets, b.item.rest_seconds) && (
-                                              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold whitespace-nowrap ${style.stripPill}`}>
-                                                {blockStatsLabel(null, b.item.sets, b.item.rest_seconds)}
-                                              </span>
-                                            )}
-                                          </div>
-                                          <ProgramItemCard
-                                            item={b.item}
-                                            canComment={program.type === "custom"}
-                                            commentsReadOnly={program.is_archived}
-                                            canUploadFormCheck={clientCanUploadFormCheck}
-                                            // Overview page: no interactive logger
-                                            // for the client. The coach keeps a
-                                            // read-only summary of what the client
-                                            // has logged, so coaching decisions
-                                            // stay data-driven.
-                                            loggerClientId={
-                                              isCoach ? program.assigned_client_id : null
-                                            }
-                                            loggerReadOnly
-                                            flush
+                                <div>
+                                  {blocks.map((b, bIdx) => {
+                                    const isGroup = b.type === "group";
+                                    const groupName = isGroup ? b.name : null;
+                                    const accent = blockAccent(
+                                      sec.section,
+                                      groupName
+                                    );
+                                    const groupSets = isGroup
+                                      ? b.items.find((it) => it.sets != null)
+                                          ?.sets ?? null
+                                      : b.item.sets;
+                                    const groupRest = isGroup
+                                      ? [...b.items]
+                                          .reverse()
+                                          .find(
+                                            (it) =>
+                                              it.rest_seconds != null &&
+                                              it.rest_seconds > 0
+                                          )?.rest_seconds ?? null
+                                      : b.item.rest_seconds;
+                                    const stats = blockStatsLabel(
+                                      groupName,
+                                      groupSets,
+                                      groupRest
+                                    );
+                                    const items = isGroup ? b.items : [b.item];
+                                    return (
+                                      <div
+                                        key={`b-${bIdx}`}
+                                        className={bIdx === 0 ? "" : "mt-7"}
+                                      >
+                                        <div className="flex items-center gap-[9px] flex-wrap">
+                                          <span
+                                            className="font-heading text-[15px] font-bold shrink-0 tabular-nums"
+                                            style={{ color: accent.label }}
+                                          >
+                                            {bIdx + 1}
+                                          </span>
+                                          <span
+                                            aria-hidden
+                                            className="w-px h-[13px] shrink-0"
+                                            style={{ background: accent.tick }}
                                           />
+                                          <span
+                                            className="text-[11.5px] font-semibold uppercase tracking-[0.16em]"
+                                            style={{ color: accent.label }}
+                                          >
+                                            {isGroup
+                                              ? groupTypeLabel(groupName)
+                                              : "Set"}
+                                          </span>
+                                          {stats && (
+                                            <span className="text-[12.5px] text-foreground/45">
+                                              {stats}
+                                            </span>
+                                          )}
+                                        </div>
+                                        {accent.note && (
+                                          <p className="italic text-[13.5px] leading-[1.5] text-foreground/55 mt-2 pl-3">
+                                            {accent.note}
+                                          </p>
+                                        )}
+                                        <div
+                                          className="pl-3 mt-0.5"
+                                          style={{
+                                            borderLeft: `1px solid ${
+                                              accent.chained
+                                                ? accent.chain
+                                                : "transparent"
+                                            }`,
+                                          }}
+                                        >
+                                          {items.map((it, i) => (
+                                            <div
+                                              key={it.id}
+                                              className="flex items-start gap-3 py-5 border-b border-foreground/10"
+                                            >
+                                              <span className="font-heading text-[13px] font-semibold text-foreground/40 w-4 shrink-0 pt-1">
+                                                {i + 1}
+                                              </span>
+                                              <div className="flex-1 min-w-0">
+                                                <ProgramItemCard
+                                                  item={it}
+                                                  compact={isGroup}
+                                                  inSuperset={isGroup}
+                                                  canComment={
+                                                    program.type === "custom"
+                                                  }
+                                                  commentsReadOnly={
+                                                    program.is_archived
+                                                  }
+                                                  canUploadFormCheck={
+                                                    clientCanUploadFormCheck
+                                                  }
+                                                  // Overview page: no interactive
+                                                  // logger for the client. The coach
+                                                  // keeps a read-only summary of what
+                                                  // has been logged, so coaching
+                                                  // decisions stay data-driven.
+                                                  loggerClientId={
+                                                    isCoach
+                                                      ? program.assigned_client_id
+                                                      : null
+                                                  }
+                                                  loggerReadOnly
+                                                  setsOverride={
+                                                    isGroup ? groupSets : undefined
+                                                  }
+                                                  flush
+                                                  noPadding
+                                                />
+                                              </div>
+                                            </div>
+                                          ))}
                                         </div>
                                       </div>
-                                    ) : (
-                                      (() => {
-                                        // Aggregate sets and rest for the superset group
-                                        const groupSets = b.items.find((it) => it.sets != null)?.sets ?? null;
-                                        const groupRest =
-                                          [...b.items].reverse().find((it) => it.rest_seconds != null && it.rest_seconds > 0)?.rest_seconds ?? null;
-                                        return (
-                                          <div key={`g-${bIdx}`} className="relative pl-9">
-                                            <span
-                                              className={`absolute left-0 top-3 w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center ${style.groupBullet}`}
-                                            >
-                                              {bIdx + 1}
-                                            </span>
-                                            <div className={`rounded-xl overflow-hidden border-2 ${style.blockBorder}`}>
-                                            <div className={`flex items-center justify-between gap-2 px-3 py-2 ${style.strip}`}>
-                                              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-white">
-                                                <Link2 size={12} /> {groupTypeLabel(b.name)}
-                                              </span>
-                                              {blockStatsLabel(b.name, groupSets, groupRest) && (
-                                                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold whitespace-nowrap ${style.stripPill}`}>
-                                                  {blockStatsLabel(b.name, groupSets, groupRest)}
-                                                </span>
-                                              )}
-                                            </div>
-                                            <div className={`p-3 ${style.groupBox} !border-0 rounded-none`}>
-                                            <p className="text-[11px] text-muted-foreground italic mb-2">
-                                              {isCircuitGroup(b.name)
-                                                ? "One round = every exercise once, in order. Rest, then start the next round."
-                                                : "Chain exercises with no rest, then rest after the last one."}
-                                            </p>
-                                            <div className="space-y-2">
-                                              {b.items.map((it, i) => (
-                                                <div key={it.id} className="relative pl-7">
-                                                  <span className={`absolute left-0 top-2 w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center ${style.groupBullet}`}>
-                                                    {i + 1}
-                                                  </span>
-                                                  <ProgramItemCard
-                                                    item={it}
-                                                    compact
-                                                    canComment={program.type === "custom"}
-                                        commentsReadOnly={program.is_archived}
-                                                    canUploadFormCheck={clientCanUploadFormCheck}
-                                                    inSuperset
-                                                    loggerClientId={
-                                                      isCoach
-                                                        ? program.assigned_client_id
-                                                        : null
-                                                    }
-                                                    loggerReadOnly
-                                                    setsOverride={groupSets}
-                                                  />
-                                                </div>
-                                              ))}
-                                            </div>
-                                            </div>
-                                            </div>
-                                          </div>
-                                        );
-                                      })()
-                                    )
-                                  )}
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
