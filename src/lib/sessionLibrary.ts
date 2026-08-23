@@ -7,6 +7,11 @@
 
 import { sbGetAll } from "@/integrations/supabase/api";
 
+/** The shared account handed to Play Store testers. Its blocks are copies
+ *  of real clients' work, made to have something to click on, so they
+ *  filled the library with near-duplicates of sessions already in it. */
+const TEST_ACCOUNT_EMAIL = "tester@ldmove.com";
+
 export type SessionLibraryEntry = {
   weekId: string;
   weekNumber: number;
@@ -51,6 +56,10 @@ export async function fetchSessionLibrary(): Promise<SessionLibraryEntry[]> {
 
   return weeks
     .filter((w) => w.program)
+    .filter(
+      (w) =>
+        w.program!.client?.email?.toLowerCase() !== TEST_ACCOUNT_EMAIL
+    )
     .map((w) => ({
       weekId: w.id,
       weekNumber: w.week_number,
