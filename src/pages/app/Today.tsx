@@ -445,10 +445,11 @@ const Today = () => {
                   <div
                     className="pl-3 mt-0.5"
                     style={{
-                      borderLeft: `2px solid ${
+                      // Same hue AND same weight as the tick above it: at
+                      // 2px the identical blue read as a brighter blue.
+                      borderLeft: `1px solid ${
                         accent.chained ? accent.chain : "transparent"
                       }`,
-                      opacity: 1,
                     }}
                   >
                     {items.map((it, i) => (
