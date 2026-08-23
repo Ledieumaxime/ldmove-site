@@ -363,13 +363,19 @@ const Today = () => {
         }
 
         const sectionCount = sec.items.length;
+        // The heading takes the section's own colour, so "WARMUP" reads
+        // as the same thing as the blue blocks under it.
+        const sectionAccent = blockAccent(sec.section, null);
 
         return (
           <section key={sIdx}>
             {/* Section rule rather than a coloured badge: the section is
                 where you are in the session, not a thing to shout. */}
             <div className="flex items-baseline justify-between pb-2 mb-5 border-b border-foreground/20">
-              <b className="font-heading text-[13px] font-semibold uppercase tracking-[0.18em]">
+              <b
+                className="font-heading text-[13px] font-semibold uppercase tracking-[0.18em]"
+                style={{ color: sectionAccent.label }}
+              >
                 {sec.section}
               </b>
               <span className="text-[12.5px] text-foreground/45">
@@ -404,14 +410,14 @@ const Today = () => {
                         exercises inside a group left a client unable to tell
                         how far through the session they were. */}
                     <span
-                      className="w-6 h-6 rounded-full text-white text-[11px] font-bold flex items-center justify-center shrink-0"
-                      style={{ background: accent.tick }}
+                      className="font-heading text-[15px] font-bold shrink-0 tabular-nums"
+                      style={{ color: accent.label }}
                     >
                       {bIdx + 1}
                     </span>
                     <span
                       aria-hidden
-                      className="w-[3px] h-[13px] shrink-0"
+                      className="w-px h-[13px] shrink-0"
                       style={{ background: accent.tick }}
                     />
                     <span
