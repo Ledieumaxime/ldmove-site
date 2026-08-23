@@ -28,6 +28,7 @@ const MiddleSplitComingSoon = lazy(() => import("./pages/MiddleSplitComingSoon")
 const NotFound = lazy(() => import("./pages/NotFound"));
 const LegalNoticePage = lazy(() => import("./pages/LegalNotice"));
 const PrivacyPage = lazy(() => import("./pages/Privacy"));
+const DeleteAccountPage = lazy(() => import("./pages/DeleteAccount"));
 const OnboardingAssessmentPage = lazy(() => import("./pages/OnboardingAssessment"));
 const AppLogin = lazy(() => import("./pages/app/Login"));
 const AppSignup = lazy(() => import("./pages/app/Signup"));
@@ -83,6 +84,10 @@ const App = () => (
               <Route path="/consultation" element={<ConsultationPage />} />
               <Route path="/legal" element={<LegalNoticePage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
+              <Route
+                path="/delete-account"
+                element={<DeleteAccountPage />}
+              />
               <Route path="/onboarding-assessment" element={<OnboardingAssessmentPage />} />
 
               {/* Espace connecté */}
