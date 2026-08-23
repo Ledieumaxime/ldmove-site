@@ -315,8 +315,9 @@ const Today = () => {
   return (
     <div className="space-y-6 max-w-3xl">
       <BackToDashboard />
-      {/* A masthead: the two rules under the dateline are what make a
-          page read as a front page rather than a form. */}
+      {/* One rule, the same as the dashboard's date rail: the reference
+          used a thick-thin pair, but the two screens open the same way
+          and should not draw their masthead differently. */}
       <div>
         <div className="flex items-baseline justify-between gap-3 pb-2 border-b-2 border-foreground">
           <span className="text-[11px] font-semibold uppercase tracking-[0.16em]">
@@ -332,7 +333,6 @@ const Today = () => {
               ` · ${dayDisplayLabel(todaysWorkout)}`}
           </span>
         </div>
-        <div className="border-b border-foreground/30 mt-[3px]" />
         <h1 className="font-heading text-[38px] leading-[1.05] font-bold tracking-[-0.02em] mt-5">
           Session {displaySessionNumber}
         </h1>
