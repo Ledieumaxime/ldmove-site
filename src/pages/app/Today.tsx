@@ -322,8 +322,14 @@ const Today = () => {
           <span className="text-[11px] font-semibold uppercase tracking-[0.16em]">
             Today's workout
           </span>
+          {/* The session's own name earns its place here — "Legs", "Pull" —
+              but an unnamed one comes back as "Session 4", which the
+              heading underneath already says. */}
           <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground/50 truncate">
-            {program.title} · {dayDisplayLabel(todaysWorkout)}
+            {program.title}
+            {dayDisplayLabel(todaysWorkout) !==
+              `Session ${displaySessionNumber}` &&
+              ` · ${dayDisplayLabel(todaysWorkout)}`}
           </span>
         </div>
         <div className="border-b border-foreground/30 mt-[3px]" />
