@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState, FormEvent } from "react";
-import { MessageCircle, Send, Trash2, Wand2 } from "lucide-react";
-import { sbGet, sbPost, sbPatch, sbDelete } from "@/integrations/supabase/api";
+import { ImagePlus, Loader2, MessageCircle, Send, Trash2, Wand2, X } from "lucide-react";
+import {
+  sbGet,
+  sbPost,
+  sbPatch,
+  sbDelete,
+  sbSignUrl,
+} from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +20,9 @@ type Comment = {
   author_id: string | null;
   author_role: "coach" | "client";
   body: string;
+  /** Storage path in `comment-images`, not a URL: the bucket is private
+   *  and every display goes through a signed link. */
+  image_url: string | null;
   parent_id: string | null;
   created_at: string;
   profiles?: { first_name: string | null; last_name: string | null } | null;
@@ -35,12 +44,27 @@ function getToken(): string | null {
   }
 }
 
-/** Push the coach's feedback to the client's phone.
+/** Whose thread this is.
  *
- *  The screen that owns the thread usually knows who it belongs to and
- *  passes `clientId`. When it doesn't, the exercise itself says so:
- *  item -> week -> program -> assigned client. That lookup runs only for
- *  the coach, and only on a send, so it costs nothing on the read path.
+ *  The screen that owns it usually knows and passes `clientId`. When it
+ *  doesn't, the exercise itself says so: item -> week -> program ->
+ *  assigned client. Both the push and the image folder need this answer,
+ *  which is why it lives on its own.
+ */
+async function resolveThreadClient(
+  itemId: string,
+  clientId: string | null | undefined
+): Promise<string | null> {
+  if (clientId) return clientId;
+  const rows = await sbGet<
+    { program_weeks?: { programs?: { assigned_client_id?: string } } }[]
+  >(
+    `program_items?id=eq.${itemId}&select=program_weeks(programs(assigned_client_id))&limit=1`
+  );
+  return rows[0]?.program_weeks?.programs?.assigned_client_id ?? null;
+}
+
+/** Push the coach's feedback to the client's phone.
  *
  *  Silent-failure throughout: the comment is already posted and visible,
  *  and a phone that cannot be reached must not look like a failed reply.
@@ -50,15 +74,7 @@ async function notifyClientOfComment(
   clientId: string | null | undefined
 ) {
   try {
-    let recipient = clientId ?? null;
-    if (!recipient) {
-      const rows = await sbGet<
-        { program_weeks?: { programs?: { assigned_client_id?: string } } }[]
-      >(
-        `program_items?id=eq.${itemId}&select=program_weeks(programs(assigned_client_id))&limit=1`
-      );
-      recipient = rows[0]?.program_weeks?.programs?.assigned_client_id ?? null;
-    }
+    const recipient = await resolveThreadClient(itemId, clientId);
     if (!recipient) return;
     await sendPush(
       recipient,
@@ -89,6 +105,56 @@ async function markRead(userId: string, itemId: string) {
     console.error("markRead", e);
   }
 }
+
+const MAX_IMAGE_MB = 10;
+
+/** Put one image in the private `comment-images` bucket and hand back
+ *  its storage path.
+ *
+ *  `folder` is the CLIENT of the thread, never the uploader: the bucket
+ *  policy grants a client read access to their own folder, so filing the
+ *  coach's picture under the coach would leave the client unable to see
+ *  the very thing that was sent to them.
+ */
+async function uploadCommentImage(file: File, folder: string): Promise<string> {
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const path = `${folder}/${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}.${ext}`;
+  const token = getToken();
+  if (!token) throw new Error("Not signed in");
+  const res = await fetch(
+    `${SUPABASE_URL}/storage/v1/object/comment-images/${path}`,
+    {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${token}`,
+        "x-upsert": "false",
+      },
+      body: file,
+    }
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return path;
+}
+
+/** The picture attached to a comment, shown inline at a size that reads
+ *  on a phone. Tapping opens the full-resolution file, which is what a
+ *  client does with an annotated position. */
+const CommentImage = ({ src }: { src: string | undefined }) => {
+  if (!src) return null;
+  return (
+    <a href={src} target="_blank" rel="noreferrer" className="block mt-2">
+      <img
+        src={src}
+        alt="Attached"
+        className="rounded-md border border-border max-h-72 w-auto"
+        loading="lazy"
+      />
+    </a>
+  );
+};
 
 /**
  * Per-exercise discussion thread.
@@ -138,6 +204,16 @@ const ExerciseComments = ({
   // is a suggestion, and changing your mind should not mean retyping.
   const [beforeRewrite, setBeforeRewrite] = useState<string | null>(null);
   const [rewriteError, setRewriteError] = useState<string | null>(null);
+  // Attachment being composed: the file itself, plus a local object URL
+  // so the sender sees what they picked before it leaves the phone.
+  const [pending, setPending] = useState<{ file: File; preview: string } | null>(
+    null
+  );
+  const [sendError, setSendError] = useState<string | null>(null);
+  // Signed links for the images already in the thread, keyed by comment
+  // id. The bucket is private, so nothing renders without one.
+  const [signed, setSigned] = useState<Record<string, string>>({});
+  const imageInput = useRef<HTMLInputElement>(null);
   const touchInput = useTouchInput();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // When set, focus the textarea on the next render that has it
@@ -161,11 +237,49 @@ const ExerciseComments = ({
       setComments(rows);
       setLastReadAt(reads[0]?.last_read_at ?? null);
       setLoaded(true);
+
+      // Sign the attachments in parallel: a thread with a handful of
+      // pictures should not open one round-trip at a time.
+      const withImages = rows.filter((r) => r.image_url);
+      if (withImages.length) {
+        const pairs = await Promise.all(
+          withImages.map(
+            async (r) =>
+              [r.id, await sbSignUrl("comment-images", r.image_url!)] as const
+          )
+        );
+        setSigned((prev) => {
+          const next = { ...prev };
+          for (const [id, url] of pairs) if (url) next[id] = url;
+          return next;
+        });
+      }
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
+  };
+
+  const pickImage = (file: File | undefined) => {
+    if (!file) return;
+    setSendError(null);
+    if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
+      setSendError(`Image too large. Max ${MAX_IMAGE_MB} MB.`);
+      return;
+    }
+    setPending((prev) => {
+      if (prev) URL.revokeObjectURL(prev.preview);
+      return { file, preview: URL.createObjectURL(file) };
+    });
+  };
+
+  const clearPending = () => {
+    setPending((prev) => {
+      if (prev) URL.revokeObjectURL(prev.preview);
+      return null;
+    });
+    if (imageInput.current) imageInput.current.value = "";
   };
 
   // Always reload on open (so new messages show up) AND mark as read.
@@ -205,13 +319,17 @@ const ExerciseComments = ({
   const send = async (e: FormEvent) => {
     e.preventDefault();
     const trimmed = body.trim();
-    if (!trimmed || !user || !profile) return;
+    // A picture on its own is a complete message here: "look at this
+    // frame" needs no caption to be understood.
+    if ((!trimmed && !pending) || !user || !profile) return;
+    setSendError(null);
 
     // Optimistic update: the comment lands in the thread instantly.
     // The form clears, the user sees their message right away, and
     // every network call runs in the background. If the POST fails
     // we roll back and put the text back in the input so they can
     // retry without retyping.
+    const attachment = pending;
     const tempId = `temp-${Date.now()}`;
     const optimistic: Comment = {
       id: tempId,
@@ -219,6 +337,7 @@ const ExerciseComments = ({
       author_id: user.id,
       author_role: profile.role,
       body: trimmed,
+      image_url: attachment ? "pending" : null,
       parent_id: null,
       created_at: new Date().toISOString(),
       profiles: {
@@ -227,15 +346,32 @@ const ExerciseComments = ({
       },
     };
     setComments((cs) => [...cs, optimistic]);
+    // The local preview stands in for the signed link until the real
+    // one comes back with the reload.
+    if (attachment) setSigned((s) => ({ ...s, [tempId]: attachment.preview }));
     setBody("");
+    setPending(null);
+    if (imageInput.current) imageInput.current.value = "";
     setSending(true);
 
     try {
+      let imagePath: string | null = null;
+      if (attachment) {
+        // Whoever sends it, the file is filed under the client, so the
+        // client can read it back.
+        const folder =
+          profile.role === "coach"
+            ? await resolveThreadClient(itemId, clientId)
+            : user.id;
+        if (!folder) throw new Error("Could not tell whose thread this is");
+        imagePath = await uploadCommentImage(attachment.file, folder);
+      }
       await sbPost("exercise_comments", {
         item_id: itemId,
         author_id: user.id,
         author_role: profile.role,
         body: trimmed,
+        image_url: imagePath,
       });
       setSending(false);
 
@@ -264,22 +400,50 @@ const ExerciseComments = ({
       }
       markRead(user.id, itemId);
       // Replace the temp row with the canonical one from the server.
-      load();
+      await load();
+      if (attachment) {
+        URL.revokeObjectURL(attachment.preview);
+        setSigned(({ [tempId]: _dropped, ...rest }) => rest);
+      }
       // Let the parent inbox refetch so the resolved entry drops out.
       onReplied?.();
     } catch (e) {
       console.error(e);
       setComments((cs) => cs.filter((c) => c.id !== tempId));
       setBody(trimmed);
+      // Hand the picture back rather than making them find it again.
+      if (attachment) setPending(attachment);
+      setSendError(
+        attachment ? "Could not send the image. Try again." : "Could not send."
+      );
       setSending(false);
     }
   };
 
   const remove = async (id: string) => {
     if (!confirm("Delete this comment?")) return;
+    const target = comments.find((c) => c.id === id);
     try {
       await sbDelete(`exercise_comments?id=eq.${id}`);
       setComments((cs) => cs.filter((c) => c.id !== id));
+      // Take the file with the message. Best-effort: the comment is
+      // already gone, and an orphaned object must not look like a
+      // failed delete.
+      if (target?.image_url) {
+        const token = getToken();
+        if (token) {
+          void fetch(
+            `${SUPABASE_URL}/storage/v1/object/comment-images/${target.image_url}`,
+            {
+              method: "DELETE",
+              headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          ).catch(() => {});
+        }
+      }
     } catch (e) {
       console.error(e);
     }
@@ -333,7 +497,8 @@ const ExerciseComments = ({
                   })}
                 </span>
               </div>
-              <p className="whitespace-pre-wrap">{c.body}</p>
+              {c.body && <p className="whitespace-pre-wrap">{c.body}</p>}
+              <CommentImage src={signed[c.id]} />
             </div>
           );
         })}
@@ -395,7 +560,10 @@ const ExerciseComments = ({
                 })}
               </span>
             </div>
-            <p className="whitespace-pre-wrap">{last.body}</p>
+            {last.body && (
+              <p className="whitespace-pre-wrap">{last.body}</p>
+            )}
+            <CommentImage src={signed[last.id]} />
           </div>
         );
       })()}
@@ -446,7 +614,8 @@ const ExerciseComments = ({
                     )}
                   </div>
                 </div>
-                <p className="whitespace-pre-wrap">{c.body}</p>
+                {c.body && <p className="whitespace-pre-wrap">{c.body}</p>}
+                <CommentImage src={signed[c.id]} />
               </div>
             );
           })}
@@ -497,7 +666,41 @@ const ExerciseComments = ({
             </div>
           )}
 
+          {/* What is about to be sent, and why it might not have been.
+              Shown above the field so it is read before the send. */}
+          {(pending || sendError) && (
+            <div className="pt-1">
+              {pending && (
+                <div className="relative inline-block">
+                  <img
+                    src={pending.preview}
+                    alt="To send"
+                    className="rounded-md border border-border max-h-32 w-auto"
+                  />
+                  <button
+                    type="button"
+                    onClick={clearPending}
+                    className="absolute -top-1.5 -right-1.5 rounded-full bg-foreground text-white p-1"
+                    title="Remove image"
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              )}
+              {sendError && (
+                <p className="text-[11px] text-red-700 mt-1">{sendError}</p>
+              )}
+            </div>
+          )}
+
           <form onSubmit={send} className="flex gap-2 pt-1">
+            <input
+              ref={imageInput}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => pickImage(e.target.files?.[0])}
+            />
             <Textarea
               ref={textareaRef}
               value={body}
@@ -511,7 +714,7 @@ const ExerciseComments = ({
                 if (touchInput) return;
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  if (body.trim() && !sending) {
+                  if ((body.trim() || pending) && !sending) {
                     void send(e as unknown as FormEvent);
                   }
                 }
@@ -524,9 +727,29 @@ const ExerciseComments = ({
               rows={2}
               className="text-xs flex-1"
             />
-            <Button type="submit" size="sm" disabled={sending || !body.trim()} className="self-end">
-              <Send size={14} />
-            </Button>
+            <div className="flex gap-1 self-end">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => imageInput.current?.click()}
+                disabled={sending}
+                title="Attach an image"
+              >
+                <ImagePlus size={14} />
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={sending || (!body.trim() && !pending)}
+              >
+                {sending ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Send size={14} />
+                )}
+              </Button>
+            </div>
           </form>
         </div>
       )}
