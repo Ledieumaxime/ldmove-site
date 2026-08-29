@@ -11,6 +11,7 @@ import {
   X,
   Inbox as InboxIcon,
   Loader2,
+  Pencil,
 } from "lucide-react";
 import { sbGet, sbPatch, sbPost, sbSignUrl } from "@/integrations/supabase/api";
 import { sendPush } from "@/integrations/supabase/notify";
@@ -20,6 +21,7 @@ import LazyVideo from "@/components/LazyVideo";
 import { groupSetsLabel } from "@/lib/programSections";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import ExerciseComments from "@/components/ExerciseComments";
 import BackToDashboard from "@/components/BackToDashboard";
 
@@ -574,31 +576,163 @@ const ThreadCard = ({
  *  reps on one line, then whatever the coach wrote on the exercise —
  *  which is where the tempo and the load live. */
 const Prescription = ({
+  itemId,
   item,
 }: {
+  itemId: string;
   item: NonNullable<FormCheck["program_items"]>;
 }) => {
-  const parts: string[] = [];
-  if (item.sets != null && item.reps)
-    parts.push(`${item.sets} × ${item.reps}`);
-  else if (item.reps) parts.push(item.reps);
-  else if (item.sets != null)
-    parts.push(groupSetsLabel(item.group_name, item.sets));
-  if (item.rest_seconds != null) parts.push(`${item.rest_seconds}s rest`);
+  // The row is edited in place rather than refetched through the page:
+  // reloading the inbox to see one number change would rebuild every
+  // card and lose the coach's scroll position mid-review.
+  const [current, setCurrent] = useState(item);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState(item);
 
-  if (!parts.length && !item.notes) return null;
+  const parts: string[] = [];
+  if (current.sets != null && current.reps)
+    parts.push(`${current.sets} × ${current.reps}`);
+  else if (current.reps) parts.push(current.reps);
+  else if (current.sets != null)
+    parts.push(groupSetsLabel(current.group_name, current.sets));
+  if (current.rest_seconds != null)
+    parts.push(`${current.rest_seconds}s rest`);
+
+  const open = () => {
+    setDraft(current);
+    setError(null);
+    setEditing(true);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const patch = {
+        sets: draft.sets,
+        reps: draft.reps?.trim() ? draft.reps.trim() : null,
+        rest_seconds: draft.rest_seconds,
+        notes: draft.notes?.trim() ? draft.notes.trim() : null,
+      };
+      await sbPatch(`program_items?id=eq.${itemId}`, patch);
+      setCurrent({ ...current, ...patch });
+      setEditing(false);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // A number field that means "not prescribed" when left empty, rather
+  // than 0: a block with no rest and a block that never mentioned rest
+  // are different things, and the client screen reads them differently.
+  const numberField = (
+    label: string,
+    value: number | null,
+    onChange: (v: number | null) => void
+  ) => (
+    <label className="flex-1 min-w-[70px]">
+      <span className="block text-[10px] uppercase text-muted-foreground mb-0.5">
+        {label}
+      </span>
+      <Input
+        type="number"
+        inputMode="numeric"
+        value={value ?? ""}
+        onChange={(e) =>
+          onChange(e.target.value === "" ? null : Number(e.target.value))
+        }
+        className="h-8 text-sm"
+      />
+    </label>
+  );
+
+  if (editing) {
+    return (
+      <div className="border border-accent rounded-lg p-3 mb-2">
+        <p className="text-[10px] font-bold uppercase text-muted-foreground mb-2">
+          Prescribed
+        </p>
+        <div className="flex gap-2 mb-2">
+          {numberField("Sets", draft.sets, (v) =>
+            setDraft((d) => ({ ...d, sets: v }))
+          )}
+          <label className="flex-1 min-w-[70px]">
+            <span className="block text-[10px] uppercase text-muted-foreground mb-0.5">
+              Reps
+            </span>
+            <Input
+              value={draft.reps ?? ""}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, reps: e.target.value }))
+              }
+              placeholder="8, 30s, AMRAP…"
+              className="h-8 text-sm"
+            />
+          </label>
+          {numberField("Rest (s)", draft.rest_seconds, (v) =>
+            setDraft((d) => ({ ...d, rest_seconds: v }))
+          )}
+        </div>
+        <Textarea
+          value={draft.notes ?? ""}
+          onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
+          placeholder="Tempo, load, cues…"
+          rows={3}
+          className="text-xs"
+        />
+        {error && <p className="text-[11px] text-red-700 mt-1">{error}</p>}
+        <div className="flex gap-2 mt-2">
+          <Button size="sm" onClick={save} disabled={saving}>
+            {saving ? "Saving…" : "Save"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setEditing(false)}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-2">
+          Applies to the current block. The client sees it next time they
+          open the app; what they already logged is untouched.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="border border-border rounded-lg p-3 mb-2">
-      <p className="text-[10px] font-bold uppercase text-muted-foreground mb-1">
-        Prescribed
-      </p>
-      {parts.length > 0 && (
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-[10px] font-bold uppercase text-muted-foreground">
+          Prescribed
+        </p>
+        <button
+          type="button"
+          onClick={open}
+          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-[11px]"
+          title="Adjust this exercise"
+        >
+          <Pencil size={11} /> Adjust
+        </button>
+      </div>
+      {parts.length > 0 ? (
         <p className="text-sm font-semibold">{parts.join("  ·  ")}</p>
+      ) : (
+        !current.notes && (
+          <p className="text-xs text-muted-foreground italic">
+            Nothing prescribed yet.
+          </p>
+        )
       )}
-      {item.notes && (
+      {current.notes && (
         <p className="text-xs text-muted-foreground whitespace-pre-wrap mt-1">
-          {item.notes}
+          {current.notes}
         </p>
       )}
     </div>
@@ -742,8 +876,8 @@ const CheckCard = ({
       {/* What was asked for, next to what came back. Judging a form
           check means comparing the two, and the coach was having to
           remember the prescription or open the program in another tab. */}
-      {check.program_items && (
-        <Prescription item={check.program_items} />
+      {check.item_id && check.program_items && (
+        <Prescription itemId={check.item_id} item={check.program_items} />
       )}
 
       {check.client_note && (
