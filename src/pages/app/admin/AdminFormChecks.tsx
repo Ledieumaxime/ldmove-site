@@ -16,6 +16,7 @@ import { sbGet, sbPatch, sbPost, sbSignUrl } from "@/integrations/supabase/api";
 import { sendPush } from "@/integrations/supabase/notify";
 import { notificationCopy } from "@/lib/notification-copy";
 import { stripSection } from "@/components/ProgramItemCard";
+import LazyVideo from "@/components/LazyVideo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ExerciseComments from "@/components/ExerciseComments";
@@ -703,13 +704,8 @@ const CheckCard = ({
 
       {videoSrc ? (
         <>
-          <video
+          <LazyVideo
             src={videoSrc}
-            controls
-            // metadata-only: without this every mounted card preloads its
-            // whole video. Ten 40 MB form checks from one client saturate
-            // the connection and none of them ever buffer enough to play.
-            preload="metadata"
             className="w-full rounded-lg max-h-[400px]"
           />
           {/* Escape hatch for heavy clips on a weak connection: phone

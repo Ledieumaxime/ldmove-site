@@ -28,6 +28,7 @@ import {
 } from "@/lib/workoutDay";
 import { detectTracking, stripSection } from "@/components/ProgramItemCard";
 import DeleteClientDialog from "@/components/DeleteClientDialog";
+import LazyVideo from "@/components/LazyVideo";
 import BlockCalendar from "@/components/BlockCalendar";
 
 /**
@@ -1488,10 +1489,8 @@ const AdminClientDetail = () => {
                         </span>
                       </div>
                       {milestoneUrls[m.id] ? (
-                        <video
+                        <LazyVideo
                           src={milestoneUrls[m.id]}
-                          controls
-                          preload="metadata"
                           className="w-full rounded-lg bg-black"
                         />
                       ) : (
