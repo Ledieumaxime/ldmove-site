@@ -17,6 +17,7 @@ import { sendPush } from "@/integrations/supabase/notify";
 import { notificationCopy } from "@/lib/notification-copy";
 import { stripSection } from "@/components/ProgramItemCard";
 import LazyVideo from "@/components/LazyVideo";
+import { groupSetsLabel } from "@/lib/programSections";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ExerciseComments from "@/components/ExerciseComments";
@@ -45,7 +46,17 @@ type FormCheck = {
   archived_note: string | null;
   archived_at: string | null;
   profiles?: { first_name: string | null; last_name: string | null } | null;
-  program_items?: { custom_name: string | null } | null;
+  /** The prescription this video is supposed to show. Without it the
+   *  coach can name the exercise but not tell, at a glance, whether the
+   *  client did what was asked. */
+  program_items?: {
+    custom_name: string | null;
+    sets: number | null;
+    reps: string | null;
+    rest_seconds: number | null;
+    notes: string | null;
+    group_name: string | null;
+  } | null;
 };
 
 type CommentRow = {
@@ -131,7 +142,7 @@ const AdminFormChecks = () => {
     try {
       const [rows, allComments] = await Promise.all([
         sbGet<FormCheck[]>(
-          "form_check_submissions?select=*,profiles(first_name,last_name),program_items(custom_name)&order=created_at.desc"
+          "form_check_submissions?select=*,profiles(first_name,last_name),program_items(custom_name,sets,reps,rest_seconds,notes,group_name)&order=created_at.desc"
         ),
         sbGet<CommentRow[]>(
           "exercise_comments?select=*,profiles(first_name,last_name),program_items(custom_name)&order=created_at.desc&limit=200"
@@ -559,6 +570,41 @@ const ThreadCard = ({
   );
 };
 
+/** The prescription for the exercise a form check answers: sets and
+ *  reps on one line, then whatever the coach wrote on the exercise —
+ *  which is where the tempo and the load live. */
+const Prescription = ({
+  item,
+}: {
+  item: NonNullable<FormCheck["program_items"]>;
+}) => {
+  const parts: string[] = [];
+  if (item.sets != null && item.reps)
+    parts.push(`${item.sets} × ${item.reps}`);
+  else if (item.reps) parts.push(item.reps);
+  else if (item.sets != null)
+    parts.push(groupSetsLabel(item.group_name, item.sets));
+  if (item.rest_seconds != null) parts.push(`${item.rest_seconds}s rest`);
+
+  if (!parts.length && !item.notes) return null;
+
+  return (
+    <div className="border border-border rounded-lg p-3 mb-2">
+      <p className="text-[10px] font-bold uppercase text-muted-foreground mb-1">
+        Prescribed
+      </p>
+      {parts.length > 0 && (
+        <p className="text-sm font-semibold">{parts.join("  ·  ")}</p>
+      )}
+      {item.notes && (
+        <p className="text-xs text-muted-foreground whitespace-pre-wrap mt-1">
+          {item.notes}
+        </p>
+      )}
+    </div>
+  );
+};
+
 const CheckCard = ({
   check,
   videoSrc,
@@ -692,6 +738,13 @@ const CheckCard = ({
           {check.status === "pending" ? "Pending" : "Reviewed"}
         </span>
       </div>
+
+      {/* What was asked for, next to what came back. Judging a form
+          check means comparing the two, and the coach was having to
+          remember the prescription or open the program in another tab. */}
+      {check.program_items && (
+        <Prescription item={check.program_items} />
+      )}
 
       {check.client_note && (
         <div className="bg-muted/40 border border-border rounded-lg p-3 mb-2">
