@@ -585,6 +585,46 @@ const AdminDashboard = () => {
     return out.slice(0, 10);
   }, [checks, comments]);
 
+  /** Sessions finished per day across every client, last 7 days, with
+   *  the previous 7 as the comparison.
+   *
+   *  The stat strip counts what is waiting for the coach; nothing was
+   *  saying whether the clients are actually training. A week at 19
+   *  sessions after a week at 35 is the kind of thing a coach wants to
+   *  see before a client goes quiet, not after.
+   *
+   *  Counted by session_run_id, so one session is one bar unit however
+   *  many sets it holds. */
+  const weekActivity = useMemo(() => {
+    const dayOfRun = new Map<string, string>();
+    for (const logs of logsByClient.values()) {
+      for (const l of logs) {
+        if (!l.completed_at) continue;
+        if (!dayOfRun.has(l.session_run_id))
+          dayOfRun.set(l.session_run_id, l.session_date);
+      }
+    }
+    const byDay = new Map<string, number>();
+    for (const d of dayOfRun.values()) byDay.set(d, (byDay.get(d) ?? 0) + 1);
+
+    const iso = (offset: number) =>
+      new Date(Date.now() - offset * 86_400_000).toISOString().slice(0, 10);
+
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = iso(i);
+      days.push({
+        iso: d,
+        label: new Date(d).toLocaleDateString("en-US", { weekday: "narrow" }),
+        count: byDay.get(d) ?? 0,
+      });
+    }
+    const total = days.reduce((a, d) => a + d.count, 0);
+    let previous = 0;
+    for (let i = 13; i >= 7; i--) previous += byDay.get(iso(i)) ?? 0;
+    return { days, total, previous, max: Math.max(1, ...days.map((d) => d.count)) };
+  }, [logsByClient]);
+
   // Nudge: one-click "get back on it" notification for a client who's
   // falling behind. Uses the notifications table (coach has write RLS);
   // the client sees it as a banner on their dashboard.
@@ -806,6 +846,14 @@ const AdminDashboard = () => {
         </section>
       )}
 
+      {/* Two columns from lg up. Everything used to be full width and
+          stacked, so the page ran for screens and the short panels ate a
+          whole row each to say three lines. The client list keeps the
+          wide column because it is the work surface; the panels you
+          consult rather than act on move to the side. */}
+      <div className="grid lg:grid-cols-3 gap-6 items-start">
+        <div className="lg:col-span-2 space-y-6">
+
       {/* ============ ACTIVE CLIENTS ============ */}
       <section>
         <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
@@ -1023,6 +1071,11 @@ const AdminDashboard = () => {
         </section>
       )}
 
+        </div>
+
+        <div className="space-y-6">
+          <WeeklyActivity data={weekActivity} />
+
       {/* ============ RECENT ACTIVITY ============ */}
       {events.length > 0 && (
         <section className="bg-white rounded-2xl border border-border p-5">
@@ -1061,7 +1114,66 @@ const AdminDashboard = () => {
           </ul>
         </section>
       )}
+        </div>
+      </div>
     </div>
+  );
+};
+
+/** Sessions finished per day, last 7 days, with the previous week as the
+ *  comparison. Bars are drawn in CSS rather than pulled from a chart
+ *  library: seven values need no dependency, and the shape reads at a
+ *  glance without a legend. */
+const WeeklyActivity = ({
+  data,
+}: {
+  data: {
+    days: { iso: string; label: string; count: number }[];
+    total: number;
+    previous: number;
+    max: number;
+  };
+}) => {
+  const delta = data.total - data.previous;
+  return (
+    <section className="bg-white rounded-2xl border border-border p-5">
+      <h2 className="font-heading text-xl font-bold mb-3">This week</h2>
+      <div className="flex items-end gap-1.5 h-24 mb-2">
+        {data.days.map((d) => (
+          <div key={d.iso} className="flex-1 flex flex-col items-center gap-1">
+            <div
+              className="w-full rounded-t bg-accent/80"
+              style={{ height: `${(d.count / data.max) * 100}%` }}
+              title={`${d.count} session${d.count === 1 ? "" : "s"} on ${d.iso}`}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-1.5 mb-3">
+        {data.days.map((d) => (
+          <span
+            key={d.iso}
+            className="flex-1 text-center text-[10px] text-muted-foreground"
+          >
+            {d.label}
+          </span>
+        ))}
+      </div>
+      <p className="font-heading text-2xl font-bold">{data.total}</p>
+      <p className="text-xs text-muted-foreground">
+        sessions completed
+        {data.previous > 0 && (
+          <span
+            className={`ml-1 font-semibold ${
+              delta < 0 ? "text-red-600" : "text-green-700"
+            }`}
+          >
+            {delta >= 0 ? "+" : ""}
+            {delta} vs last week
+          </span>
+        )}
+      </p>
+    </section>
   );
 };
 
