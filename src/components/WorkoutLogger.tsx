@@ -238,15 +238,25 @@ const WorkoutLogger = ({
         </div>
       )}
 
-      <div className="bg-muted/40 border border-border rounded-lg p-2.5 space-y-1.5">
+      <div className="bg-muted/40 border border-border rounded-lg p-2.5 space-y-2">
         <div className="flex items-center justify-between">
+          {/* The unit moved up here when the fields were centred: it
+              belongs to the whole row, and repeating it inside every
+              cell cost the width the numbers need. */}
           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Today
+            Today · {unitLabel}
           </p>
           <p className="text-[10px] font-semibold tracking-wide text-muted-foreground">
             {currentRunLogs.length}/{prescribedSets} done
           </p>
         </div>
+        {/* One row of cells rather than one row per set. A five-set
+            exercise used to run 250px down the screen, so a session of
+            eight exercises meant scrolling past the same control over
+            and over between sets. Side by side, the whole exercise fits
+            in a thumb's reach and the row doubles as the progress bar:
+            how many cells are green says where you are. */}
+        <div className="flex items-start gap-1.5">
         {setsArray.map((n) => {
           const log = todayBySet.get(n);
           const done = !!log;
@@ -272,6 +282,7 @@ const WorkoutLogger = ({
             />
           );
         })}
+        </div>
       </div>
     </div>
   );
@@ -337,81 +348,70 @@ const SetRow = ({
 
   const inputsDisabled = disabled || saving;
 
+  const inputClass = (extra: string) =>
+    `w-full rounded-md border bg-white text-center py-2 text-sm tabular-nums focus:outline-none focus:border-accent disabled:bg-muted disabled:cursor-not-allowed ${extra}`;
+
   return (
-    <div
-      className={`flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors ${
-        done ? "bg-green-50" : ""
-      }`}
-    >
+    // One column per set. The cell keeps both actions the stacked row
+    // had: the chip on top marks the set done without typing, the field
+    // under it records what was actually done.
+    <div className="flex-1 min-w-0 flex flex-col items-stretch gap-1">
       <button
         type="button"
         onClick={onToggle}
         disabled={disabled || saving}
-        aria-label={done ? `Mark set ${setNumber} undone` : `Mark set ${setNumber} done`}
-        className={`shrink-0 w-9 h-9 rounded-full border flex items-center justify-center transition-colors ${
+        aria-label={
+          done ? `Mark set ${setNumber} undone` : `Mark set ${setNumber} done`
+        }
+        className={`h-6 rounded-full border flex items-center justify-center transition-colors ${
           done
             ? "bg-green-500 border-green-500 text-white"
             : "bg-white border-border text-muted-foreground hover:border-green-400 active:scale-95"
         } ${disabled ? "opacity-70 cursor-not-allowed" : ""}`}
       >
         {saving ? (
-          <Loader2 size={14} className="animate-spin" />
+          <Loader2 size={12} className="animate-spin" />
         ) : done ? (
-          <CheckCircle2 size={16} />
+          <CheckCircle2 size={13} />
         ) : (
-          <span className="text-xs font-bold">{setNumber}</span>
+          <span className="text-[11px] font-bold">{setNumber}</span>
         )}
       </button>
 
-      <div
-        className={`flex-1 grid gap-2 min-w-0 ${
-          showWeight ? "grid-cols-2" : "grid-cols-1"
-        }`}
-      >
-        <div className="relative">
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            value={repsLocal}
-            disabled={inputsDisabled}
-            onChange={(e) => setRepsLocal(e.target.value)}
-            onBlur={commitReps}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-            }}
-            aria-label={`Set ${setNumber} ${unitLabel}`}
-            className="w-full rounded-md border border-border bg-white pl-2 pr-12 py-1.5 text-sm focus:outline-none focus:border-accent disabled:bg-muted disabled:cursor-not-allowed"
-            placeholder="0"
-          />
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-muted-foreground uppercase pointer-events-none">
-            {unitLabel}
-          </span>
-        </div>
-        {showWeight && (
-          <div className="relative">
-            <input
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step={0.5}
-              value={weightLocal}
-              disabled={inputsDisabled}
-              onChange={(e) => setWeightLocal(e.target.value)}
-              onBlur={commitWeight}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-              }}
-              aria-label={`Set ${setNumber} weight in kilograms`}
-              className="w-full rounded-md border border-border bg-white pl-2 pr-7 py-1.5 text-sm focus:outline-none focus:border-accent disabled:bg-muted disabled:cursor-not-allowed"
-              placeholder="—"
-            />
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-muted-foreground uppercase pointer-events-none">
-              kg
-            </span>
-          </div>
-        )}
-      </div>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={0}
+        value={repsLocal}
+        disabled={inputsDisabled}
+        onChange={(e) => setRepsLocal(e.target.value)}
+        onBlur={commitReps}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+        aria-label={`Set ${setNumber} ${unitLabel}`}
+        className={inputClass(done ? "border-green-500" : "border-border")}
+        placeholder="0"
+      />
+
+      {showWeight && (
+        <input
+          type="number"
+          inputMode="decimal"
+          min={0}
+          step={0.5}
+          value={weightLocal}
+          disabled={inputsDisabled}
+          onChange={(e) => setWeightLocal(e.target.value)}
+          onBlur={commitWeight}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
+          aria-label={`Set ${setNumber} weight in kilograms`}
+          className={inputClass("border-border")}
+          placeholder="kg"
+        />
+      )}
     </div>
   );
 };
