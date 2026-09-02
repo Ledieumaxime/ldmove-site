@@ -407,10 +407,23 @@ const Today = () => {
               const items = isGroup ? b.items : [b.item];
 
               return (
-                <div key={`b-${bIdx}`} className={bIdx === 0 ? "" : "mt-7"}>
-                  {/* A 3px tick and the kind in small caps, instead of the
-                      full-width colour banner that used to open every
-                      block and outshout the exercises inside it. */}
+                // Each block is its own card. Hairlines and whitespace
+                // alone left a long session reading as one undifferentiated
+                // column, and on a phone mid-set it was hard to tell where
+                // a superset ended. The card draws that boundary; the
+                // coloured left edge still says "these are done as one
+                // thing", so a solo block gets a plain border.
+                <div
+                  key={`b-${bIdx}`}
+                  className={`rounded-2xl border border-foreground/10 bg-white px-4 pt-4 pb-1 ${
+                    bIdx === 0 ? "" : "mt-4"
+                  }`}
+                  style={
+                    accent.chained
+                      ? { borderLeft: `3px solid ${accent.chain}` }
+                      : undefined
+                  }
+                >
                   <div className="flex items-center gap-[9px] flex-wrap">
                     {/* The block's place in the session. Numbering only the
                         exercises inside a group left a client unable to tell
@@ -445,23 +458,18 @@ const Today = () => {
                     </p>
                   )}
 
-                  {/* The rule down the left is what says "these are done
-                      as one thing", and where it stops says where the
-                      chain ends. Solo blocks get no rule. */}
-                  <div
-                    className="pl-3 mt-0.5"
-                    style={{
-                      // Same hue AND same weight as the tick above it: at
-                      // 2px the identical blue read as a brighter blue.
-                      borderLeft: `1px solid ${
-                        accent.chained ? accent.chain : "transparent"
-                      }`,
-                    }}
-                  >
+                  {/* No rule down the left any more: the card's own
+                      coloured edge already draws the chain, and two lines
+                      saying the same thing read as a mistake. */}
+                  <div className="mt-1">
                     {items.map((it, i) => (
                       <div
                         key={it.id}
-                        className="flex items-start gap-3 py-5 border-b border-foreground/10"
+                        className={`flex items-start gap-3 py-4 ${
+                          i < items.length - 1
+                            ? "border-b border-foreground/10"
+                            : ""
+                        }`}
                       >
                         {/* Only a chained block needs its exercises
                             numbered — the order is the instruction there.
