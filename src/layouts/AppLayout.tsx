@@ -83,13 +83,83 @@ const AppLayout = () => {
     navigate("/app/login");
   };
 
+  // The four places the coach works. Declared once and rendered twice:
+  // as a rail on a wide screen, as the bottom bar on a phone.
+  const coachNav = [
+    { to: "/app/home", icon: <Home size={20} />, label: "Home" },
+    { to: "/app/admin/form-checks", icon: <Inbox size={20} />, label: "Inbox" },
+    { to: "/app/admin/templates", icon: <Layers size={20} />, label: "Templates" },
+    { to: "/app/admin/sessions", icon: <Library size={20} />, label: "Sessions" },
+  ];
+
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div
+      className={`min-h-screen bg-white flex flex-col ${
+        isCoach ? "md:pl-56" : ""
+      }`}
+    >
+      {/* Coach, wide screen only: a fixed rail instead of a strip of
+          links under the header.
+          The coach's pages are long — an inbox of form checks runs for
+          screens — and a horizontal nav scrolls away with them, so
+          changing section meant going back to the top first. A rail
+          stays put. The client keeps the header and the bottom bar:
+          they are on a phone, one screen at a time, and a rail would
+          only take width away from the workout.
+          Structure borrowed from a mockup Maxime liked; none of its
+          look. No XP, no badges, no streaks — this is a work tool. */}
+      {isCoach && (
+        <aside className="hidden md:flex fixed inset-y-0 left-0 w-56 border-r border-border bg-white flex-col z-30">
+          <Link to="/app/home" className="px-5 py-5">
+            <img src={logo} alt="LD Move" className="h-9 w-auto" />
+          </Link>
+
+          <nav className="flex-1 px-3 space-y-1">
+            {coachNav.map((n) => (
+              <NavLink
+                key={n.to}
+                to={n.to}
+                end={n.to === "/app/home"}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm ${
+                    isActive
+                      ? "bg-accent/10 text-accent font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                  }`
+                }
+              >
+                {n.icon}
+                <span>{n.label}</span>
+              </NavLink>
+            ))}
+          </nav>
+
+          <div className="border-t border-border p-3 flex items-center gap-2">
+            <Link
+              to="/app/profile"
+              className="flex-1 min-w-0 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <User size={18} className="shrink-0" />
+              <span className="truncate">
+                {profile?.first_name} {profile?.last_name}
+              </span>
+            </Link>
+            <button
+              onClick={handleSignOut}
+              aria-label="Sign out"
+              className="text-muted-foreground hover:text-foreground shrink-0"
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
+        </aside>
+      )}
+
       {/* Three columns rather than a row: it keeps the mark dead centre
           whatever sits either side of it. The wordmark is gone — the logo
           carries the name already — and so is the rule underneath, which
           was drawing a line across a page that no longer needs one. */}
-      <header className="bg-white">
+      <header className={isCoach ? "bg-white md:hidden" : "bg-white"}>
         <div className="container grid grid-cols-3 items-center py-3">
           <Link
             to="/app/profile"
@@ -127,27 +197,23 @@ const AppLayout = () => {
         </Suspense>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-border md:static md:border-t-0">
+      <nav
+        className={`fixed bottom-0 left-0 right-0 bg-white border-t border-border ${
+          isCoach ? "md:hidden" : "md:static md:border-t-0"
+        }`}
+      >
         <div className="container flex justify-around md:justify-start md:gap-2 py-2">
-          <BottomLink to="/app/home" icon={<Home size={20} />} label="Home" />
-          {isCoach && (
-            <>
+          {isCoach &&
+            coachNav.map((n) => (
               <BottomLink
-                to="/app/admin/form-checks"
-                icon={<Inbox size={20} />}
-                label="Inbox"
+                key={n.to}
+                to={n.to}
+                icon={n.icon}
+                label={n.label}
               />
-              <BottomLink
-                to="/app/admin/templates"
-                icon={<Layers size={20} />}
-                label="Templates"
-              />
-              <BottomLink
-                to="/app/admin/sessions"
-                icon={<Library size={20} />}
-                label="Sessions"
-              />
-            </>
+            ))}
+          {!isCoach && (
+            <BottomLink to="/app/home" icon={<Home size={20} />} label="Home" />
           )}
           {!isCoach && (
             <>
