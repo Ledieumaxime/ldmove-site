@@ -16,6 +16,7 @@ import {
   Inbox,
   Layers,
   Library,
+  Users,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { sbGet } from "@/integrations/supabase/api";
@@ -88,6 +89,7 @@ const AppLayout = () => {
   const coachNav = [
     { to: "/app/home", icon: <Home size={20} />, label: "Home" },
     { to: "/app/admin/form-checks", icon: <Inbox size={20} />, label: "Inbox" },
+    { to: "/app/admin/clients", icon: <Users size={20} />, label: "Clients" },
     { to: "/app/admin/templates", icon: <Layers size={20} />, label: "Templates" },
     { to: "/app/admin/sessions", icon: <Library size={20} />, label: "Sessions" },
   ];

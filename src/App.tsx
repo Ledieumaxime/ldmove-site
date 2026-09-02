@@ -48,6 +48,7 @@ const AdminClientIntake = lazy(() => import("./pages/app/admin/AdminClientIntake
 const AdminClientDetail = lazy(() => import("./pages/app/admin/AdminClientDetail"));
 const AdminClientDashboard = lazy(() => import("./pages/app/admin/AdminClientDashboard"));
 const AdminSessions = lazy(() => import("./pages/app/admin/AdminSessions"));
+const AdminClients = lazy(() => import("./pages/app/admin/AdminClients"));
 const CheckoutSuccess = lazy(() => import("./pages/app/CheckoutSuccess"));
 const OnboardingIntake = lazy(() => import("./pages/app/OnboardingIntake"));
 const OnboardingAssessmentUpload = lazy(() => import("./pages/app/OnboardingAssessmentUpload"));
@@ -159,7 +160,11 @@ const App = () => (
                 />
                 <Route
                   path="admin/clients"
-                  element={<Navigate to="/app/home" replace />}
+                  element={
+                    <ProtectedRoute requireRole="coach">
+                      <AdminClients />
+                    </ProtectedRoute>
+                  }
                 />
                 <Route
                   path="admin/clients/:id/intake"

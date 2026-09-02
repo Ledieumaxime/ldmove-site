@@ -116,11 +116,6 @@ type ActiveEntry = {
   last7Dates: Set<string>;
 };
 
-type IdleEntry = {
-  client: Profile;
-  lastBlockEndedAt: number | null;
-  hasIntake: boolean;
-};
 
 const STATUS_ORDER: Record<ClientStatus, number> = {
   ghosting: 0,
@@ -167,15 +162,11 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const [programs, setPrograms] = useState<Program[]>([]);
   const [clients, setClients] = useState<Profile[]>([]);
-  const [showArchived, setShowArchived] = useState(false);
   const [checks, setChecks] = useState<FormCheck[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [pendingAssessmentClients, setPendingAssessmentClients] = useState<
     { client_id: string; videoCount: number; firstName: string | null }[]
   >([]);
-  const [intakeClientIds, setIntakeClientIds] = useState<Set<string>>(
-    new Set()
-  );
   const [weeksByProgram, setWeeksByProgram] = useState<
     Map<string, ProgramWeekLite[]>
   >(new Map());
@@ -236,7 +227,6 @@ const AdminDashboard = () => {
         setClients(c);
         setChecks(f);
         setComments(co);
-        setIntakeClientIds(new Set(intakes.map((r) => r.client_id)));
 
         const wByProg = new Map<string, ProgramWeekLite[]>();
         for (const w of weeks) {
@@ -510,43 +500,6 @@ const AdminDashboard = () => {
   // expired-and-not-renewed.
   // Clients the coach has retired: out of every working list, kept in
   // their own collapsed section so the history stays one click away.
-  const archivedClients = useMemo(
-    () =>
-      clients
-        .filter((c) => c.archived_at)
-        .sort((a, b) => (b.archived_at ?? "").localeCompare(a.archived_at ?? "")),
-    [clients]
-  );
-
-  const idleEntries: IdleEntry[] = useMemo(() => {
-    const activeClientIds = new Set(
-      programs.map((p) => p.assigned_client_id).filter(Boolean) as string[]
-    );
-    const list: IdleEntry[] = [];
-    for (const c of clients) {
-      if (activeClientIds.has(c.id)) continue;
-      if (c.archived_at) continue;
-      // Find their most recent custom program (might be archived).
-      const past = allPrograms
-        .filter((p) => p.assigned_client_id === c.id)
-        .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
-      const lastBlockEndedAt = past
-        ? new Date(past.created_at).getTime() +
-          (past.duration_weeks ?? 4) * 7 * 86_400_000
-        : null;
-      list.push({
-        client: c,
-        lastBlockEndedAt,
-        hasIntake: intakeClientIds.has(c.id),
-      });
-    }
-    // Surface fresh onboards (no past block) first, then most-recently-ended.
-    return list.sort((a, b) => {
-      if (a.lastBlockEndedAt === null && b.lastBlockEndedAt !== null) return -1;
-      if (b.lastBlockEndedAt === null && a.lastBlockEndedAt !== null) return 1;
-      return (b.lastBlockEndedAt ?? 0) - (a.lastBlockEndedAt ?? 0);
-    });
-  }, [programs, allPrograms, clients, intakeClientIds]);
 
   // Recent activity feed (kept).
   type Event = {
@@ -985,91 +938,16 @@ const AdminDashboard = () => {
         )}
       </section>
 
-      {/* ============ WITHOUT ACTIVE PROGRAM ============ */}
-      {idleEntries.length > 0 && (
-        <section>
-          <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
-            <h2 className="font-heading text-base font-bold text-muted-foreground">
-              Without active program
-            </h2>
-            <span className="text-xs text-muted-foreground">
-              {idleEntries.length} client
-              {idleEntries.length > 1 ? "s" : ""}
-            </span>
-          </div>
-          <div className="bg-white border border-border rounded-2xl divide-y divide-border">
-            {idleEntries.map((e) => (
-              <Link
-                key={e.client.id}
-                to={`/app/admin/clients/${e.client.id}`}
-                className="flex items-center gap-3 p-3 hover:bg-muted/30 transition"
-              >
-                <Avatar name={e.client.first_name ?? e.client.email} />
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm truncate">
-                    {e.client.first_name ?? e.client.email}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {describeIdle(e, now)}
-                  </p>
-                </div>
-                <span className="text-sm font-semibold text-accent shrink-0 inline-flex items-center gap-1">
-                  <PlusCircle size={14} />
-                  {e.lastBlockEndedAt ? "Build next block" : "Build first block"}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ============ FORMER CLIENTS ============ */}
-      {archivedClients.length > 0 && (
-        <section>
-          <button
-            type="button"
-            onClick={() => setShowArchived((v) => !v)}
-            className="flex items-center gap-2 mb-3 text-base font-heading font-bold text-muted-foreground hover:text-foreground"
-          >
-            <Archive size={16} />
-            Former clients ({archivedClients.length})
-            {showArchived ? (
-              <ChevronUp size={14} />
-            ) : (
-              <ChevronDown size={14} />
-            )}
-          </button>
-          {showArchived && (
-            <div className="bg-white border border-border rounded-2xl divide-y divide-border">
-              {archivedClients.map((c) => (
-                <Link
-                  key={c.id}
-                  to={`/app/admin/clients/${c.id}`}
-                  className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/30"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold truncate">
-                      {c.first_name ?? c.email}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {c.archive_reason
-                        ? ARCHIVE_REASON_LABEL[c.archive_reason] ??
-                          c.archive_reason
-                        : "Archived"}
-                      {c.archived_at
-                        ? ` · since ${new Date(c.archived_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
-                        : ""}
-                    </p>
-                  </div>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    Open →
-                  </span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
+      {/* "Without active program" and "Former clients" moved to the
+          Clients page. Only the first of the three lists was something
+          to act on today; the other two were things you look up, and
+          they sat between the coach and the work. */}
+      <Link
+        to="/app/admin/clients"
+        className="block text-sm text-muted-foreground hover:text-foreground"
+      >
+        See all clients, including archived →
+      </Link>
 
         </div>
 
@@ -1223,18 +1101,6 @@ function describeLastTraining(e: ActiveEntry): string {
   return `Trained ${e.daysSinceLastTraining} days ago`;
 }
 
-function describeIdle(e: IdleEntry, now: number): string {
-  if (e.lastBlockEndedAt === null) {
-    if (!e.hasIntake) return "Just signed up · waiting for intake";
-    const daysSinceJoin = Math.floor(
-      (now - new Date(e.client.created_at).getTime()) / 86_400_000
-    );
-    return `Onboarded ${daysSinceJoin} day${daysSinceJoin !== 1 ? "s" : ""} ago · ready for first block`;
-  }
-  const daysSinceEnd = Math.floor((now - e.lastBlockEndedAt) / 86_400_000);
-  if (daysSinceEnd <= 0) return "Block just ended · time for the next one";
-  return `Last block ended ${daysSinceEnd} day${daysSinceEnd > 1 ? "s" : ""} ago · needs renewal`;
-}
 
 function formatRelative(dateStr: string, now: number): string {
   const diff = now - new Date(dateStr).getTime();
