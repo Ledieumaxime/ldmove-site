@@ -1,4 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Clock,
   CheckCircle2,
@@ -206,6 +212,17 @@ const AdminFormChecks = () => {
 
   const reloadSilently = () => load({ silent: true });
 
+  /** The card to bring into view once the list has been rebuilt.
+   *
+   *  Clearing an item removes its card, so everything below it slides up
+   *  by the height of a video card while the browser keeps the scroll
+   *  offset where it was — the coach ends up mid-way down some other
+   *  client's section, or pinned to the bottom when the page got shorter
+   *  than the current scroll. Rather than try to hold the position of
+   *  something that no longer exists, we move deliberately to the next
+   *  item, which is where the coach was going anyway. */
+  const nextFocusRef = useRef<string | null>(null);
+
   useEffect(() => {
     load();
   }, []);
@@ -264,6 +281,42 @@ const AdminFormChecks = () => {
     out.sort((a, b) => a.oldestDate.localeCompare(b.oldestDate));
     return out;
   }, [checks, threads]);
+
+  /** Every card in the order they appear, so "the next one" means the
+   *  next one the coach can actually see — including the jump into the
+   *  following client's section when the current one empties out. */
+  const flatIds = useMemo(
+    () =>
+      sections.flatMap((s) =>
+        s.items.map((it) =>
+          it.kind === "form_check"
+            ? `fc-${it.check.id}`
+            : `th-${it.thread.item_id}`
+        )
+      ),
+    [sections]
+  );
+
+  /** Called by a card once it has cleared itself. Remembers what came
+   *  after it, then refetches. Falls back to the previous card when the
+   *  cleared one was last, so the coach lands on something rather than
+   *  on the empty space where the list used to end. */
+  const handleCleared = (domId: string) => {
+    const i = flatIds.indexOf(domId);
+    nextFocusRef.current =
+      (i >= 0 ? flatIds[i + 1] ?? flatIds[i - 1] : null) ?? null;
+    reloadSilently();
+  };
+
+  // Runs after the rebuilt list has been laid out, so the target card is
+  // already at its final position and scrolling to it lands true.
+  useLayoutEffect(() => {
+    const id = nextFocusRef.current;
+    if (!id) return;
+    nextFocusRef.current = null;
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [sections]);
 
   // The URL hash can deep-link to a specific client section (e.g.
   // #client-uuid). Auto-expand that section and scroll to it once
@@ -393,15 +446,21 @@ const AdminFormChecks = () => {
                         it.kind === "form_check" ? (
                           <CheckCard
                             key={`fc-${it.check.id}`}
+                            domId={`fc-${it.check.id}`}
                             check={it.check}
                             videoSrc={signedUrls[it.check.id]}
-                            onUpdated={reloadSilently}
+                            onUpdated={() =>
+                              handleCleared(`fc-${it.check.id}`)
+                            }
                           />
                         ) : (
                           <ThreadCard
                             key={`th-${it.thread.item_id}`}
+                            domId={`th-${it.thread.item_id}`}
                             thread={it.thread}
-                            onReplied={reloadSilently}
+                            onReplied={() =>
+                              handleCleared(`th-${it.thread.item_id}`)
+                            }
                           />
                         )
                       )}
@@ -474,10 +533,14 @@ const ThreadCard = ({
   thread,
   compact = false,
   onReplied,
+  domId,
 }: {
   thread: Thread;
   compact?: boolean;
   onReplied?: () => void;
+  /** Anchor the inbox scrolls to when the card above this one is
+   *  cleared. Absent in the compact list, which is not triaged. */
+  domId?: string;
 }) => {
   const [open, setOpen] = useState(!compact);
   const [skipping, setSkipping] = useState(false);
@@ -501,7 +564,8 @@ const ThreadCard = ({
 
   return (
     <div
-      className={`bg-white border rounded-xl p-4 ${
+      id={domId}
+      className={`bg-white border rounded-xl p-4 scroll-mt-4 ${
         thread.needsReply ? "border-accent/30" : "border-border"
       }`}
     >
@@ -743,10 +807,14 @@ const CheckCard = ({
   check,
   videoSrc,
   onUpdated,
+  domId,
 }: {
   check: FormCheck;
   videoSrc: string | undefined;
   onUpdated: () => void;
+  /** Anchor the inbox scrolls to when the card above this one is
+   *  cleared. */
+  domId?: string;
 }) => {
   const [saving, setSaving] = useState(false);
   const [archiveFormOpen, setArchiveFormOpen] = useState(false);
@@ -848,7 +916,10 @@ const CheckCard = ({
   };
 
   return (
-    <div className="bg-white border border-border rounded-xl p-4">
+    <div
+      id={domId}
+      className="bg-white border border-border rounded-xl p-4 scroll-mt-4"
+    >
       <div className="flex items-start justify-between gap-3 mb-2">
         <div>
           <div className="flex items-center gap-2 text-sm">
