@@ -423,9 +423,22 @@ const ProgramDetail = () => {
                                     );
                                     const items = isGroup ? b.items : [b.item];
                                     return (
+                                      // Same card as the workout screen:
+                                      // the preview and the session a
+                                      // client trains from have to look
+                                      // like the same program.
                                       <div
                                         key={`b-${bIdx}`}
-                                        className={bIdx === 0 ? "" : "mt-7"}
+                                        className={`rounded-2xl border border-foreground/10 bg-white px-4 pt-4 pb-1 ${
+                                          bIdx === 0 ? "" : "mt-4"
+                                        }`}
+                                        style={
+                                          accent.chained
+                                            ? {
+                                                borderLeft: `3px solid ${accent.chain}`,
+                                              }
+                                            : undefined
+                                        }
                                       >
                                         <div className="flex items-center gap-[9px] flex-wrap">
                                           <span
@@ -458,20 +471,15 @@ const ProgramDetail = () => {
                                             {accent.note}
                                           </p>
                                         )}
-                                        <div
-                                          className="pl-3 mt-0.5"
-                                          style={{
-                                            borderLeft: `1px solid ${
-                                              accent.chained
-                                                ? accent.chain
-                                                : "transparent"
-                                            }`,
-                                          }}
-                                        >
+                                        <div className="mt-1">
                                           {items.map((it, i) => (
                                             <div
                                               key={it.id}
-                                              className="flex items-start gap-3 py-5 border-b border-foreground/10"
+                                              className={`flex items-start gap-3 py-4 ${
+                                                i < items.length - 1
+                                                  ? "border-b border-foreground/10"
+                                                  : ""
+                                              }`}
                                             >
                                               {/* Numbered only inside a
                                                   chained block, where the
