@@ -58,6 +58,7 @@ const History = lazy(() => import("./pages/app/History"));
 const SetPassword = lazy(() => import("./pages/app/SetPassword"));
 
 import NativeAppRedirect from "./components/NativeAppRedirect";
+import BootGate from "./components/BootGate";
 
 const queryClient = new QueryClient();
 
@@ -92,16 +93,25 @@ const App = () => (
               <Route path="/onboarding-assessment" element={<OnboardingAssessmentPage />} />
 
               {/* Espace connecté */}
-              <Route path="/app/login" element={<AppLogin />} />
+              <Route
+                path="/app/login"
+                element={
+                  <BootGate>
+                    <AppLogin />
+                  </BootGate>
+                }
+              />
               <Route path="/app/signup" element={<AppSignup />} />
               <Route path="/app/welcome" element={<SetPassword mode="welcome" />} />
               <Route path="/app/reset-password" element={<SetPassword mode="reset" />} />
               <Route
                 path="/app"
                 element={
-                  <ProtectedRoute>
-                    <AppLayout />
-                  </ProtectedRoute>
+                  <BootGate>
+                    <ProtectedRoute>
+                      <AppLayout />
+                    </ProtectedRoute>
+                  </BootGate>
                 }
               >
                 <Route index element={<AppHome />} />

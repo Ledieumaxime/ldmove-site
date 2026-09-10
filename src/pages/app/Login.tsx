@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import logo from "@/assets/logo-ldmove.png";
+import AppIntro from "@/components/AppIntro";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -74,22 +75,41 @@ const Login = () => {
   };
 
   return (
-    // Full-bleed white rather than a card floating on sand: this is the
-    // app's first screen, and in the native shell it is the first thing
-    // anyone sees of LD Move. It should read as the product opening, not
-    // as a form dropped on a page.
-    <div className="min-h-screen bg-white flex flex-col px-6 py-12 md:items-center md:justify-center">
-      <div className="w-full max-w-sm mx-auto flex flex-col flex-1">
-        <img src={logo} alt="LD Move" className="h-28 w-28 -ml-2 mb-8" />
+    // Two halves on a wide display, one column on a phone.
+    //
+    // The dark half is the same panel that covered the boot wait, so it
+    // does not appear here, it stays: the app opens on it and the form
+    // arrives beside it. On a phone there is no room for two halves, so
+    // the panel does its job during the load and the screen he already
+    // approved is what lands, full-bleed white, untouched.
+    <div className="min-h-screen bg-white md:grid md:grid-cols-2">
+      <div className="hidden md:block">
+        <AppIntro />
+      </div>
 
-        <h1 className="font-heading text-[2.5rem] leading-[1.1] font-bold tracking-tight">
+      <div className="flex flex-col px-6 py-12 md:items-center md:justify-center">
+      <div className="w-full max-w-sm mx-auto flex flex-col flex-1">
+        <img src={logo} alt="LD Move" className="h-28 w-28 -ml-2 mb-8 md:hidden" />
+
+        <h1 className="font-heading text-[2.5rem] leading-[1.1] font-bold tracking-tight md:hidden">
           Move with
           <br />
           your coach.
         </h1>
-        <p className="text-muted-foreground mt-3 mb-8 leading-relaxed">
+        <p className="text-muted-foreground mt-3 mb-8 leading-relaxed md:hidden">
           Your program, your sessions and your form checks, in one place.
         </p>
+
+        {/* The left panel already says the name and the promise, so the
+            form side opens straight on the ask. */}
+        <div className="hidden md:block mb-8">
+          <h1 className="font-heading text-3xl font-bold tracking-tight">
+            Welcome back
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Sign in to continue your training.
+          </p>
+        </div>
 
         {sessionExpired && !error && !info && (
           <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
@@ -166,6 +186,7 @@ const Login = () => {
           </button>
         </div>
 
+      </div>
       </div>
     </div>
   );
