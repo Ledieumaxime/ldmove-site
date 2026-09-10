@@ -35,6 +35,18 @@ const AppIntro = ({ fullScreen = false }: { fullScreen?: boolean }) => (
     <p className="text-white/60 mt-4 text-sm">
       Your program, your sessions, your form checks.
     </p>
+
+    {/* Only while something is actually loading. On a wide sign-in
+        screen this same panel stays as the left half, and a ring
+        spinning next to a form that is ready to be filled would be
+        saying something untrue. */}
+    {fullScreen && (
+      <div
+        role="status"
+        aria-label="Loading"
+        className="mt-10 w-6 h-6 rounded-full border-2 border-white/20 border-t-accent animate-spin"
+      />
+    )}
   </div>
 );
 
