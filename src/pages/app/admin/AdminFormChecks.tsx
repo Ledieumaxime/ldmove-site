@@ -878,6 +878,9 @@ const CheckCard = ({
   domId?: string;
 }) => {
   const [saving, setSaving] = useState(false);
+  // Set by the comment box below when something is typed or attached
+  // but not sent. Guards the reviewed button against discarding it.
+  const [hasDraft, setHasDraft] = useState(false);
   const [archiveFormOpen, setArchiveFormOpen] = useState(false);
   const [archiveNote, setArchiveNote] = useState(check.archived_note ?? "");
 
@@ -905,6 +908,18 @@ const CheckCard = ({
   };
 
   const toggleReviewed = async () => {
+    // Marking reviewed unmounts this card, and the comment box goes with
+    // it. A written reply with a photo attached used to disappear
+    // without a word, and there is no draft saved anywhere to recover.
+    if (
+      check.status !== "reviewed" &&
+      hasDraft &&
+      !window.confirm(
+        "You have a comment written but not sent. Marking this reviewed will discard it. Continue?"
+      )
+    ) {
+      return;
+    }
     setSaving(true);
     try {
       const nextStatus = check.status === "reviewed" ? "pending" : "reviewed";
@@ -1053,6 +1068,7 @@ const CheckCard = ({
             itemId={check.item_id}
             clientId={check.client_id}
             onReplied={markReviewedAfterComment}
+            onDraftChange={setHasDraft}
           />
         </div>
       )}

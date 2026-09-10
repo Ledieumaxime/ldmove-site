@@ -181,6 +181,7 @@ const ExerciseComments = ({
   previewLastOnly = false,
   onReplied,
   clientId,
+  onDraftChange,
 }: {
   itemId: string;
   readOnly?: boolean;
@@ -189,6 +190,12 @@ const ExerciseComments = ({
   /** Whose thread this is. Only used to pick the language the rewrite
    *  comes back in; without it the assistant defaults to English. */
   clientId?: string | null;
+  /** Reports whether something is typed or attached but not sent yet.
+   *  The screen around this thread can then refuse to throw the draft
+   *  away without asking: the form-check card unmounts the moment it is
+   *  marked reviewed, and a written comment with a photo attached died
+   *  with it, silently. */
+  onDraftChange?: (hasDraft: boolean) => void;
 }) => {
   const { user, profile } = useAuth();
   const [open, setOpen] = useState(readOnly);
@@ -220,6 +227,12 @@ const ExerciseComments = ({
   // mounted. We can't focus directly inside the click handler because
   // the textarea is rendered conditionally on `open`.
   const focusOnOpenRef = useRef(false);
+
+  // Tell the surrounding screen whether there is unsent work here, so it
+  // can ask before doing something that would discard it.
+  useEffect(() => {
+    onDraftChange?.(Boolean(body.trim() || pending));
+  }, [body, pending, onDraftChange]);
 
   const load = async () => {
     setLoading(true);
