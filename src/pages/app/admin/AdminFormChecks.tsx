@@ -221,7 +221,10 @@ const AdminFormChecks = () => {
    *  than the current scroll. Rather than try to hold the position of
    *  something that no longer exists, we move deliberately to the next
    *  item, which is where the coach was going anyway. */
-  const nextFocusRef = useRef<string | null>(null);
+  const nextFocusRef = useRef<{
+    domId: string;
+    clientId: string | null;
+  } | null>(null);
 
   useEffect(() => {
     load();
@@ -297,35 +300,95 @@ const AdminFormChecks = () => {
     [sections]
   );
 
+  /** Which client each card belongs to. The next card can sit in a
+   *  section the coach has collapsed, and a collapsed section renders
+   *  no cards at all, so we need to know which one to open before
+   *  trying to scroll to it. */
+  const clientOfCard = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of sections) {
+      for (const it of s.items) {
+        m.set(
+          it.kind === "form_check"
+            ? `fc-${it.check.id}`
+            : `th-${it.thread.item_id}`,
+          s.clientId
+        );
+      }
+    }
+    return m;
+  }, [sections]);
+
   /** Called by a card once it has cleared itself. Remembers what came
    *  after it, then refetches. Falls back to the previous card when the
    *  cleared one was last, so the coach lands on something rather than
    *  on the empty space where the list used to end. */
   const handleCleared = (domId: string) => {
     const i = flatIds.indexOf(domId);
-    nextFocusRef.current =
-      (i >= 0 ? flatIds[i + 1] ?? flatIds[i - 1] : null) ?? null;
+    const nextId = (i >= 0 ? flatIds[i + 1] ?? flatIds[i - 1] : null) ?? null;
+    nextFocusRef.current = nextId
+      ? { domId: nextId, clientId: clientOfCard.get(nextId) ?? null }
+      : null;
     reloadSilently();
   };
 
   // Runs after the rebuilt list has been laid out, so the target card is
   // already at its final position and scrolling to it lands true.
+  //
+  // The scroll is deliberately instant. Smooth scrolling animates over
+  // several frames, and the list is still settling underneath it as the
+  // signed video URLs arrive and swap players in, which cancels or
+  // misplaces the animation. Instant lands once and stays.
   useLayoutEffect(() => {
-    const id = nextFocusRef.current;
-    if (!id) return;
+    const target = nextFocusRef.current;
+    if (!target) return;
+
+    // The card we were aiming for is gone too (the coach cleared several
+    // in a row, or a refetch dropped it). Stop chasing it.
+    if (!flatIds.includes(target.domId)) {
+      nextFocusRef.current = null;
+      return;
+    }
+
+    // A collapsed section renders none of its cards, so open it first
+    // and let the next commit do the scrolling. The ref is kept on
+    // purpose: this effect re-runs when `collapsed` changes.
+    if (target.clientId && collapsed.has(target.clientId)) {
+      const clientId = target.clientId;
+      setCollapsed((prev) => {
+        const next = new Set(prev);
+        next.delete(clientId);
+        return next;
+      });
+      return;
+    }
+
+    const el = document.getElementById(target.domId);
+    if (!el) return; // not mounted yet, keep the ref and retry next commit
     nextFocusRef.current = null;
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [sections]);
+    el.scrollIntoView({ block: "start" });
+  }, [sections, collapsed, flatIds]);
 
   // The URL hash can deep-link to a specific client section (e.g.
   // #client-uuid). Auto-expand that section and scroll to it once
   // sections render. Without a hash we open every section by default
   // so the inbox shows everything at first paint.
+  // Applied ONCE, on arrival. It used to re-run on every `sections`
+  // change, and `sections` changes after every single reply: each time
+  // the coach sent feedback the deep link fired again, re-collapsed
+  // every other client and threw them back to the section header
+  // instead of the next card. Arriving from the dashboard (which links
+  // with #client-<id>) made the inbox unusable, while arriving from the
+  // rail with no hash worked fine, which is why it looked intermittent.
+  const hashAppliedRef = useRef(false);
   useLayoutEffect(() => {
-    if (loading) return;
+    if (loading || hashAppliedRef.current || sections.length === 0) return;
     const hash = window.location.hash.replace("#", "");
-    if (!hash) return;
+    if (!hash) {
+      hashAppliedRef.current = true;
+      return;
+    }
+    hashAppliedRef.current = true;
     if (hash.startsWith("client-")) {
       const target = hash.slice("client-".length);
       // Collapse all except the target.
@@ -334,13 +397,11 @@ const AdminFormChecks = () => {
         if (s.clientId !== target) next.add(s.clientId);
       }
       setCollapsed(next);
-      const el = document.getElementById(hash);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
     }
-    // Legacy anchors from old links — just scroll there.
+    // The section wrapper is always rendered, collapsed or not, so this
+    // finds it whether or not the body is open.
     const el = document.getElementById(hash);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (el) el.scrollIntoView({ block: "start" });
   }, [loading, sections]);
 
   const toggleSection = (id: string) => {
