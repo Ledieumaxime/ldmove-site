@@ -20,9 +20,9 @@ type Comment = {
   author_id: string | null;
   author_role: "coach" | "client";
   body: string;
-  /** Storage path in `comment-images`, not a URL: the bucket is private
+  /** Storage paths in `comment-images`, not URLs: the bucket is private
    *  and every display goes through a signed link. */
-  image_url: string | null;
+  image_urls: string[] | null;
   parent_id: string | null;
   created_at: string;
   profiles?: { first_name: string | null; last_name: string | null } | null;
@@ -107,6 +107,9 @@ async function markRead(userId: string, itemId: string) {
 }
 
 const MAX_IMAGE_MB = 10;
+/** Enough for two angles or a before/after, which is what a correction
+ *  needs. More than this turns a coaching note into an album. */
+const MAX_IMAGES = 4;
 
 /** Put one image in the private `comment-images` bucket and hand back
  *  its storage path.
@@ -142,17 +145,26 @@ async function uploadCommentImage(file: File, folder: string): Promise<string> {
 /** The picture attached to a comment, shown inline at a size that reads
  *  on a phone. Tapping opens the full-resolution file, which is what a
  *  client does with an annotated position. */
-const CommentImage = ({ src }: { src: string | undefined }) => {
-  if (!src) return null;
+const CommentImages = ({ srcs }: { srcs: string[] | undefined }) => {
+  if (!srcs?.length) return null;
+  // A single picture keeps the full width it had before. Several sit
+  // side by side and wrap, so two angles of the same rep read as one
+  // correction rather than a stack.
   return (
-    <a href={src} target="_blank" rel="noreferrer" className="block mt-2">
-      <img
-        src={src}
-        alt="Attached"
-        className="rounded-md border border-border max-h-72 w-auto"
-        loading="lazy"
-      />
-    </a>
+    <div className="mt-2 flex flex-wrap gap-2">
+      {srcs.map((src, i) => (
+        <a key={src + i} href={src} target="_blank" rel="noreferrer">
+          <img
+            src={src}
+            alt={srcs.length > 1 ? `Attached ${i + 1}` : "Attached"}
+            className={`rounded-md border border-border w-auto ${
+              srcs.length > 1 ? "max-h-44" : "max-h-72"
+            }`}
+            loading="lazy"
+          />
+        </a>
+      ))}
+    </div>
   );
 };
 
@@ -213,13 +225,11 @@ const ExerciseComments = ({
   const [rewriteError, setRewriteError] = useState<string | null>(null);
   // Attachment being composed: the file itself, plus a local object URL
   // so the sender sees what they picked before it leaves the phone.
-  const [pending, setPending] = useState<{ file: File; preview: string } | null>(
-    null
-  );
+  const [pending, setPending] = useState<{ file: File; preview: string }[]>([]);
   const [sendError, setSendError] = useState<string | null>(null);
   // Signed links for the images already in the thread, keyed by comment
   // id. The bucket is private, so nothing renders without one.
-  const [signed, setSigned] = useState<Record<string, string>>({});
+  const [signed, setSigned] = useState<Record<string, string[]>>({});
   const imageInput = useRef<HTMLInputElement>(null);
   const touchInput = useTouchInput();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -231,7 +241,7 @@ const ExerciseComments = ({
   // Tell the surrounding screen whether there is unsent work here, so it
   // can ask before doing something that would discard it.
   useEffect(() => {
-    onDraftChange?.(Boolean(body.trim() || pending));
+    onDraftChange?.(Boolean(body.trim() || pending.length));
   }, [body, pending, onDraftChange]);
 
   const load = async () => {
@@ -253,17 +263,26 @@ const ExerciseComments = ({
 
       // Sign the attachments in parallel: a thread with a handful of
       // pictures should not open one round-trip at a time.
-      const withImages = rows.filter((r) => r.image_url);
+      const withImages = rows.filter((r) => r.image_urls?.length);
       if (withImages.length) {
         const pairs = await Promise.all(
           withImages.map(
             async (r) =>
-              [r.id, await sbSignUrl("comment-images", r.image_url!)] as const
+              [
+                r.id,
+                (
+                  await Promise.all(
+                    r.image_urls!.map((p) =>
+                      sbSignUrl("comment-images", p)
+                    )
+                  )
+                ).filter((u): u is string => Boolean(u)),
+              ] as const
           )
         );
         setSigned((prev) => {
           const next = { ...prev };
-          for (const [id, url] of pairs) if (url) next[id] = url;
+          for (const [id, urls] of pairs) if (urls.length) next[id] = urls;
           return next;
         });
       }
@@ -274,23 +293,36 @@ const ExerciseComments = ({
     }
   };
 
-  const pickImage = (file: File | undefined) => {
-    if (!file) return;
+  const pickImages = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
     setSendError(null);
-    if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
-      setSendError(`Image too large. Max ${MAX_IMAGE_MB} MB.`);
-      return;
+    const accepted: { file: File; preview: string }[] = [];
+    let rejected = 0;
+    for (const file of Array.from(files)) {
+      if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
+        rejected++;
+        continue;
+      }
+      accepted.push({ file, preview: URL.createObjectURL(file) });
     }
-    setPending((prev) => {
-      if (prev) URL.revokeObjectURL(prev.preview);
-      return { file, preview: URL.createObjectURL(file) };
-    });
+    if (rejected > 0) {
+      setSendError(
+        `${rejected} image${rejected > 1 ? "s" : ""} over ${MAX_IMAGE_MB} MB left out.`
+      );
+    }
+    // Appended, not replaced: picking a second time adds an angle
+    // rather than swapping the first one out.
+    setPending((prev) => [...prev, ...accepted].slice(0, MAX_IMAGES));
+    // Clearing the input lets the same file be picked again after a
+    // removal, which the browser otherwise treats as "no change".
+    if (imageInput.current) imageInput.current.value = "";
   };
 
-  const clearPending = () => {
+  const removePending = (index: number) => {
     setPending((prev) => {
-      if (prev) URL.revokeObjectURL(prev.preview);
-      return null;
+      const gone = prev[index];
+      if (gone) URL.revokeObjectURL(gone.preview);
+      return prev.filter((_, i) => i !== index);
     });
     if (imageInput.current) imageInput.current.value = "";
   };
@@ -334,7 +366,7 @@ const ExerciseComments = ({
     const trimmed = body.trim();
     // A picture on its own is a complete message here: "look at this
     // frame" needs no caption to be understood.
-    if ((!trimmed && !pending) || !user || !profile) return;
+    if ((!trimmed && pending.length === 0) || !user || !profile) return;
     setSendError(null);
 
     // Optimistic update: the comment lands in the thread instantly.
@@ -342,7 +374,7 @@ const ExerciseComments = ({
     // every network call runs in the background. If the POST fails
     // we roll back and put the text back in the input so they can
     // retry without retyping.
-    const attachment = pending;
+    const attachments = pending;
     const tempId = `temp-${Date.now()}`;
     const optimistic: Comment = {
       id: tempId,
@@ -350,7 +382,7 @@ const ExerciseComments = ({
       author_id: user.id,
       author_role: profile.role,
       body: trimmed,
-      image_url: attachment ? "pending" : null,
+      image_urls: attachments.map(() => "pending"),
       parent_id: null,
       created_at: new Date().toISOString(),
       profiles: {
@@ -359,32 +391,39 @@ const ExerciseComments = ({
       },
     };
     setComments((cs) => [...cs, optimistic]);
-    // The local preview stands in for the signed link until the real
-    // one comes back with the reload.
-    if (attachment) setSigned((s) => ({ ...s, [tempId]: attachment.preview }));
+    // The local previews stand in for the signed links until the real
+    // ones come back with the reload.
+    if (attachments.length) {
+      setSigned((s) => ({ ...s, [tempId]: attachments.map((a) => a.preview) }));
+    }
     setBody("");
-    setPending(null);
+    setPending([]);
     if (imageInput.current) imageInput.current.value = "";
     setSending(true);
 
     try {
-      let imagePath: string | null = null;
-      if (attachment) {
-        // Whoever sends it, the file is filed under the client, so the
-        // client can read it back.
+      let imagePaths: string[] = [];
+      if (attachments.length) {
+        // Whoever sends them, the files are filed under the client, so
+        // the client can read them back.
         const folder =
           profile.role === "coach"
             ? await resolveThreadClient(itemId, clientId)
             : user.id;
         if (!folder) throw new Error("Could not tell whose thread this is");
-        imagePath = await uploadCommentImage(attachment.file, folder);
+        // Sequential on purpose: the paths carry Date.now() and a short
+        // random suffix, and uploading in parallel made collisions
+        // possible on the same millisecond.
+        for (const a of attachments) {
+          imagePaths.push(await uploadCommentImage(a.file, folder));
+        }
       }
       await sbPost("exercise_comments", {
         item_id: itemId,
         author_id: user.id,
         author_role: profile.role,
         body: trimmed,
-        image_url: imagePath,
+        image_urls: imagePaths,
       });
       setSending(false);
 
@@ -414,8 +453,8 @@ const ExerciseComments = ({
       markRead(user.id, itemId);
       // Replace the temp row with the canonical one from the server.
       await load();
-      if (attachment) {
-        URL.revokeObjectURL(attachment.preview);
+      if (attachments.length) {
+        for (const a of attachments) URL.revokeObjectURL(a.preview);
         setSigned(({ [tempId]: _dropped, ...rest }) => rest);
       }
       // Let the parent inbox refetch so the resolved entry drops out.
@@ -424,10 +463,12 @@ const ExerciseComments = ({
       console.error(e);
       setComments((cs) => cs.filter((c) => c.id !== tempId));
       setBody(trimmed);
-      // Hand the picture back rather than making them find it again.
-      if (attachment) setPending(attachment);
+      // Hand the pictures back rather than making them find them again.
+      if (attachments.length) setPending(attachments);
       setSendError(
-        attachment ? "Could not send the image. Try again." : "Could not send."
+        attachments.length
+          ? "Could not send the images. Try again."
+          : "Could not send."
       );
       setSending(false);
     }
@@ -442,19 +483,21 @@ const ExerciseComments = ({
       // Take the file with the message. Best-effort: the comment is
       // already gone, and an orphaned object must not look like a
       // failed delete.
-      if (target?.image_url) {
+      if (target?.image_urls?.length) {
         const token = getToken();
         if (token) {
-          void fetch(
-            `${SUPABASE_URL}/storage/v1/object/comment-images/${target.image_url}`,
-            {
-              method: "DELETE",
-              headers: {
-                apikey: SUPABASE_KEY,
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          ).catch(() => {});
+          for (const path of target.image_urls) {
+            void fetch(
+              `${SUPABASE_URL}/storage/v1/object/comment-images/${path}`,
+              {
+                method: "DELETE",
+                headers: {
+                  apikey: SUPABASE_KEY,
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            ).catch(() => {});
+          }
         }
       }
     } catch (e) {
@@ -511,7 +554,7 @@ const ExerciseComments = ({
                 </span>
               </div>
               {c.body && <p className="whitespace-pre-wrap">{c.body}</p>}
-              <CommentImage src={signed[c.id]} />
+              <CommentImages srcs={signed[c.id]} />
             </div>
           );
         })}
@@ -576,7 +619,7 @@ const ExerciseComments = ({
             {last.body && (
               <p className="whitespace-pre-wrap">{last.body}</p>
             )}
-            <CommentImage src={signed[last.id]} />
+            <CommentImages srcs={signed[last.id]} />
           </div>
         );
       })()}
@@ -628,7 +671,7 @@ const ExerciseComments = ({
                   </div>
                 </div>
                 {c.body && <p className="whitespace-pre-wrap">{c.body}</p>}
-                <CommentImage src={signed[c.id]} />
+                <CommentImages srcs={signed[c.id]} />
               </div>
             );
           })}
@@ -681,23 +724,27 @@ const ExerciseComments = ({
 
           {/* What is about to be sent, and why it might not have been.
               Shown above the field so it is read before the send. */}
-          {(pending || sendError) && (
+          {(pending.length > 0 || sendError) && (
             <div className="pt-1">
-              {pending && (
-                <div className="relative inline-block">
-                  <img
-                    src={pending.preview}
-                    alt="To send"
-                    className="rounded-md border border-border max-h-32 w-auto"
-                  />
-                  <button
-                    type="button"
-                    onClick={clearPending}
-                    className="absolute -top-1.5 -right-1.5 rounded-full bg-foreground text-white p-1"
-                    title="Remove image"
-                  >
-                    <X size={10} />
-                  </button>
+              {pending.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {pending.map((p, i) => (
+                    <div key={p.preview} className="relative">
+                      <img
+                        src={p.preview}
+                        alt={`To send ${i + 1}`}
+                        className="rounded-md border border-border max-h-32 w-auto"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removePending(i)}
+                        className="absolute -top-1.5 -right-1.5 rounded-full bg-foreground text-white p-1"
+                        title="Remove image"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
               {sendError && (
@@ -712,7 +759,8 @@ const ExerciseComments = ({
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => pickImage(e.target.files?.[0])}
+              multiple
+              onChange={(e) => pickImages(e.target.files)}
             />
             <Textarea
               ref={textareaRef}
@@ -727,7 +775,7 @@ const ExerciseComments = ({
                 if (touchInput) return;
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  if ((body.trim() || pending) && !sending) {
+                  if ((body.trim() || pending.length) && !sending) {
                     void send(e as unknown as FormEvent);
                   }
                 }
@@ -746,15 +794,19 @@ const ExerciseComments = ({
                 size="sm"
                 variant="outline"
                 onClick={() => imageInput.current?.click()}
-                disabled={sending}
-                title="Attach an image"
+                disabled={sending || pending.length >= MAX_IMAGES}
+                title={
+                  pending.length >= MAX_IMAGES
+                    ? `Up to ${MAX_IMAGES} images`
+                    : "Attach images"
+                }
               >
                 <ImagePlus size={14} />
               </Button>
               <Button
                 type="submit"
                 size="sm"
-                disabled={sending || (!body.trim() && !pending)}
+                disabled={sending || (!body.trim() && pending.length === 0)}
               >
                 {sending ? (
                   <Loader2 size={14} className="animate-spin" />
