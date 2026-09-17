@@ -1,5 +1,7 @@
-// Small helper to invoke the notify-program-published edge function.
-// Silent-failure: we never block the UI on notification delivery.
+// Calls into the Supabase edge functions: notifications, the comment
+// rewrite, client deletion, archived video cleanup.
+
+import { refreshAccessToken } from "@/integrations/supabase/api";
 
 const URL = import.meta.env.VITE_SUPABASE_URL as string;
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -15,19 +17,56 @@ function getToken(): string | null {
   }
 }
 
-export async function notifyProgramPublished(programId: string): Promise<{ ok: boolean; error?: string }> {
-  const token = getToken();
-  if (!token) return { ok: false, error: "Not signed in" };
-  try {
-    const res = await fetch(`${URL}/functions/v1/notify-program-published`, {
+/**
+ * POST to an edge function, renewing the session once if it has expired.
+ *
+ * Every function here checks the caller's session before doing anything,
+ * and an access token lives one hour. The regular data helpers in api.ts
+ * already renew it on a 401 and retry; these calls read the stored token
+ * directly and never did. So after an hour on the same tab, all of them
+ * failed with "Invalid token", including the push that tells a client
+ * their coach has replied, which is silent by design and therefore
+ * failed without a trace through every long review session.
+ *
+ * Returns null only when there is no session at all.
+ */
+async function callFunction(
+  name: string,
+  body: unknown
+): Promise<Response | null> {
+  let token = getToken();
+  if (!token) return null;
+
+  const send = (t: string) =>
+    fetch(`${URL}/functions/v1/${name}`, {
       method: "POST",
       headers: {
         apikey: KEY,
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${t}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ program_id: programId }),
+      body: JSON.stringify(body),
     });
+
+  let res = await send(token);
+  if (res.status === 401) {
+    const fresh = await refreshAccessToken();
+    if (fresh) {
+      token = fresh;
+      res = await send(fresh);
+    }
+  }
+  return res;
+}
+
+export async function notifyProgramPublished(
+  programId: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await callFunction("notify-program-published", {
+      program_id: programId,
+    });
+    if (!res) return { ok: false, error: "Not signed in" };
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || `HTTP ${res.status}` };
     return { ok: true };
@@ -49,18 +88,12 @@ export async function rewriteComment(
   draft: string,
   clientId?: string | null
 ): Promise<{ ok: boolean; text?: string; error?: string }> {
-  const token = getToken();
-  if (!token) return { ok: false, error: "Not signed in" };
   try {
-    const res = await fetch(`${URL}/functions/v1/rewrite-comment`, {
-      method: "POST",
-      headers: {
-        apikey: KEY,
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ draft, client_id: clientId ?? null }),
+    const res = await callFunction("rewrite-comment", {
+      draft,
+      client_id: clientId ?? null,
     });
+    if (!res) return { ok: false, error: "Not signed in" };
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.text) {
       return { ok: false, error: data.error || `HTTP ${res.status}` };
@@ -90,24 +123,19 @@ export async function sendPush(
    *  sender collapses a burst into one notification per review session. */
   type?: "comment"
 ): Promise<void> {
-  const token = getToken();
-  if (!token) return;
   try {
-    await fetch(`${URL}/functions/v1/send-push`, {
-      method: "POST",
-      headers: {
-        apikey: KEY,
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        user_id: userId,
-        title,
-        body: body ?? "",
-        link_url: linkUrl ?? null,
-        type: type ?? null,
-      }),
+    const res = await callFunction("send-push", {
+      user_id: userId,
+      title,
+      body: body ?? "",
+      link_url: linkUrl ?? null,
+      type: type ?? null,
     });
+    // Still silent for the UI, but no longer invisible: a push that did
+    // not go out now leaves something in the console to find.
+    if (res && !res.ok) {
+      console.error("push notification refused", res.status);
+    }
   } catch (e) {
     console.error("push notification failed", e);
   }
@@ -121,18 +149,9 @@ export async function deleteClient(clientId: string): Promise<{
   assessment_files_deleted?: number;
   error?: string;
 }> {
-  const token = getToken();
-  if (!token) return { ok: false, error: "Not signed in" };
   try {
-    const res = await fetch(`${URL}/functions/v1/delete-client`, {
-      method: "POST",
-      headers: {
-        apikey: KEY,
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ client_id: clientId }),
-    });
+    const res = await callFunction("delete-client", { client_id: clientId });
+    if (!res) return { ok: false, error: "Not signed in" };
     const data = await res.json().catch(() => ({}));
     if (!res.ok)
       return { ok: false, error: data.error || `HTTP ${res.status}` };
@@ -142,19 +161,14 @@ export async function deleteClient(clientId: string): Promise<{
   }
 }
 
-export async function cleanupArchivedVideos(programId: string): Promise<{ ok: boolean; deleted?: number; error?: string }> {
-  const token = getToken();
-  if (!token) return { ok: false, error: "Not signed in" };
+export async function cleanupArchivedVideos(
+  programId: string
+): Promise<{ ok: boolean; deleted?: number; error?: string }> {
   try {
-    const res = await fetch(`${URL}/functions/v1/cleanup-archived-videos`, {
-      method: "POST",
-      headers: {
-        apikey: KEY,
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ program_id: programId }),
+    const res = await callFunction("cleanup-archived-videos", {
+      program_id: programId,
     });
+    if (!res) return { ok: false, error: "Not signed in" };
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || `HTTP ${res.status}` };
     return { ok: true, deleted: data.deleted };
