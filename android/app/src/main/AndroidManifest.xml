@@ -35,6 +35,27 @@
         </provider>
     </application>
 
+    <!-- "Record now" on the form-check upload is an <input type="file"
+         capture="environment">. The WebView answers it by launching the
+         phone's camera app through an implicit intent — but since Android
+         11, an implicit intent resolves to null unless the app declares
+         the action it intends to look up. Without this block the lookup
+         failed silently and the WebView fell back to the plain file
+         picker, so "Record now" and "Upload file" opened the same gallery.
+
+         This is visibility only, not a permission: the recording happens
+         inside the camera app, which is why android.permission.CAMERA is
+         deliberately NOT declared. Declaring it would make Android demand
+         a runtime grant we have no use for. -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.VIDEO_CAPTURE" />
+        </intent>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />

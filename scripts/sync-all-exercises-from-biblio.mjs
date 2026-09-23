@@ -79,9 +79,19 @@ for (const raw of lines) {
   const filename = fnMatch[1];
   const desc = (cells[2] || "").replace(/\\\|/g, "|").trim();
   const v2 = (cells[4] || "").replace(/\\\|/g, "|").trim();
-  // Prefer the validated description (column 3) if non-empty;
-  // otherwise fall back to v2 (Claude's suggestion).
-  const description = desc || v2 || null;
+  // Validation is the ✓ column being exactly "V" — that is the one
+  // signal Maxime actually controls (see "Comment valider" at the top
+  // of the review file: "mets V dans la colonne ✓"). A prior version of
+  // this script published the Description column (or the v2 draft)
+  // whenever either had TEXT, checkmark or not. Half the rows in
+  // "À RÉDIGER / RELIRE" already carry a first-draft description in
+  // that column precisely because it still needs review, so that
+  // version silently put every unread draft in front of real clients —
+  // confirmed 2026-09-03 when re-running it restored 158 descriptions
+  // Maxime had just pulled for being wrong, plus 11 new ones that were
+  // never meant to go out unread either.
+  const validated = (cells[3] || "").trim().toUpperCase() === "V";
+  const description = validated ? desc || v2 || null : null;
   rows.push({
     name: cells[0],
     filename,

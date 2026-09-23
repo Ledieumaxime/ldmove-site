@@ -17,6 +17,7 @@ import {
   Video,
   ArrowRight,
   Send,
+  X,
 } from "lucide-react";
 import { sbGet, sbGetAll, sbPatch, sbSignUrl } from "@/integrations/supabase/api";
 import { cleanupArchivedVideos } from "@/integrations/supabase/notify";
@@ -484,6 +485,34 @@ const AdminClientDetail = () => {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setArchiving(false);
+    }
+  };
+
+  /** Take a video back out of the client's progress milestones.
+   *
+   *  The same action exists in the inbox, on the form-check card, but
+   *  that list is sorted by the date the client sent the video, not by
+   *  the date it was archived. A milestone archived today sits wherever
+   *  its original send date puts it, behind hundreds of reviewed cards,
+   *  which makes it unfindable in practice. Here the milestones are
+   *  already listed, per client, newest archive first.
+   *
+   *  It only lifts the milestone flag. The video and its review stay. */
+  const removeMilestone = async (id: string) => {
+    if (
+      !window.confirm(
+        "Remove this video from the client's progress videos? The video itself is kept."
+      )
+    )
+      return;
+    try {
+      await sbPatch(`form_check_submissions?id=eq.${id}`, {
+        archived_as_progress: false,
+        archived_at: null,
+      });
+      setMilestones((ms) => ms.filter((m) => m.id !== id));
+    } catch (e) {
+      console.error("could not remove the milestone", e);
     }
   };
 
@@ -1484,8 +1513,18 @@ const AdminClientDetail = () => {
                               ? stripSection(m.program_items.custom_name)
                               : "Skill achievement")}
                         </p>
-                        <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                          {formatDate(m.archived_at ?? m.created_at)}
+                        <span className="flex items-center gap-2 whitespace-nowrap">
+                          <span className="text-[11px] text-muted-foreground">
+                            {formatDate(m.archived_at ?? m.created_at)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeMilestone(m.id)}
+                            className="text-muted-foreground hover:text-red-600"
+                            title="Remove from progress videos"
+                          >
+                            <X size={13} />
+                          </button>
                         </span>
                       </div>
                       {milestoneUrls[m.id] ? (
