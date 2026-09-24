@@ -162,6 +162,57 @@ type Props = {
   noPadding?: boolean;
 };
 
+/**
+ * Turn a YouTube link into something the app can actually play.
+ *
+ * A YouTube URL is an HTML page, not a video file, so handing it to the
+ * inline <video> player produced a black box with controls that did
+ * nothing. That is every exercise the coach links out for because it is
+ * not in his own library: 57 items across the programs when this was
+ * written, silently broken since the first one.
+ *
+ * Covers the three shapes he actually pastes, with or without the ?si=
+ * and &t= trailers: youtu.be/ID, youtube.com/shorts/ID and
+ * youtube.com/watch?v=ID. nocookie serves the same player without the
+ * tracking cookie.
+ *
+ * `portrait` is the difference between a Shorts link looking right and
+ * looking like a stamp: a vertical clip in a 16:9 frame is mostly black
+ * bars, and most of these links are Shorts.
+ */
+export function youTubeEmbed(
+  url: string
+): { src: string; portrait: boolean } | null {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return null;
+  }
+  const host = u.hostname.replace(/^(www|m)\./, "");
+  const isShort = u.pathname.startsWith("/shorts/");
+  let id: string | null = null;
+  if (host === "youtu.be") id = u.pathname.slice(1);
+  else if (host === "youtube.com" || host === "youtube-nocookie.com") {
+    if (isShort) id = u.pathname.slice("/shorts/".length);
+    else if (u.pathname.startsWith("/embed/")) id = u.pathname.slice("/embed/".length);
+    else id = u.searchParams.get("v");
+  }
+  if (!id) return null;
+  // A pasted URL can carry a trailing path or an empty segment.
+  id = id.split("/")[0];
+  if (!/^[\w-]{6,}$/.test(id)) return null;
+
+  const t = u.searchParams.get("t");
+  const start = t && /^\d+s?$/.test(t) ? t.replace(/s$/, "") : null;
+  return {
+    src: `https://www.youtube-nocookie.com/embed/${id}${
+      start ? `?start=${start}` : ""
+    }`,
+    portrait: isShort,
+  };
+}
+
 const ProgramItemCard = ({
   item,
   compact = false,
@@ -185,12 +236,18 @@ const ProgramItemCard = ({
   const [videoOpen, setVideoOpen] = useState(false);
   const [descriptionOpen, setDescriptionOpen] = useState(false);
 
-  // Drive URLs aren't direct video files (they serve a preview page),
-  // so we still open them in a new tab. Anything else — Supabase
-  // signed URLs, MP4/MOV hosted directly — gets the inline player so
-  // Safari and friends stream instead of downloading.
+  // YouTube gets the iframe player, see youTubeEmbed.
+  const embed = item.video_url ? youTubeEmbed(item.video_url) : null;
+
+  // Drive and Instagram URLs aren't direct video files (they serve a
+  // page), and neither can be embedded without their own script, so
+  // they open in a new tab. Anything else, Supabase signed URLs and
+  // MP4/MOV hosted directly, gets the inline player so Safari and
+  // friends stream instead of downloading.
   const isExternalPreview =
-    !!item.video_url && /drive\.google\.com/.test(item.video_url);
+    !!item.video_url &&
+    !embed &&
+    /drive\.google\.com|instagram\.com/.test(item.video_url);
 
   return (
     <div
@@ -316,6 +373,7 @@ const ProgramItemCard = ({
       {videoOpen && item.video_url && (
         <VideoModal
           src={item.video_url}
+          embed={embed}
           title={displayName}
           onClose={() => setVideoOpen(false)}
         />
@@ -325,14 +383,19 @@ const ProgramItemCard = ({
 };
 
 /** Inline video player. Stream-and-play instead of opening in a new
- *  tab — the latter triggered Safari to download .mov files instead
- *  of playing them inline. ESC and click-on-backdrop both close. */
+ *  tab, the latter triggered Safari to download .mov files instead
+ *  of playing them inline. ESC and click-on-backdrop both close.
+ *
+ *  `embed` switches it to the YouTube iframe, which is the same modal
+ *  with a different player inside it. */
 const VideoModal = ({
   src,
+  embed,
   title,
   onClose,
 }: {
   src: string;
+  embed?: { src: string; portrait: boolean } | null;
   title: string;
   onClose: () => void;
 }) => {
@@ -350,7 +413,9 @@ const VideoModal = ({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-3xl bg-black rounded-2xl overflow-hidden shadow-2xl"
+        className={`relative w-full bg-black rounded-2xl overflow-hidden shadow-2xl ${
+          embed?.portrait ? "max-w-[380px]" : "max-w-3xl"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 bg-black/60 backdrop-blur">
@@ -364,13 +429,30 @@ const VideoModal = ({
             <X size={18} />
           </button>
         </div>
-        <video
-          src={src}
-          controls
-          autoPlay
-          playsInline
-          className="w-full max-h-[75vh] bg-black"
-        />
+        {embed ? (
+          <iframe
+            src={embed.src}
+            title={title}
+            /* "fullscreen" and "web-share" are deliberately not in the
+               allow list: the first is already granted by
+               allowFullScreen and the browser warns about the clash,
+               the second is not a recognised feature and warns too. */
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+            className={`w-full block border-0 bg-black ${
+              embed.portrait ? "aspect-[9/16] max-h-[80vh]" : "aspect-video"
+            }`}
+          />
+        ) : (
+          <video
+            src={src}
+            controls
+            autoPlay
+            playsInline
+            className="w-full max-h-[75vh] bg-black"
+          />
+        )}
       </div>
     </div>
   );
