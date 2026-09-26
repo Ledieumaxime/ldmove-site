@@ -804,8 +804,15 @@ const AdminDashboard = () => {
           whole row each to say three lines. The client list keeps the
           wide column because it is the work surface; the panels you
           consult rather than act on move to the side. */}
+      {/* min-w-0 on both columns is load-bearing, not decoration: a
+          grid item defaults to min-width:auto, so it refuses to shrink
+          below its content's minimum and widens the whole page instead.
+          The client banner's row is 400px at its narrowest, which pushed
+          this page to 458px on a 375px phone and let the coach swipe it
+          sideways. With min-w-0 the column takes the width it is given
+          and the banner wraps. */}
       <div className="grid lg:grid-cols-3 gap-6 items-start">
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 min-w-0 space-y-6">
 
       {/* ============ ACTIVE CLIENTS ============ */}
       <section>
@@ -951,7 +958,7 @@ const AdminDashboard = () => {
 
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <WeeklyActivity data={weekActivity} />
 
       {/* ============ RECENT ACTIVITY ============ */}

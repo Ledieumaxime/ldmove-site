@@ -1025,9 +1025,12 @@ const AdminClientDetail = () => {
         </div>
       </section>
 
+      {/* min-w-0: see the same note on the coach dashboard. Without
+          it the column is sized by its widest content instead of by the
+          screen, and the page scrolls sideways on a phone. */}
       <div className="grid lg:grid-cols-3 gap-6">
         {/* ============ MAIN COLUMN ============ */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 min-w-0 space-y-6">
           {/* Current block */}
           {currentProgram && block ? (
             <section className="bg-foreground text-background rounded-2xl p-5">
@@ -1362,7 +1365,7 @@ const AdminClientDetail = () => {
         </div>
 
         {/* ============ SIDEBAR ============ */}
-        <aside className="space-y-6">
+        <aside className="min-w-0 space-y-6">
           {/* Inbox shortcut: counts only, action happens on the Inbox
               page where the actual reply UI lives. We keep this here
               so the coach lands on a client and instantly sees if
