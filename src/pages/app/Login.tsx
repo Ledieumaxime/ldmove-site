@@ -82,7 +82,7 @@ const Login = () => {
     // arrives beside it. On a phone there is no room for two halves, so
     // the panel does its job during the load and the screen he already
     // approved is what lands, full-bleed white, untouched.
-    <div className="min-h-screen bg-surface md:grid md:grid-cols-2">
+    <div className="min-h-screen bg-surface pt-safe pb-safe md:grid md:grid-cols-2">
       <div className="hidden md:block">
         <AppIntro />
       </div>

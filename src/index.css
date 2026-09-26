@@ -36,6 +36,16 @@
 
     --radius: 0.75rem;
 
+    /* How much of each edge is under a system bar, a notch or a gesture
+       bar. Capacitor sets --safe-area-inset-* inline on this same
+       element from the real window insets; env() covers iOS Safari;
+       0px covers a desktop browser, where there is nothing to avoid. */
+    --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+    --safe-bottom: var(
+      --safe-area-inset-bottom,
+      env(safe-area-inset-bottom, 0px)
+    );
+
     /* The colour of a card, a panel, a sheet: everything that sits on
        top of the page background. In light mode it is plain white,
        which is exactly what these surfaces were hard-coded to before,
@@ -140,6 +150,26 @@
 }
 
 @layer utilities {
+  /* Background paints the full screen, content stays out from under the
+     bars. Both halves matter: padding alone would leave the strip
+     uncoloured, and colour alone would hide the content behind it. */
+  .pt-safe {
+    padding-top: var(--safe-top);
+  }
+  .pb-safe {
+    padding-bottom: var(--safe-bottom);
+  }
+  /* Clears the app's fixed bottom bar, which is itself now as tall as
+     the gesture bar underneath it. */
+  .pb-app-nav {
+    padding-bottom: calc(6rem + var(--safe-bottom));
+  }
+  @media (min-width: 768px) {
+    .pb-app-nav {
+      padding-bottom: calc(2.5rem + var(--safe-bottom));
+    }
+  }
+
   .font-heading {
     font-family: var(--font-heading);
   }

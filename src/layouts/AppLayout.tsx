@@ -96,7 +96,7 @@ const AppLayout = () => {
 
   return (
     <div
-      className={`min-h-screen bg-surface flex flex-col ${
+      className={`min-h-screen bg-surface flex flex-col pt-safe ${
         isCoach ? "md:pl-56" : ""
       }`}
     >
@@ -190,7 +190,7 @@ const AppLayout = () => {
         </div>
       </header>
 
-      <main className="flex-1 container py-6 pb-24 md:pb-10">
+      <main className="flex-1 container pt-6 pb-app-nav">
         {/* Inner boundary: while a lazy page chunk downloads, the app
             shell (header + bottom nav) stays in place instead of the
             whole screen being replaced by the top-level fallback. */}
@@ -204,7 +204,7 @@ const AppLayout = () => {
           isCoach ? "md:hidden" : "md:static md:border-t-0"
         }`}
       >
-        <div className="container flex justify-around md:justify-start md:gap-2 py-2">
+        <div className="container flex justify-around md:justify-start md:gap-2 py-2 pb-safe">
           {isCoach &&
             coachNav.map((n) => (
               <BottomLink

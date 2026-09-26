@@ -2,7 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover is what makes the page paint the whole screen,
+         system bars included. Capacitor reads this exact token: without it
+         it insets the WebView below the bars and the strips left over show
+         the Android theme's own background, which follows the phone's
+         light/dark setting rather than ours. Content is kept clear of the
+         clock with the --safe-* variables (see index.css). -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <title>LD Move | Online Handstand, Mobility &amp; Calisthenics Coaching</title>
     <meta name="description" content="Online handstand, mobility and bodyweight strength coaching. Train smarter, get stronger and more mobile with structured programs that fit into real life.">
     <meta name="author" content="Maxime Ledieu · LD Move" />
