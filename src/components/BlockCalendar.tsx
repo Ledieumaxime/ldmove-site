@@ -147,7 +147,7 @@ const BlockCalendar = ({
   if (!current) return null;
 
   return (
-    <div className="bg-white rounded-2xl border border-border p-4">
+    <div className="bg-surface rounded-2xl border border-border p-4">
       <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           Training calendar
@@ -156,7 +156,7 @@ const BlockCalendar = ({
           <select
             value={selectedId}
             onChange={(e) => setSelectedId(e.target.value)}
-            className="h-8 rounded-md border border-input bg-white px-2 text-xs max-w-[60%]"
+            className="h-8 rounded-md border border-input bg-surface px-2 text-xs max-w-[60%]"
           >
             {blocks.map((b) => (
               <option key={b.id} value={b.id}>

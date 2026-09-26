@@ -242,7 +242,7 @@ const Today = () => {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
+      <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg p-4 text-sm text-red-700 dark:text-red-300">
         {error}
       </div>
     );
@@ -251,7 +251,7 @@ const Today = () => {
   // No active 1:1 program assigned.
   if (!program) {
     return (
-      <div className="max-w-xl mx-auto bg-white border border-border rounded-2xl p-8 text-center space-y-3">
+      <div className="max-w-xl mx-auto bg-surface border border-border rounded-2xl p-8 text-center space-y-3">
         <Lock className="mx-auto text-muted-foreground" size={28} />
         <h1 className="font-heading text-2xl font-bold">No active program</h1>
         <p className="text-sm text-muted-foreground">
@@ -268,7 +268,7 @@ const Today = () => {
   // No session at all (program has no weeks/items yet).
   if (!todaysWorkout) {
     return (
-      <div className="max-w-xl mx-auto bg-white border border-border rounded-2xl p-8 text-center space-y-3">
+      <div className="max-w-xl mx-auto bg-surface border border-border rounded-2xl p-8 text-center space-y-3">
         <Lock className="mx-auto text-muted-foreground" size={28} />
         <h1 className="font-heading text-2xl font-bold">No session yet</h1>
         <p className="text-sm text-muted-foreground">
@@ -286,7 +286,7 @@ const Today = () => {
   // modulo wrapped early and the client saw the wrong session).
   if (todaysWorkout.isEmpty) {
     return (
-      <div className="max-w-xl mx-auto bg-white border border-border rounded-2xl p-8 text-center space-y-3">
+      <div className="max-w-xl mx-auto bg-surface border border-border rounded-2xl p-8 text-center space-y-3">
         <Lock className="mx-auto text-muted-foreground" size={28} />
         <h1 className="font-heading text-2xl font-bold">
           {dayDisplayLabel(todaysWorkout)}
@@ -415,7 +415,7 @@ const Today = () => {
                 // thing", so a solo block gets a plain border.
                 <div
                   key={`b-${bIdx}`}
-                  className={`rounded-2xl border border-foreground/10 bg-white px-4 pt-4 pb-1 ${
+                  className={`rounded-2xl border border-foreground/10 bg-surface px-4 pt-4 pb-1 ${
                     bIdx === 0 ? "" : "mt-4"
                   }`}
                   style={

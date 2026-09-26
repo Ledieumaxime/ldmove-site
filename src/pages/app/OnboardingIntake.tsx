@@ -229,9 +229,9 @@ const OnboardingIntake = () => {
 
   if (submitted) {
     return (
-      <div className="max-w-2xl mx-auto bg-white border border-border rounded-2xl p-8 text-center space-y-4">
-        <div className="w-16 h-16 mx-auto rounded-full bg-green-100 flex items-center justify-center">
-          <CheckCircle2 className="text-green-600" size={36} />
+      <div className="max-w-2xl mx-auto bg-surface border border-border rounded-2xl p-8 text-center space-y-4">
+        <div className="w-16 h-16 mx-auto rounded-full bg-green-100 dark:bg-green-500/15 flex items-center justify-center">
+          <CheckCircle2 className="text-green-600 dark:text-green-400" size={36} />
         </div>
         <h1 className="font-heading text-3xl font-bold">Intake received</h1>
         <p className="font-body text-muted-foreground leading-relaxed">
@@ -264,7 +264,7 @@ const OnboardingIntake = () => {
       </p>
 
       {existing && (
-        <div className="mb-6 bg-sky-50 border border-sky-200 text-sky-800 rounded-lg p-3 text-sm">
+        <div className="mb-6 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/30 text-sky-800 dark:text-sky-300 rounded-lg p-3 text-sm">
           You already sent this intake. Edit any answer and submit again to
           update.
         </div>
@@ -652,7 +652,7 @@ const OnboardingIntake = () => {
         </Section>
 
         {err && (
-          <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-700">
+          <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded p-3 text-sm text-red-700 dark:text-red-300">
             {err}
           </div>
         )}
@@ -670,7 +670,7 @@ const OnboardingIntake = () => {
 
 // Layout helpers
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <section className="bg-white border border-border rounded-2xl p-5 md:p-6 space-y-5">
+  <section className="bg-surface border border-border rounded-2xl p-5 md:p-6 space-y-5">
     <h2 className="font-heading text-xl font-bold">{title}</h2>
     {children}
   </section>
@@ -735,7 +735,7 @@ const RadioField = ({
             className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${
               active
                 ? "bg-accent text-white border-accent"
-                : "bg-white border-border hover:border-accent/50"
+                : "bg-surface border-border hover:border-accent/50"
             }`}
           >
             {opt}
@@ -771,7 +771,7 @@ const CheckboxField = ({
             className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${
               active
                 ? "bg-accent text-white border-accent"
-                : "bg-white border-border hover:border-accent/50"
+                : "bg-surface border-border hover:border-accent/50"
             }`}
           >
             {opt}

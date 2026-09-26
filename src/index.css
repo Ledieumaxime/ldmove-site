@@ -36,6 +36,14 @@
 
     --radius: 0.75rem;
 
+    /* The colour of a card, a panel, a sheet: everything that sits on
+       top of the page background. In light mode it is plain white,
+       which is exactly what these surfaces were hard-coded to before,
+       so swapping bg-white for bg-surface changes nothing here and
+       only means something once .dark redefines it. */
+    --surface: 0 0% 100%;
+    --surface-muted: 35 20% 96%;
+
     --sand: 35 30% 92%;
     --sand-dark: 33 25% 82%;
     --ocean: 185 35% 55%;
@@ -61,6 +69,59 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+/* Dark mode.
+ *
+ * Applied by adding `dark` to <html>, which ThemeScope does only while
+ * the visitor is inside /app. The marketing site keeps its white and
+ * sand and is never touched.
+ *
+ * The hues are the same as the light theme, only the lightness is
+ * inverted: the warm 30-40deg family stays warm, so the app reads as
+ * the same product with the lamp off rather than as a different one.
+ * Surfaces are lighter than the page rather than darker, which is how
+ * depth works when there is no light to cast a shadow.
+ */
+@layer base {
+  .dark {
+    --background: 30 8% 9%;
+    --foreground: 40 20% 92%;
+
+    --surface: 30 7% 13%;
+    --surface-muted: 30 7% 17%;
+
+    --card: 30 7% 13%;
+    --card-foreground: 40 20% 92%;
+
+    --popover: 30 7% 13%;
+    --popover-foreground: 40 20% 92%;
+
+    --primary: 40 20% 92%;
+    --primary-foreground: 30 8% 9%;
+
+    --secondary: 30 7% 18%;
+    --secondary-foreground: 40 20% 92%;
+
+    --muted: 30 6% 20%;
+    --muted-foreground: 35 10% 62%;
+
+    /* The accent keeps its saturation: it is the brand, and it is what
+       the eye is meant to find on a dark screen. */
+    --accent: 28 85% 58%;
+    --accent-foreground: 30 8% 9%;
+
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 40 20% 92%;
+
+    --border: 30 6% 24%;
+    --input: 30 6% 24%;
+    --ring: 28 85% 58%;
+
+    --sand: 30 7% 18%;
+    --sand-dark: 30 7% 24%;
+    --warm-white: 30 8% 9%;
   }
 }
 

@@ -58,7 +58,7 @@ const Programs = () => {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
+      <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg p-4 text-sm text-red-700 dark:text-red-300">
         Error: {error}
       </div>
     );
@@ -85,7 +85,7 @@ const Programs = () => {
       </div>
 
       {catalogue.length === 0 ? (
-        <p className="text-sm text-muted-foreground bg-white border border-border rounded-xl p-5">
+        <p className="text-sm text-muted-foreground bg-surface border border-border rounded-xl p-5">
           No programs in the catalogue yet.
         </p>
       ) : (
@@ -113,13 +113,13 @@ const ProgramCard = ({
   const badge = openAccess
     ? { label: "Archived (free)", cls: "bg-gray-100 text-gray-700" }
     : unlocked
-    ? { label: "Unlocked", cls: "bg-green-100 text-green-700" }
+    ? { label: "Unlocked", cls: "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300" }
     : { label: `${program.price_eur}€`, cls: "bg-accent/10 text-accent" };
 
   return (
     <Link
       to={`/app/programs/${program.slug}`}
-      className="bg-white rounded-2xl border border-border p-5 hover:border-accent/40 hover:shadow-md transition block"
+      className="bg-surface rounded-2xl border border-border p-5 hover:border-accent/40 hover:shadow-md transition block"
     >
       <div className="flex items-start justify-between mb-3">
         <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">

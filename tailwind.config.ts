@@ -28,6 +28,10 @@ export default {
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',
   			background: 'hsl(var(--background))',
+  			surface: {
+  				DEFAULT: 'hsl(var(--surface))',
+  				muted: 'hsl(var(--surface-muted))'
+  			},
   			foreground: 'hsl(var(--foreground))',
   			primary: {
   				DEFAULT: 'hsl(var(--primary))',

@@ -18,7 +18,7 @@ import logo from "@/assets/logo-ldmove.png";
  */
 const AppIntro = ({ fullScreen = false }: { fullScreen?: boolean }) => (
   <div
-    className={`bg-white text-foreground md:bg-foreground md:text-white flex flex-col items-center justify-center px-8 text-center ${
+    className={`bg-surface text-foreground md:bg-foreground md:text-white flex flex-col items-center justify-center px-8 text-center ${
       fullScreen ? "min-h-screen" : "h-full w-full"
     }`}
   >
@@ -26,7 +26,7 @@ const AppIntro = ({ fullScreen = false }: { fullScreen?: boolean }) => (
       src={logo}
       alt=""
       aria-hidden
-      className="h-24 w-24 mb-8 md:opacity-95 md:invert"
+      className="h-24 w-24 mb-8 md:opacity-95 md:invert dark:opacity-95 dark:invert"
     />
     <p className="font-heading text-3xl md:text-4xl font-bold leading-tight">
       Move with

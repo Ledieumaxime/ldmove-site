@@ -26,7 +26,25 @@
     <meta name="twitter:title" content="LD Move | Online Handstand, Mobility &amp; Calisthenics Coaching">
     <meta property="og:description" content="Online handstand, mobility and bodyweight strength coaching. Train smarter, get stronger and more mobile with structured programs that fit into real life.">
     <meta name="twitter:description" content="Online handstand, mobility and bodyweight strength coaching. Train smarter, get stronger and more mobile with structured programs that fit into real life.">
-</head>
+    <!-- Set the theme before the first paint.
+         React only adds the class once it has mounted, which on the
+         native shell is a second or more after the window appears: long
+         enough to show a white screen and then swap it for a dark one,
+         the exact flash the opening screen was built to avoid. This
+         runs synchronously, so the app is already the right colour when
+         the first pixel is drawn. Kept deliberately tiny and in sync
+         with ThemeContext. -->
+    <script>
+      try {
+        if (
+          location.pathname.indexOf("/app") === 0 &&
+          localStorage.getItem("ldmove-theme") === "dark"
+        ) {
+          document.documentElement.classList.add("dark");
+        }
+      } catch (e) {}
+    </script>
+  </head>
 
   <body>
     <div id="root"></div>

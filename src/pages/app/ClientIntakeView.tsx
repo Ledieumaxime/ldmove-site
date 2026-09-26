@@ -137,7 +137,7 @@ const ClientIntakeView = () => {
 
   if (!intake) {
     return (
-      <div className="max-w-xl mx-auto bg-white border border-border rounded-2xl p-8 text-center space-y-3">
+      <div className="max-w-xl mx-auto bg-surface border border-border rounded-2xl p-8 text-center space-y-3">
         <div className="w-12 h-12 mx-auto rounded-full bg-muted flex items-center justify-center">
           <ClipboardList className="text-muted-foreground" size={22} />
         </div>
@@ -238,7 +238,7 @@ const ClientIntakeView = () => {
 };
 
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <section className="bg-white rounded-2xl border border-border overflow-hidden">
+  <section className="bg-surface rounded-2xl border border-border overflow-hidden">
     <h2 className="font-heading text-lg font-bold px-5 pt-4">{title}</h2>
     <div>{children}</div>
   </section>

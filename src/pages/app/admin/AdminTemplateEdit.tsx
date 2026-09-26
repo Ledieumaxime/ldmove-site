@@ -122,8 +122,8 @@ const blankExercise = (group_name: string | null = null): TemplateExercise => ({
 });
 
 const TYPE_HEADER: Record<TemplateType, { label: string; tint: string }> = {
-  warmup: { label: "Warm-up template", tint: "bg-amber-50/60" },
-  workout: { label: "Workout template", tint: "bg-blue-50/60" },
+  warmup: { label: "Warm-up template", tint: "bg-amber-50/60 dark:bg-amber-500/10" },
+  workout: { label: "Workout template", tint: "bg-blue-50/60 dark:bg-blue-500/10" },
 };
 
 const AdminTemplateEdit = () => {
@@ -222,7 +222,7 @@ const AdminTemplateEdit = () => {
   }
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+      <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg p-3 text-sm text-red-700 dark:text-red-300">
         {error}
       </div>
     );
@@ -254,7 +254,7 @@ const AdminTemplateEdit = () => {
             className={`inline-flex items-center gap-1 text-[10px] font-semibold rounded-full px-2 py-1 ${
               saveState === "saving"
                 ? "bg-muted text-muted-foreground"
-                : "bg-green-50 text-green-700"
+                : "bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-300"
             }`}
           >
             {saveState === "saving" ? (
@@ -271,7 +271,7 @@ const AdminTemplateEdit = () => {
       </div>
 
       {/* --- Meta --- */}
-      <section className="bg-white rounded-2xl border border-border p-4 space-y-3">
+      <section className="bg-surface rounded-2xl border border-border p-4 space-y-3">
         <div>
           <label className="text-xs font-semibold text-muted-foreground uppercase">
             Name
@@ -302,14 +302,14 @@ const AdminTemplateEdit = () => {
       </section>
 
       {/* --- Exercises --- */}
-      <section className="bg-white rounded-2xl border border-border">
+      <section className="bg-surface rounded-2xl border border-border">
         <header
           className={`px-4 py-2.5 border-b border-border flex items-center justify-between rounded-t-2xl ${headerCfg.tint}`}
         >
           <h2 className="font-heading font-bold text-sm uppercase tracking-wide">
             Exercises
           </h2>
-          <span className="text-[10px] font-semibold text-muted-foreground bg-white border border-border rounded-full px-2 py-0.5">
+          <span className="text-[10px] font-semibold text-muted-foreground bg-surface border border-border rounded-full px-2 py-0.5">
             {sets.length} set{sets.length === 1 ? "" : "s"}
           </span>
         </header>
@@ -611,7 +611,7 @@ const TemplateExerciseRow = ({
   };
 
   return (
-    <div className="bg-white border border-border rounded-md p-2.5 space-y-2">
+    <div className="bg-surface border border-border rounded-md p-2.5 space-y-2">
       <div className="flex items-start gap-2">
         <div className="flex-1 space-y-1.5">
           {isCustom ? (
@@ -651,7 +651,7 @@ const TemplateExerciseRow = ({
         <button
           type="button"
           onClick={onDelete}
-          className="text-red-600 hover:bg-red-50 p-1.5 rounded shrink-0"
+          className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 p-1.5 rounded shrink-0"
           title="Remove exercise"
         >
           <Trash2 size={14} />

@@ -89,12 +89,12 @@ const AdminSessions = () => {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search a session, block or client…"
-          className="h-10 text-sm bg-white"
+          className="h-10 text-sm bg-surface"
         />
         <select
           value={clientFilter}
           onChange={(e) => setClientFilter(e.target.value)}
-          className="h-10 rounded-md border border-input bg-white px-2 text-sm shrink-0 max-w-[40%]"
+          className="h-10 rounded-md border border-input bg-surface px-2 text-sm shrink-0 max-w-[40%]"
         >
           <option value="">All clients</option>
           {libraryClientNames(entries ?? []).map((name) => (
@@ -110,7 +110,7 @@ const AdminSessions = () => {
       ) : visible.length === 0 ? (
         <p className="text-sm text-muted-foreground">No session matches.</p>
       ) : (
-        <div className="bg-white border border-border rounded-2xl divide-y divide-border overflow-hidden">
+        <div className="bg-surface border border-border rounded-2xl divide-y divide-border overflow-hidden">
           {visible.map((e) => (
             <div key={e.weekId}>
               <button
@@ -205,7 +205,7 @@ const SessionDetail = ({ items }: { items: SessionItem[] | undefined }) => {
               block.group ? (
                 <div
                   key={bIdx}
-                  className="border border-accent/30 rounded-lg p-2 bg-white"
+                  className="border border-accent/30 rounded-lg p-2 bg-surface"
                 >
                   <p className="text-[10px] font-bold text-accent uppercase tracking-wide mb-1">
                     {block.group}
@@ -230,7 +230,7 @@ const SessionDetail = ({ items }: { items: SessionItem[] | undefined }) => {
                 </div>
               ) : (
                 block.items.map((it) => (
-                  <div key={it.id} className="bg-white rounded-lg px-2 py-1.5">
+                  <div key={it.id} className="bg-surface rounded-lg px-2 py-1.5">
                     <ItemLine
                       name={stripSection(it.custom_name ?? "")}
                       right={prescription(it)}

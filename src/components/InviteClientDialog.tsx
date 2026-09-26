@@ -131,7 +131,7 @@ const InviteClientDialog = ({ open, onClose, onInvited }: Props) => {
       onClick={() => !sending && onClose()}
     >
       <div
-        className="bg-white rounded-2xl border border-border w-full max-w-lg shadow-xl"
+        className="bg-surface rounded-2xl border border-border w-full max-w-lg shadow-xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -196,7 +196,7 @@ const InviteClientDialog = ({ open, onClose, onInvited }: Props) => {
               <select
                 value={programId}
                 onChange={(e) => setProgramId(e.target.value)}
-                className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-sm"
+                className="w-full rounded-md border border-border bg-surface px-2 py-1.5 text-sm"
               >
                 <option value="">None, just invite</option>
                 {unassignedPrograms.map((p) => (
@@ -213,7 +213,7 @@ const InviteClientDialog = ({ open, onClose, onInvited }: Props) => {
           )}
 
           {err && (
-            <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700">
+            <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded p-2 text-xs text-red-700 dark:text-red-300">
               {err}
             </div>
           )}

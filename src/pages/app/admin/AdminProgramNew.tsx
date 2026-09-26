@@ -236,7 +236,7 @@ const AdminProgramNew = () => {
         className="space-y-6"
       >
         {/* --- Identity --- */}
-        <section className="bg-white rounded-2xl border border-border p-5 md:p-6 space-y-5">
+        <section className="bg-surface rounded-2xl border border-border p-5 md:p-6 space-y-5">
           <h2 className="font-heading text-lg font-bold">Program info</h2>
 
           <div>
@@ -269,7 +269,7 @@ const AdminProgramNew = () => {
               value={assignedClientId ?? ""}
               onChange={(e) => setAssignedClientId(e.target.value || null)}
               disabled={loadingClients}
-              className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm"
+              className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
             >
               <option value="">— Public (catalogue program)</option>
               {clients.map((c) => (
@@ -314,7 +314,7 @@ const AdminProgramNew = () => {
         </section>
 
         {/* --- Sessions --- */}
-        <section className="bg-white rounded-2xl border border-border p-5 md:p-6 space-y-4">
+        <section className="bg-surface rounded-2xl border border-border p-5 md:p-6 space-y-4">
           <div className="flex items-start justify-between gap-2">
             <div>
               <h2 className="font-heading text-lg font-bold">Sessions</h2>
@@ -367,7 +367,7 @@ const AdminProgramNew = () => {
                     type="button"
                     onClick={() => removeSession(idx)}
                     disabled={sessions.length === 1}
-                    className="text-red-600 hover:bg-red-50 p-1 rounded disabled:opacity-30"
+                    className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 p-1 rounded disabled:opacity-30"
                     title="Remove"
                   >
                     <Trash2 size={14} />
@@ -389,7 +389,7 @@ const AdminProgramNew = () => {
         </section>
 
         {/* --- Payment --- */}
-        <section className="bg-white rounded-2xl border border-border p-5 md:p-6 space-y-4">
+        <section className="bg-surface rounded-2xl border border-border p-5 md:p-6 space-y-4">
           <h2 className="font-heading text-lg font-bold">Payment</h2>
 
           <label className="flex items-start gap-3 cursor-pointer">
@@ -421,7 +421,7 @@ const AdminProgramNew = () => {
                       e.target.value as "one_time" | "subscription"
                     )
                   }
-                  className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
                 >
                   <option value="one_time">One-time payment</option>
                   <option value="subscription">Monthly subscription</option>
@@ -463,7 +463,7 @@ const AdminProgramNew = () => {
         </section>
 
         {/* --- Draft notice --- */}
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-900">
+        <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl p-3 text-sm text-amber-900 dark:text-amber-200">
           <p className="font-semibold">Saved as draft</p>
           <p className="text-xs opacity-80">
             The program is hidden from the client while you fill in the
@@ -473,12 +473,12 @@ const AdminProgramNew = () => {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+          <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg p-3 text-sm text-red-700 dark:text-red-300">
             {error}
           </div>
         )}
 
-        <div className="sticky bottom-4 bg-white border border-border rounded-2xl shadow-lg p-4 flex items-center justify-between gap-3">
+        <div className="sticky bottom-4 bg-surface border border-border rounded-2xl shadow-lg p-4 flex items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
             {sessions.length} session{sessions.length > 1 ? "s" : ""} ·{" "}
             {durationWeeks} week{durationWeeks > 1 ? "s" : ""}

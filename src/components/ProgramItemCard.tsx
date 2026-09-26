@@ -251,7 +251,7 @@ const ProgramItemCard = ({
 
   return (
     <div
-      className={`bg-white ${
+      className={`bg-surface ${
         flush ? "" : "border border-border rounded-lg hover:shadow-sm"
       } ${noPadding ? "" : compact ? "p-3" : "p-4"} transition-shadow ${
         flush ? "" : accent

@@ -142,17 +142,17 @@ const ClientArchive = () => {
         </p>
       </div>
 
-      <section className="bg-white border border-border rounded-2xl overflow-hidden">
+      <section className="bg-surface border border-border rounded-2xl overflow-hidden">
         <button
           type="button"
           onClick={() => setAchievementsOpen((v) => !v)}
           className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted/30 transition-colors"
         >
-          <Trophy size={18} className="text-amber-700" />
+          <Trophy size={18} className="text-amber-700 dark:text-amber-300" />
           <span className="font-heading text-xl font-bold flex-1 text-left">
             Skill achievements
           </span>
-          <span className="text-xs bg-amber-100 text-amber-800 rounded-full px-2 py-0.5 font-semibold">
+          <span className="text-xs bg-amber-100 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 rounded-full px-2 py-0.5 font-semibold">
             {progress.length}
           </span>
           {achievementsOpen ? (
@@ -200,17 +200,17 @@ const ClientArchive = () => {
         )}
       </section>
 
-      <section className="bg-white border border-border rounded-2xl overflow-hidden">
+      <section className="bg-surface border border-border rounded-2xl overflow-hidden">
         <button
           type="button"
           onClick={() => setAssessmentOpen((v) => !v)}
           className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted/30 transition-colors"
         >
-          <ClipboardList size={18} className="text-sky-700" />
+          <ClipboardList size={18} className="text-sky-700 dark:text-sky-300" />
           <span className="font-heading text-xl font-bold flex-1 text-left">
             Initial assessment
           </span>
-          <span className="text-xs bg-sky-100 text-sky-800 rounded-full px-2 py-0.5 font-semibold">
+          <span className="text-xs bg-sky-100 dark:bg-sky-500/15 text-sky-800 dark:text-sky-300 rounded-full px-2 py-0.5 font-semibold">
             {assessments.length}
           </span>
           {assessmentOpen ? (

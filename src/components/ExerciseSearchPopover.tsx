@@ -127,7 +127,7 @@ const ExerciseSearchPopover = ({
   return (
     <div ref={containerRef} className="relative">
       <div
-        className={`flex items-center gap-2 border border-border rounded-md bg-white px-2 ${heightClass}`}
+        className={`flex items-center gap-2 border border-border rounded-md bg-surface px-2 ${heightClass}`}
       >
         <Search size={14} className="text-muted-foreground shrink-0" />
         {value && !open ? (
@@ -165,7 +165,7 @@ const ExerciseSearchPopover = ({
               onClear();
               setQuery("");
             }}
-            className="text-muted-foreground hover:text-red-600 shrink-0"
+            className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400 shrink-0"
             title="Clear"
           >
             <X size={14} />
@@ -174,7 +174,7 @@ const ExerciseSearchPopover = ({
       </div>
 
       {open && (
-        <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-border rounded-md shadow-lg max-h-72 overflow-y-auto">
+        <div className="absolute z-30 left-0 right-0 mt-1 bg-surface border border-border rounded-md shadow-lg max-h-72 overflow-y-auto">
           {matches.length === 0 ? (
             <p className="p-3 text-xs text-muted-foreground">
               No match. The exercise name must exist in the canonical library

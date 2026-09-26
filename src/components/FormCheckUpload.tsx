@@ -277,12 +277,12 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
       {open && (
         <div className="mt-2 space-y-3">
           {justSent ? (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-xs text-green-700 inline-flex items-center gap-2">
+            <div className="bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded-lg p-3 text-xs text-green-700 dark:text-green-300 inline-flex items-center gap-2">
               <CheckCircle2 size={14} />
               <span>Sent. Your coach will review it shortly.</span>
             </div>
           ) : uploading ? (
-            <div className="bg-white border border-border rounded-lg p-3 text-xs">
+            <div className="bg-surface border border-border rounded-lg p-3 text-xs">
               <div className="flex items-center gap-2 mb-2">
                 <Loader2 size={14} className="animate-spin text-accent" />
                 <span>Uploading… {progress}%</span>
@@ -339,7 +339,7 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
           )}
 
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700 flex items-start gap-2">
+            <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded p-2 text-xs text-red-700 dark:text-red-300 flex items-start gap-2">
               <X size={12} className="mt-0.5 shrink-0" />
               <span>{error}</span>
             </div>
@@ -364,18 +364,18 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
               key={c.id}
               className={`border rounded-lg p-3 text-xs ${
                 c.status === "reviewed"
-                  ? "bg-green-50 border-green-200"
-                  : "bg-amber-50 border-amber-200"
+                  ? "bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/30"
+                  : "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30"
               }`}
             >
               <div className="flex items-center justify-between mb-1 gap-2">
                 <span className="font-semibold">
                   {c.status === "reviewed" ? (
-                    <span className="text-green-700 inline-flex items-center gap-1">
+                    <span className="text-green-700 dark:text-green-300 inline-flex items-center gap-1">
                       <CheckCircle2 size={12} /> Reviewed
                     </span>
                   ) : (
-                    <span className="text-amber-700">Awaiting review</span>
+                    <span className="text-amber-700 dark:text-amber-300">Awaiting review</span>
                   )}
                 </span>
                 <div className="flex items-center gap-2">

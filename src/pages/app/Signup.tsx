@@ -35,7 +35,7 @@ const Signup = () => {
 
   return (
     <div className="min-h-screen bg-sand flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
+      <div className="w-full max-w-md bg-surface rounded-2xl shadow-lg p-8">
         {/* A way out at the top. The "Already a member?" link at the
             bottom of the form was the only one, and someone who landed
             here by mistake should not have to read past every field to
@@ -49,7 +49,7 @@ const Signup = () => {
         </Link>
 
         <div className="flex flex-col items-center mb-6">
-          <img src={logo} alt="LD Move" className="h-16 w-auto mb-2" />
+          <img src={logo} alt="LD Move" className="h-16 w-auto mb-2 dark:invert dark:opacity-95" />
           <h1 className="font-heading text-2xl font-bold">Create an account</h1>
           <p className="text-sm text-muted-foreground mt-1">Join LD Move</p>
         </div>
@@ -89,12 +89,12 @@ const Signup = () => {
           </div>
 
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+            <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded px-3 py-2">
               {error}
             </div>
           )}
           {success && (
-            <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
+            <div className="text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded px-3 py-2">
               Account created. Redirecting…
             </div>
           )}

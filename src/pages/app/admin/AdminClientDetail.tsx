@@ -783,7 +783,7 @@ const AdminClientDetail = () => {
     return <div className="text-muted-foreground">Loading client…</div>;
   if (error)
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
+      <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg p-4 text-sm text-red-700 dark:text-red-300">
         {error}
       </div>
     );
@@ -831,7 +831,7 @@ const AdminClientDetail = () => {
           <button
             type="button"
             onClick={() => setDeleteOpen(true)}
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-red-700 transition-colors"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-red-700 dark:hover:text-red-300 transition-colors"
           >
             <Trash2 size={12} /> Delete
           </button>
@@ -844,7 +844,7 @@ const AdminClientDetail = () => {
             className="fixed inset-0 z-40 bg-black/30"
             onClick={() => setArchiveOpen(false)}
           />
-          <div className="fixed z-50 inset-x-4 top-[12%] max-w-md mx-auto bg-white border border-border rounded-2xl shadow-xl p-5 space-y-4">
+          <div className="fixed z-50 inset-x-4 top-[12%] max-w-md mx-auto bg-surface border border-border rounded-2xl shadow-xl p-5 space-y-4">
             <div>
               <h2 className="font-heading text-lg font-bold">
                 Archive {displayName}
@@ -923,7 +923,7 @@ const AdminClientDetail = () => {
       )}
 
       {/* ============ HEADER ============ */}
-      <section className="bg-white border border-border rounded-2xl p-5">
+      <section className="bg-surface border border-border rounded-2xl p-5">
         <div className="flex items-start gap-4 flex-wrap">
           <ClientAvatar name={displayName} status={block?.status} />
           <div className="flex-1 min-w-[200px]">
@@ -1079,7 +1079,7 @@ const AdminClientDetail = () => {
                 </Link>
                 <Link
                   to={`/app/admin/programs/new?client=${clientId}`}
-                  className="inline-flex items-center gap-1.5 bg-white/10 text-white font-semibold rounded-full px-3 py-2 text-sm hover:bg-white/20"
+                  className="inline-flex items-center gap-1.5 bg-surface/10 text-white font-semibold rounded-full px-3 py-2 text-sm hover:bg-surface/20"
                 >
                   <PlusCircle size={14} /> Build next block
                 </Link>
@@ -1111,7 +1111,7 @@ const AdminClientDetail = () => {
               </div>
             </section>
           ) : (
-            <section className="bg-white border-2 border-dashed border-border rounded-2xl p-6 text-center">
+            <section className="bg-surface border-2 border-dashed border-border rounded-2xl p-6 text-center">
               <h2 className="font-heading text-xl font-bold mb-1">
                 No active block
               </h2>
@@ -1149,7 +1149,7 @@ const AdminClientDetail = () => {
           )}
 
           {/* Recent training */}
-          <section className="bg-white rounded-2xl border border-border p-5">
+          <section className="bg-surface rounded-2xl border border-border p-5">
             <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
               <h2 className="font-heading text-xl font-bold">
                 Recent training
@@ -1251,7 +1251,7 @@ const AdminClientDetail = () => {
                       </button>
 
                       {isOpen && (
-                        <div className="border-t border-border bg-white p-3 space-y-2">
+                        <div className="border-t border-border bg-surface p-3 space-y-2">
                           {s.exercises.map((ex) => {
                             const numbers = ex.sets
                               .map((set) =>
@@ -1317,7 +1317,7 @@ const AdminClientDetail = () => {
 
           {/* Activity timeline */}
           {timeline.length > 0 && (
-            <section className="bg-white rounded-2xl border border-border p-5">
+            <section className="bg-surface rounded-2xl border border-border p-5">
               <h2 className="font-heading text-xl font-bold mb-3">
                 Activity timeline
               </h2>
@@ -1374,7 +1374,7 @@ const AdminClientDetail = () => {
           {(pendingChecks.length > 0 || unansweredThreads.length > 0) && (
             <Link
               to={`/app/admin/form-checks#client-${client.id}`}
-              className="block bg-white border-2 border-accent/40 rounded-2xl p-5 hover:bg-accent/5 transition"
+              className="block bg-surface border-2 border-accent/40 rounded-2xl p-5 hover:bg-accent/5 transition"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
@@ -1405,7 +1405,7 @@ const AdminClientDetail = () => {
 
           {/* Intake summary */}
           {intake && (
-            <section className="bg-white border border-border rounded-2xl p-5">
+            <section className="bg-surface border border-border rounded-2xl p-5">
               <div className="flex items-baseline justify-between mb-3">
                 <h2 className="font-heading text-base font-bold flex items-center gap-2">
                   <ClipboardList size={16} /> Intake & level
@@ -1470,7 +1470,7 @@ const AdminClientDetail = () => {
               Rendered even when empty, unlike the sections around it:
               hidden, the feature is unlearnable until you already know
               it exists, so the empty state carries the how-to instead. */}
-          <section className="bg-white border border-border rounded-2xl p-5">
+          <section className="bg-surface border border-border rounded-2xl p-5">
             <button
               onClick={() => setMilestonesOpen((o) => !o)}
               disabled={milestones.length === 0}
@@ -1523,7 +1523,7 @@ const AdminClientDetail = () => {
                           <button
                             type="button"
                             onClick={() => removeMilestone(m.id)}
-                            className="text-muted-foreground hover:text-red-600"
+                            className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
                             title="Remove from progress videos"
                           >
                             <X size={13} />
@@ -1549,7 +1549,7 @@ const AdminClientDetail = () => {
 
           {/* Past blocks */}
           {programs.filter((p) => p.is_archived).length > 0 && (
-            <section className="bg-white border border-border rounded-2xl p-5">
+            <section className="bg-surface border border-border rounded-2xl p-5">
               <h2 className="font-heading text-base font-bold mb-3 flex items-center gap-2">
                 <HistoryIcon size={16} /> Past blocks
               </h2>
@@ -1626,10 +1626,10 @@ const ClientAvatar = ({
   const initial = name.trim().charAt(0).toUpperCase() || "?";
   const palette = (() => {
     if (status === "ghosting" || status === "overdue")
-      return "bg-red-100 text-red-700";
+      return "bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300";
     if (status === "behind" || status === "ending")
-      return "bg-amber-100 text-amber-700";
-    if (status === "ontrack") return "bg-green-100 text-green-700";
+      return "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300";
+    if (status === "ontrack") return "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300";
     return "bg-muted text-muted-foreground";
   })();
   return (
@@ -1654,7 +1654,7 @@ const Stat = ({
 }) => {
   const valueClass =
     tone === "danger"
-      ? "text-red-700"
+      ? "text-red-700 dark:text-red-300"
       : tone === "accent"
         ? "text-accent"
         : "text-foreground";
@@ -1703,8 +1703,8 @@ const TimelineIcon = ({
     );
   }
   return (
-    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-      <CheckCircle2 size={14} className="text-green-700" />
+    <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-500/15 flex items-center justify-center shrink-0">
+      <CheckCircle2 size={14} className="text-green-700 dark:text-green-300" />
     </div>
   );
 };
@@ -1725,8 +1725,8 @@ const DraftBlockButton = ({
 
   const triggerClass =
     variant === "onDark"
-      ? "bg-white/10 text-white hover:bg-white/20"
-      : "bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-200";
+      ? "bg-surface/10 text-white hover:bg-surface/20"
+      : "bg-amber-100 dark:bg-amber-500/15 text-amber-900 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-500/20 border border-amber-200 dark:border-amber-500/30";
 
   return (
     <div className="relative">
@@ -1744,7 +1744,7 @@ const DraftBlockButton = ({
             className="fixed inset-0 z-40"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute z-50 left-0 mt-1 min-w-[260px] bg-white border border-border rounded-xl shadow-lg overflow-hidden">
+          <div className="absolute z-50 left-0 mt-1 min-w-[260px] bg-surface border border-border rounded-xl shadow-lg overflow-hidden">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-3 pt-2.5">
               In progress
             </p>

@@ -81,7 +81,7 @@ const DeleteClientDialog = ({
       onClick={() => !busy && onClose()}
     >
       <div
-        className="bg-white rounded-2xl border border-border w-full max-w-lg shadow-xl"
+        className="bg-surface rounded-2xl border border-border w-full max-w-lg shadow-xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -89,8 +89,8 @@ const DeleteClientDialog = ({
       >
         <div className="flex items-start justify-between p-5 border-b border-border">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-              <AlertTriangle size={18} className="text-red-700" />
+            <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-500/15 flex items-center justify-center shrink-0">
+              <AlertTriangle size={18} className="text-red-700 dark:text-red-300" />
             </div>
             <div>
               <h2
@@ -116,7 +116,7 @@ const DeleteClientDialog = ({
         </div>
 
         <form onSubmit={onSubmit} className="p-5 space-y-4">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-900 space-y-1">
+          <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg p-3 text-xs text-red-900 dark:text-red-200 space-y-1">
             <p className="font-semibold">What gets deleted:</p>
             <ul className="list-disc pl-5 space-y-0.5">
               <li>The client account (email, password, profile)</li>
@@ -130,7 +130,7 @@ const DeleteClientDialog = ({
 
           <div>
             <label className="text-xs font-semibold mb-1 block">
-              Type <span className="text-red-700">{expectedToken}</span> to
+              Type <span className="text-red-700 dark:text-red-300">{expectedToken}</span> to
               confirm
             </label>
             <Input
@@ -143,7 +143,7 @@ const DeleteClientDialog = ({
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700">
+            <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded p-2 text-xs text-red-700 dark:text-red-300">
               {error}
             </div>
           )}

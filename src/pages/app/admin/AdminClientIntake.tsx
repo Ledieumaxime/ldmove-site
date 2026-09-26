@@ -281,7 +281,7 @@ const AdminClientIntake = () => {
   if (loading) return <div className="text-muted-foreground">Loading…</div>;
   if (error)
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
+      <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg p-4 text-sm text-red-700 dark:text-red-300">
         {error}
       </div>
     );
@@ -295,7 +295,7 @@ const AdminClientIntake = () => {
         >
           <ArrowLeft size={14} /> Back to dashboard
         </Link>
-        <div className="bg-white rounded-2xl border border-border p-8 text-center">
+        <div className="bg-surface rounded-2xl border border-border p-8 text-center">
           <p className="text-muted-foreground">Client not found.</p>
         </div>
       </div>
@@ -322,7 +322,7 @@ const AdminClientIntake = () => {
       </div>
 
       {!intake ? (
-        <div className="bg-white rounded-2xl border border-border p-8 text-center space-y-3">
+        <div className="bg-surface rounded-2xl border border-border p-8 text-center space-y-3">
           <div className="w-12 h-12 mx-auto rounded-full bg-muted flex items-center justify-center">
             <ClipboardList className="text-muted-foreground" size={22} />
           </div>
@@ -422,13 +422,13 @@ const AdminClientIntake = () => {
           </Section>
 
           {saveMsg && (
-            <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm text-green-800">
+            <div className="bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded-lg px-3 py-2 text-sm text-green-800 dark:text-green-300">
               {saveMsg}
             </div>
           )}
 
           {!intake.locked_at && (
-            <div className="sticky bottom-4 z-10 bg-white border border-border rounded-2xl shadow-lg p-4 space-y-3">
+            <div className="sticky bottom-4 z-10 bg-surface border border-border rounded-2xl shadow-lg p-4 space-y-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <p className="text-sm text-muted-foreground">
                   {dirty.size > 0
@@ -469,7 +469,7 @@ const AdminClientIntake = () => {
                     </Button>
                   )}
                   {Object.keys(assessments).length > 0 && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-1">
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded-full px-2.5 py-1">
                       <CheckCircle2 size={12} /> Reviewed
                     </span>
                   )}
@@ -503,7 +503,7 @@ const sectionTitle = (s: "strength" | "skills" | "mobility") =>
   s === "strength" ? "Base strength" : s === "skills" ? "Skills level" : "Mobility";
 
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <section className="bg-white rounded-2xl border border-border overflow-hidden">
+  <section className="bg-surface rounded-2xl border border-border overflow-hidden">
     <h2 className="font-heading text-lg font-bold px-5 pt-4">{title}</h2>
     <div>{children}</div>
   </section>
@@ -586,8 +586,8 @@ const CoachSkillRow = ({
                   onClick={() => onChange({ status: "validated" })}
                   className={`text-xs px-3 py-1.5 rounded-full border transition-colors inline-flex items-center gap-1.5 ${
                     reviewed === "validated"
-                      ? "bg-green-50 border-green-400 text-green-800 font-semibold"
-                      : "bg-white border-border text-muted-foreground hover:border-green-500"
+                      ? "bg-green-50 dark:bg-green-500/10 border-green-400 text-green-800 dark:text-green-300 font-semibold"
+                      : "bg-surface border-border text-muted-foreground hover:border-green-500"
                   }`}
                 >
                   <CheckCircle2 size={12} /> Validated
@@ -597,8 +597,8 @@ const CoachSkillRow = ({
                   onClick={() => onChange({ status: "needs_work" })}
                   className={`text-xs px-3 py-1.5 rounded-full border transition-colors inline-flex items-center gap-1.5 ${
                     reviewed === "needs_work"
-                      ? "bg-amber-50 border-amber-400 text-amber-800 font-semibold"
-                      : "bg-white border-border text-muted-foreground hover:border-amber-500"
+                      ? "bg-amber-50 dark:bg-amber-500/10 border-amber-400 text-amber-800 dark:text-amber-300 font-semibold"
+                      : "bg-surface border-border text-muted-foreground hover:border-amber-500"
                   }`}
                 >
                   <Wrench size={12} /> To work on
@@ -613,7 +613,7 @@ const CoachSkillRow = ({
                   <select
                     value={actual}
                     onChange={(e) => onChange({ actual_value: e.target.value || null })}
-                    className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-sm"
+                    className="w-full rounded-md border border-border bg-surface px-2 py-1.5 text-sm"
                   >
                     <option value="">Same as declared</option>
                     {options.map((o) => (
@@ -639,7 +639,7 @@ const CoachSkillRow = ({
                         ? "What the video shows, what the client still needs to work on…"
                         : "Optional. Encouragement, cue to keep in mind, next step…"
                     }
-                    className="bg-white"
+                    className="bg-surface"
                   />
                 </div>
               )}

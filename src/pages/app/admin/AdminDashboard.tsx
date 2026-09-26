@@ -142,10 +142,10 @@ const STATUS_BADGE_CLASS: Record<ClientStatus, string> = {
 };
 
 const STATUS_BORDER_CLASS: Record<ClientStatus, string> = {
-  ghosting: "border-red-200",
-  overdue: "border-red-200",
-  behind: "border-amber-200",
-  ending: "border-amber-200",
+  ghosting: "border-red-200 dark:border-red-500/30",
+  overdue: "border-red-200 dark:border-red-500/30",
+  behind: "border-amber-200 dark:border-amber-500/30",
+  ending: "border-amber-200 dark:border-amber-500/30",
   ontrack: "border-border",
 };
 
@@ -645,19 +645,19 @@ const AdminDashboard = () => {
 
       {/* ============ STAT STRIP ============ */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-white border border-border rounded-2xl p-4">
+        <div className="bg-surface border border-border rounded-2xl p-4">
           <p className="text-xs text-muted-foreground mb-1">Active clients</p>
           <p className="font-heading text-2xl font-bold">{activeEntries.length}</p>
         </div>
         <Link
           to="/app/admin/form-checks"
-          className="bg-white border border-border rounded-2xl p-4 hover:shadow-sm transition"
+          className="bg-surface border border-border rounded-2xl p-4 hover:shadow-sm transition"
         >
           <p className="text-xs text-muted-foreground mb-1">Form checks</p>
           <p className="font-heading text-2xl font-bold">
             {totalPendingChecks.length}
             {oldestCheckDays != null && oldestCheckDays >= 1 && (
-              <span className="text-xs font-semibold text-amber-600 ml-2">
+              <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 ml-2">
                 oldest {oldestCheckDays}d
               </span>
             )}
@@ -665,16 +665,16 @@ const AdminDashboard = () => {
         </Link>
         <Link
           to="/app/admin/form-checks"
-          className="bg-white border border-border rounded-2xl p-4 hover:shadow-sm transition"
+          className="bg-surface border border-border rounded-2xl p-4 hover:shadow-sm transition"
         >
           <p className="text-xs text-muted-foreground mb-1">Messages</p>
           <p className="font-heading text-2xl font-bold">{totalUnansweredComments}</p>
         </Link>
-        <div className="bg-white border border-border rounded-2xl p-4">
+        <div className="bg-surface border border-border rounded-2xl p-4">
           <p className="text-xs text-muted-foreground mb-1">Falling behind</p>
           <p
             className={`font-heading text-2xl font-bold ${
-              behindCount > 0 ? "text-red-600" : ""
+              behindCount > 0 ? "text-red-600 dark:text-red-400" : ""
             }`}
           >
             {behindCount}
@@ -684,10 +684,10 @@ const AdminDashboard = () => {
 
       {/* ============ ASSESSMENT REVIEW (onboarding-level alert) ============ */}
       {pendingAssessmentClients.length > 0 && (
-        <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap">
+        <div className="bg-amber-50 dark:bg-amber-500/10 border-2 border-amber-300 dark:border-amber-500/40 rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-              <Bell size={18} className="text-amber-700" />
+            <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-500/15 flex items-center justify-center shrink-0">
+              <Bell size={18} className="text-amber-700 dark:text-amber-300" />
             </div>
             <div>
               <p className="font-heading font-bold">
@@ -729,7 +729,7 @@ const AdminDashboard = () => {
           page (where the actual reply UI lives). When empty we hide
           the panel entirely — no point taking up space. */}
       {(totalPendingChecks.length > 0 || totalUnansweredComments > 0) && (
-        <section className="bg-white border-2 border-accent/40 rounded-2xl overflow-hidden">
+        <section className="bg-surface border-2 border-accent/40 rounded-2xl overflow-hidden">
           <div className="flex items-center justify-between gap-3 px-5 py-3 bg-accent/5 border-b border-accent/20">
             <div className="flex items-center gap-2">
               <Inbox size={16} className="text-accent" />
@@ -827,7 +827,7 @@ const AdminDashboard = () => {
         </div>
 
         {activeEntries.length === 0 ? (
-          <p className="bg-white border border-border rounded-2xl p-5 text-sm text-muted-foreground">
+          <p className="bg-surface border border-border rounded-2xl p-5 text-sm text-muted-foreground">
             No clients with an active block right now.
             {clients.length > 0
               ? " Build a block from a client's page below."
@@ -839,7 +839,7 @@ const AdminDashboard = () => {
               <Link
                 key={e.program.id}
                 to={`/app/admin/clients/${e.client.id}`}
-                className={`block bg-white border rounded-2xl p-4 hover:shadow-md transition ${STATUS_BORDER_CLASS[e.status]}`}
+                className={`block bg-surface border rounded-2xl p-4 hover:shadow-md transition ${STATUS_BORDER_CLASS[e.status]}`}
               >
                 <div className="flex items-center gap-4 flex-wrap">
                   <ComplianceRing
@@ -883,12 +883,12 @@ const AdminDashboard = () => {
 
                 <div className="flex items-center gap-2 mt-2.5 text-xs flex-wrap">
                   {e.workoutsBehind >= 2 && (
-                    <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 font-semibold px-2 py-1 rounded-full">
+                    <span className="inline-flex items-center gap-1 bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300 font-semibold px-2 py-1 rounded-full">
                       {e.workoutsBehind} sessions behind
                     </span>
                   )}
                   {e.pendingFormChecks > 0 && (
-                    <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 font-semibold px-2 py-1 rounded-full">
+                    <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 font-semibold px-2 py-1 rounded-full">
                       <Video size={11} /> {e.pendingFormChecks} form check
                       {e.pendingFormChecks > 1 ? "s" : ""}
                     </span>
@@ -924,7 +924,7 @@ const AdminDashboard = () => {
                         }}
                         className={`inline-flex items-center gap-1 font-semibold px-3 py-1 rounded-full border transition ${
                           nudgedIds.has(e.client.id)
-                            ? "border-green-200 bg-green-50 text-green-700 cursor-default"
+                            ? "border-green-200 dark:border-green-500/30 bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-300 cursor-default"
                             : "border-border hover:bg-muted/50 text-foreground"
                         }`}
                       >
@@ -963,7 +963,7 @@ const AdminDashboard = () => {
 
       {/* ============ RECENT ACTIVITY ============ */}
       {events.length > 0 && (
-        <section className="bg-white rounded-2xl border border-border p-5">
+        <section className="bg-surface rounded-2xl border border-border p-5">
           <h2 className="font-heading text-xl font-bold mb-3">
             Recent activity
           </h2>
@@ -1021,7 +1021,7 @@ const WeeklyActivity = ({
 }) => {
   const delta = data.total - data.previous;
   return (
-    <section className="bg-white rounded-2xl border border-border p-5">
+    <section className="bg-surface rounded-2xl border border-border p-5">
       <h2 className="font-heading text-xl font-bold mb-3">This week</h2>
       <div className="flex items-end gap-1.5 h-24 mb-2">
         {data.days.map((d) => (
@@ -1050,7 +1050,7 @@ const WeeklyActivity = ({
         {data.previous > 0 && (
           <span
             className={`ml-1 font-semibold ${
-              delta < 0 ? "text-red-600" : "text-green-700"
+              delta < 0 ? "text-red-600 dark:text-red-400" : "text-green-700 dark:text-green-300"
             }`}
           >
             {delta >= 0 ? "+" : ""}
@@ -1072,10 +1072,10 @@ const Avatar = ({
   const initial = name.trim().charAt(0).toUpperCase() || "?";
   const palette = (() => {
     if (status === "ghosting" || status === "overdue")
-      return "bg-red-100 text-red-700";
+      return "bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300";
     if (status === "behind" || status === "ending")
-      return "bg-amber-100 text-amber-700";
-    if (status === "ontrack") return "bg-green-100 text-green-700";
+      return "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300";
+    if (status === "ontrack") return "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300";
     return "bg-muted text-muted-foreground";
   })();
   return (

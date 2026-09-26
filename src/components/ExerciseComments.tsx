@@ -662,7 +662,7 @@ const ExerciseComments = ({
                     {isMine && (
                       <button
                         onClick={() => remove(c.id)}
-                        className="text-muted-foreground hover:text-red-600"
+                        className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
                         title="Delete"
                       >
                         <Trash2 size={11} />
@@ -717,7 +717,7 @@ const ExerciseComments = ({
                 </button>
               )}
               {rewriteError && (
-                <span className="text-[11px] text-red-700">{rewriteError}</span>
+                <span className="text-[11px] text-red-700 dark:text-red-300">{rewriteError}</span>
               )}
             </div>
           )}
@@ -748,7 +748,7 @@ const ExerciseComments = ({
                 </div>
               )}
               {sendError && (
-                <p className="text-[11px] text-red-700 mt-1">{sendError}</p>
+                <p className="text-[11px] text-red-700 dark:text-red-300 mt-1">{sendError}</p>
               )}
             </div>
           )}

@@ -812,7 +812,7 @@ export const ClientDashboardBody = ({
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-border p-6">
+        <div className="bg-surface rounded-2xl border border-border p-6">
           <h2 className="font-heading text-xl font-bold mb-2">
             No active program
           </h2>
@@ -833,7 +833,7 @@ export const ClientDashboardBody = ({
             className="fixed inset-0 z-40 bg-black/40"
             onClick={() => setSkipOpen(false)}
           />
-          <div className="fixed z-50 inset-x-4 top-[10%] max-w-md mx-auto bg-white border border-border rounded-2xl shadow-xl p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+          <div className="fixed z-50 inset-x-4 top-[10%] max-w-md mx-auto bg-surface border border-border rounded-2xl shadow-xl p-5 space-y-4 max-h-[80vh] overflow-y-auto">
             <div>
               <h2 className="font-heading text-lg font-bold">Skip session</h2>
               <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
@@ -934,7 +934,7 @@ export const ClientDashboardBody = ({
           const cardClass = `block rounded-2xl border p-4 ${
             unreadComments.length > 0
               ? "bg-accent/10 border-accent/40"
-              : "bg-white border-border"
+              : "bg-surface border-border"
           }`;
           return coachView ? (
             <div className={cardClass}>{inner}</div>
@@ -959,7 +959,7 @@ export const ClientDashboardBody = ({
       {/* Block progress + PRs tiles */}
       {currentProgram && expectedTotal > 0 && (
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white rounded-2xl border border-border p-4 flex items-center gap-3">
+          <div className="bg-surface rounded-2xl border border-border p-4 flex items-center gap-3">
             {(() => {
               const pct = Math.min(1, totalSessionsCompleted / expectedTotal);
               const C = 2 * Math.PI * 18;
@@ -1014,7 +1014,7 @@ export const ClientDashboardBody = ({
               </p>
             </div>
           </div>
-          <div className="bg-white rounded-2xl border border-border p-4 flex items-center gap-3">
+          <div className="bg-surface rounded-2xl border border-border p-4 flex items-center gap-3">
             <div className="w-[52px] h-[52px] rounded-full bg-accent/10 flex items-center justify-center shrink-0">
               <TrendingUp size={22} className="text-accent" />
             </div>
@@ -1036,7 +1036,7 @@ export const ClientDashboardBody = ({
 
       {/* Last session summary — workout exercises only */}
       {lastSession && (
-        <div className="bg-white rounded-2xl border border-border p-4 md:p-5">
+        <div className="bg-surface rounded-2xl border border-border p-4 md:p-5">
           <div className="flex items-baseline justify-between gap-3 mb-2">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider shrink-0">
               Last session
@@ -1085,15 +1085,15 @@ export const ClientDashboardBody = ({
 
       {/* Program ending / overdue warning */}
       {!coachView && currentProgram && (isOverdue || daysLeft <= 7) && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-          <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+        <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle size={18} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div className="text-sm">
-            <p className="font-semibold text-amber-900">
+            <p className="font-semibold text-amber-900 dark:text-amber-200">
               {isOverdue
                 ? "Your program has ended. Time to check in with your coach"
                 : `Your program ends in ${daysLeft} day${daysLeft > 1 ? "s" : ""}`}
             </p>
-            <p className="text-amber-800 mt-0.5">
+            <p className="text-amber-800 dark:text-amber-300 mt-0.5">
               Drop a message in any exercise's comments and Maxime will pick it
               up.
             </p>
@@ -1105,7 +1105,7 @@ export const ClientDashboardBody = ({
       {!coachView && archivedCount > 0 && (
         <Link
           to="/app/archived"
-          className="flex items-center justify-between bg-white border border-border rounded-2xl px-4 py-3 hover:shadow-md transition"
+          className="flex items-center justify-between bg-surface border border-border rounded-2xl px-4 py-3 hover:shadow-md transition"
         >
           <span className="inline-flex items-center gap-2 text-sm font-semibold">
             <Archive size={15} className="text-muted-foreground" /> Archived

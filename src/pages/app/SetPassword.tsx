@@ -90,8 +90,8 @@ const SetPassword = ({ mode }: { mode: Mode }) => {
   if (!session) {
     return (
       <div className="min-h-screen bg-sand flex items-center justify-center px-4">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 text-center space-y-3">
-          <img src={logo} alt="LD Move" className="h-16 w-auto mb-2 mx-auto" />
+        <div className="w-full max-w-md bg-surface rounded-2xl shadow-lg p-8 text-center space-y-3">
+          <img src={logo} alt="LD Move" className="h-16 w-auto mb-2 mx-auto dark:invert dark:opacity-95" />
           <h1 className="font-heading text-xl font-bold">Link expired</h1>
           <p className="text-sm text-muted-foreground">
             This link has expired or been used already. Please go back to your
@@ -109,9 +109,9 @@ const SetPassword = ({ mode }: { mode: Mode }) => {
   if (done) {
     return (
       <div className="min-h-screen bg-sand flex items-center justify-center px-4">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 text-center space-y-3">
-          <div className="w-14 h-14 mx-auto rounded-full bg-green-100 flex items-center justify-center">
-            <CheckCircle2 className="text-green-600" size={28} />
+        <div className="w-full max-w-md bg-surface rounded-2xl shadow-lg p-8 text-center space-y-3">
+          <div className="w-14 h-14 mx-auto rounded-full bg-green-100 dark:bg-green-500/15 flex items-center justify-center">
+            <CheckCircle2 className="text-green-600 dark:text-green-400" size={28} />
           </div>
           <h1 className="font-heading text-xl font-bold">All set</h1>
           <p className="text-sm text-muted-foreground">
@@ -124,9 +124,9 @@ const SetPassword = ({ mode }: { mode: Mode }) => {
 
   return (
     <div className="min-h-screen bg-sand flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
+      <div className="w-full max-w-md bg-surface rounded-2xl shadow-lg p-8">
         <div className="flex flex-col items-center mb-6">
-          <img src={logo} alt="LD Move" className="h-16 w-auto mb-2" />
+          <img src={logo} alt="LD Move" className="h-16 w-auto mb-2 dark:invert dark:opacity-95" />
           <p className="text-xs font-semibold text-accent uppercase tracking-widest">
             {copy.tag}
           </p>
@@ -167,7 +167,7 @@ const SetPassword = ({ mode }: { mode: Mode }) => {
           </div>
 
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+            <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded px-3 py-2">
               {error}
             </div>
           )}

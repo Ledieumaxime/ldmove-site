@@ -59,6 +59,7 @@ const SetPassword = lazy(() => import("./pages/app/SetPassword"));
 
 import NativeAppRedirect from "./components/NativeAppRedirect";
 import BootGate from "./components/BootGate";
+import { ThemeProvider } from "./contexts/ThemeContext";
 
 const queryClient = new QueryClient();
 
@@ -70,6 +71,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <ThemeProvider>
             <ScrollToTop />
             <NativeAppRedirect />
             <Suspense fallback={<RouteFallback fullScreen />}>
@@ -221,6 +223,7 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
+            </ThemeProvider>
           </BrowserRouter>
         </TooltipProvider>
       </AuthProvider>

@@ -37,8 +37,8 @@ const TYPE_LABEL: Record<TemplateType, string> = {
 };
 
 const TYPE_ICON: Record<TemplateType, JSX.Element> = {
-  warmup: <Flame size={14} className="text-amber-600" />,
-  workout: <Dumbbell size={14} className="text-blue-600" />,
+  warmup: <Flame size={14} className="text-amber-600 dark:text-amber-400" />,
+  workout: <Dumbbell size={14} className="text-blue-600 dark:text-blue-400" />,
 };
 
 const AdminTemplates = () => {
@@ -183,7 +183,7 @@ const AdminTemplates = () => {
               onClick={() => setFilterType(t)}
               className={`text-xs font-semibold rounded-full px-3 py-1 transition-colors ${
                 filterType === t
-                  ? "bg-white border border-border shadow-sm"
+                  ? "bg-surface border border-border shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -194,7 +194,7 @@ const AdminTemplates = () => {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg p-3 text-sm text-red-700 dark:text-red-300">
           {error}
         </div>
       )}
@@ -204,7 +204,7 @@ const AdminTemplates = () => {
           <Loader2 size={16} className="animate-spin" /> Loading templates…
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white border-2 border-dashed border-border rounded-2xl p-10 text-center">
+        <div className="bg-surface border-2 border-dashed border-border rounded-2xl p-10 text-center">
           <p className="text-sm text-muted-foreground">
             {rows.length === 0
               ? "No templates yet. Click 'New warm-up' or 'New workout' to create your first one."
@@ -216,7 +216,7 @@ const AdminTemplates = () => {
           {filtered.map((r) => (
             <div
               key={r.id}
-              className="bg-white border border-border rounded-2xl p-4 flex items-center justify-between gap-3 hover:shadow-sm transition-shadow"
+              className="bg-surface border border-border rounded-2xl p-4 flex items-center justify-between gap-3 hover:shadow-sm transition-shadow"
             >
               <Link
                 to={`/app/admin/templates/${r.id}/edit`}
@@ -238,7 +238,7 @@ const AdminTemplates = () => {
               <button
                 type="button"
                 onClick={() => removeTemplate(r)}
-                className="text-muted-foreground hover:text-red-600 hover:bg-red-50 p-2 rounded-lg shrink-0"
+                className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 p-2 rounded-lg shrink-0"
                 title="Delete template"
               >
                 <Trash2 size={14} />

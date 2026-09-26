@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { sbGet } from "@/integrations/supabase/api";
@@ -12,6 +13,8 @@ import {
   Shield,
   ClipboardList,
   ChevronRight,
+  Moon,
+  Sun,
 } from "lucide-react";
 
 const Profile = () => {
@@ -40,7 +43,7 @@ const Profile = () => {
         <h1 className="font-heading text-3xl md:text-4xl font-bold">Profile</h1>
       </div>
 
-      <div className="bg-white rounded-2xl border border-border p-6 space-y-4">
+      <div className="bg-surface rounded-2xl border border-border p-6 space-y-4">
         <div className="flex items-center gap-3">
           <div className="w-14 h-14 rounded-full bg-accent flex items-center justify-center text-white font-heading text-xl">
             {profile?.first_name?.[0] ?? "?"}
@@ -74,10 +77,10 @@ const Profile = () => {
       {profile?.role === "client" && intakeLocked && (
         <Link
           to="/app/intake"
-          className="flex items-center justify-between bg-white border border-border rounded-2xl p-5 hover:border-accent/60 transition-colors"
+          className="flex items-center justify-between bg-surface border border-border rounded-2xl p-5 hover:border-accent/60 transition-colors"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-sky-100 flex items-center justify-center text-sky-700">
+            <div className="w-10 h-10 rounded-full bg-sky-100 dark:bg-sky-500/15 flex items-center justify-center text-sky-700 dark:text-sky-300">
               <ClipboardList size={18} />
             </div>
             <div>
@@ -90,6 +93,8 @@ const Profile = () => {
           <ChevronRight size={18} className="text-muted-foreground" />
         </Link>
       )}
+
+      <Appearance />
 
       <PushStatus isCoach={profile?.role === "coach"} />
 
@@ -120,11 +125,11 @@ const PushStatus = ({ isCoach }: { isCoach: boolean }) => {
 
   const ok = status === "active";
   return (
-    <div className="rounded-lg border border-border bg-white p-4">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <p className="font-heading font-bold text-sm">Notifications</p>
       <p
         className={`text-xs mt-1 ${
-          ok ? "text-emerald-700" : "text-muted-foreground"
+          ok ? "text-emerald-700 dark:text-emerald-300" : "text-muted-foreground"
         }`}
       >
         {ok
@@ -139,5 +144,49 @@ const PushStatus = ({ isCoach }: { isCoach: boolean }) => {
     </div>
   );
 };
+
+/** Light or dark, as a switch rather than a three-way with a "system"
+ *  option: Maxime asked for a button he presses, and a setting that
+ *  sometimes changes on its own is not that. The choice is remembered
+ *  on this device only.
+ *
+ *  The row itself is a button, so the whole line is the target rather
+ *  than the small track at the end of it. */
+const Appearance = () => {
+  const { dark, toggle } = useTheme();
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-pressed={dark}
+      className="w-full flex items-center justify-between bg-surface border border-border rounded-2xl p-5 hover:border-accent/60 transition-colors text-left"
+    >
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+          {dark ? <Moon size={18} /> : <Sun size={18} />}
+        </div>
+        <div>
+          <p className="font-heading font-bold">Dark mode</p>
+          <p className="text-xs text-muted-foreground">
+            {dark ? "On" : "Off"}. Saved on this device.
+          </p>
+        </div>
+      </div>
+      <span
+        aria-hidden
+        className={`w-11 h-6 rounded-full shrink-0 flex items-center px-0.5 transition-colors ${
+          dark ? "bg-accent" : "bg-muted"
+        }`}
+      >
+        <span
+          className={`w-5 h-5 rounded-full bg-surface shadow-sm transition-transform ${
+            dark ? "translate-x-5" : "translate-x-0"
+          }`}
+        />
+      </span>
+    </button>
+  );
+};
+
 
 export default Profile;

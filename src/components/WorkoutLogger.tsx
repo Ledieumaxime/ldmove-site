@@ -197,7 +197,7 @@ const WorkoutLogger = ({
         )}
         {pr && pr.reps_done != null && (
           <p>
-            <Trophy size={10} className="inline mr-1 text-amber-600" />
+            <Trophy size={10} className="inline mr-1 text-amber-600 dark:text-amber-400" />
             <span className="font-semibold">Best:</span> {pr.reps_done} {unitLabel}{" "}
             <span className="opacity-70">({formatDate(pr.session_date)})</span>
           </p>
@@ -229,7 +229,7 @@ const WorkoutLogger = ({
           )}
           {pr && pr.reps_done != null && (
             <p>
-              <Trophy size={10} className="inline mr-1 text-amber-600" />
+              <Trophy size={10} className="inline mr-1 text-amber-600 dark:text-amber-400" />
               <span className="font-semibold">Best:</span> {pr.reps_done}
               {pr.weight_kg ? ` · ${pr.weight_kg} kg` : ""}{" "}
               <span className="opacity-70">({formatDate(pr.session_date)})</span>
@@ -349,7 +349,7 @@ const SetRow = ({
   const inputsDisabled = disabled || saving;
 
   const inputClass = (extra: string) =>
-    `w-full rounded-md border bg-white text-center py-2 text-sm tabular-nums focus:outline-none focus:border-accent disabled:bg-muted disabled:cursor-not-allowed ${extra}`;
+    `w-full rounded-md border bg-surface text-center py-2 text-sm tabular-nums focus:outline-none focus:border-accent disabled:bg-muted disabled:cursor-not-allowed ${extra}`;
 
   return (
     // One column per set. The cell keeps both actions the stacked row
@@ -366,7 +366,7 @@ const SetRow = ({
         className={`h-6 rounded-full border flex items-center justify-center transition-colors ${
           done
             ? "bg-green-500 border-green-500 text-white"
-            : "bg-white border-border text-muted-foreground hover:border-green-400 active:scale-95"
+            : "bg-surface border-border text-muted-foreground hover:border-green-400 active:scale-95"
         } ${disabled ? "opacity-70 cursor-not-allowed" : ""}`}
       >
         {saving ? (

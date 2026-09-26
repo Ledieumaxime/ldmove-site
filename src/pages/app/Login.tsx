@@ -82,14 +82,14 @@ const Login = () => {
     // arrives beside it. On a phone there is no room for two halves, so
     // the panel does its job during the load and the screen he already
     // approved is what lands, full-bleed white, untouched.
-    <div className="min-h-screen bg-white md:grid md:grid-cols-2">
+    <div className="min-h-screen bg-surface md:grid md:grid-cols-2">
       <div className="hidden md:block">
         <AppIntro />
       </div>
 
       <div className="flex flex-col px-6 py-12 md:items-center md:justify-center">
       <div className="w-full max-w-sm mx-auto flex flex-col flex-1">
-        <img src={logo} alt="LD Move" className="h-28 w-28 -ml-2 mb-8 md:hidden" />
+        <img src={logo} alt="LD Move" className="h-28 w-28 -ml-2 mb-8 md:hidden dark:invert dark:opacity-95" />
 
         <h1 className="font-heading text-[2.5rem] leading-[1.1] font-bold tracking-tight md:hidden">
           Move with
@@ -112,7 +112,7 @@ const Login = () => {
         </div>
 
         {sessionExpired && !error && !info && (
-          <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
+          <div className="text-sm text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl px-4 py-3 mb-4">
             Your session expired after a long time away. Sign in again to
             pick up where you left off.
           </div>
@@ -149,12 +149,12 @@ const Login = () => {
           />
 
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl px-4 py-3">
               {error}
             </div>
           )}
           {info && (
-            <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+            <div className="text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded-xl px-4 py-3">
               {info}
             </div>
           )}

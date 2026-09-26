@@ -166,7 +166,7 @@ const ProgramDetail = () => {
   if (loading) return <div className="text-muted-foreground">Loading…</div>;
   if (error)
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
+      <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg p-4 text-sm text-red-700 dark:text-red-300">
         {error}
       </div>
     );
@@ -253,7 +253,7 @@ const ProgramDetail = () => {
       )}
 
       {!canView && (
-        <div className="bg-white border-2 border-accent/30 rounded-2xl p-6 text-center">
+        <div className="bg-surface border-2 border-accent/30 rounded-2xl p-6 text-center">
           <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-3">
             <Lock className="text-accent" size={20} />
           </div>
@@ -278,7 +278,7 @@ const ProgramDetail = () => {
 
       {canView && (
         <div className="space-y-3">
-          <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+          <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded-lg px-3 py-2">
             <CheckCircle2 size={16} />
             {isCoach
               ? "Coach view. You see everything."
@@ -312,7 +312,7 @@ const ProgramDetail = () => {
                 const dayOpen = openDays.has(w.id);
 
                 return (
-                  <div key={w.id} className="bg-white border border-border rounded-2xl overflow-hidden">
+                  <div key={w.id} className="bg-surface border border-border rounded-2xl overflow-hidden">
                     <button
                       type="button"
                       onClick={() => setOpenDays((s) => toggle(s, w.id))}
@@ -429,7 +429,7 @@ const ProgramDetail = () => {
                                       // like the same program.
                                       <div
                                         key={`b-${bIdx}`}
-                                        className={`rounded-2xl border border-foreground/10 bg-white px-4 pt-4 pb-1 ${
+                                        className={`rounded-2xl border border-foreground/10 bg-surface px-4 pt-4 pb-1 ${
                                           bIdx === 0 ? "" : "mt-4"
                                         }`}
                                         style={

@@ -96,7 +96,7 @@ const AppLayout = () => {
 
   return (
     <div
-      className={`min-h-screen bg-white flex flex-col ${
+      className={`min-h-screen bg-surface flex flex-col ${
         isCoach ? "md:pl-56" : ""
       }`}
     >
@@ -111,9 +111,9 @@ const AppLayout = () => {
           Structure borrowed from a mockup Maxime liked; none of its
           look. No XP, no badges, no streaks — this is a work tool. */}
       {isCoach && (
-        <aside className="hidden md:flex fixed inset-y-0 left-0 w-56 border-r border-border bg-white flex-col z-30">
+        <aside className="hidden md:flex fixed inset-y-0 left-0 w-56 border-r border-border bg-surface flex-col z-30">
           <Link to="/app/home" className="px-5 py-5">
-            <img src={logo} alt="LD Move" className="h-9 w-auto" />
+            <img src={logo} alt="LD Move" className="h-9 w-auto dark:invert dark:opacity-95" />
           </Link>
 
           <nav className="flex-1 px-3 space-y-1">
@@ -161,7 +161,7 @@ const AppLayout = () => {
           whatever sits either side of it. The wordmark is gone — the logo
           carries the name already — and so is the rule underneath, which
           was drawing a line across a page that no longer needs one. */}
-      <header className={isCoach ? "bg-white md:hidden" : "bg-white"}>
+      <header className={isCoach ? "bg-surface md:hidden" : "bg-surface"}>
         <div className="container grid grid-cols-3 items-center py-3">
           <Link
             to="/app/profile"
@@ -178,7 +178,7 @@ const AppLayout = () => {
             )}
           </Link>
           <Link to="/app/home" className="justify-self-center">
-            <img src={logo} alt="LD Move" className="h-10 w-auto" />
+            <img src={logo} alt="LD Move" className="h-10 w-auto dark:invert dark:opacity-95" />
           </Link>
           <button
             onClick={handleSignOut}
@@ -200,7 +200,7 @@ const AppLayout = () => {
       </main>
 
       <nav
-        className={`fixed bottom-0 left-0 right-0 bg-white border-t border-border ${
+        className={`fixed bottom-0 left-0 right-0 bg-surface border-t border-border ${
           isCoach ? "md:hidden" : "md:static md:border-t-0"
         }`}
       >

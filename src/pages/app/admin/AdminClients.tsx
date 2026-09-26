@@ -160,7 +160,7 @@ const AdminClients = () => {
         </h1>
       </div>
 
-      {error && <p className="text-sm text-red-700">{error}</p>}
+      {error && <p className="text-sm text-red-700 dark:text-red-300">{error}</p>}
 
       <Group
         title="Active"
@@ -198,7 +198,7 @@ const Group = ({
   emptyText: string;
   muted?: boolean;
 }) => (
-  <section className="bg-white rounded-2xl border border-border p-5">
+  <section className="bg-surface rounded-2xl border border-border p-5">
     <div className="flex items-baseline justify-between gap-2 flex-wrap mb-3">
       <h2
         className={`font-heading text-xl font-bold ${
@@ -250,7 +250,7 @@ const Group = ({
                       <span
                         className={`block text-xs font-semibold ${
                           quiet != null && quiet >= 7
-                            ? "text-red-600"
+                            ? "text-red-600 dark:text-red-400"
                             : "text-muted-foreground"
                         }`}
                       >

@@ -86,7 +86,7 @@ const ClientInbox = () => {
   if (loading) return <div className="text-muted-foreground">Loading…</div>;
   if (error)
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
+      <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg p-4 text-sm text-red-700 dark:text-red-300">
         {error}
       </div>
     );
@@ -150,7 +150,7 @@ const ClientInbox = () => {
         </div>
 
         {unreadThreads.length === 0 ? (
-          <p className="text-sm text-muted-foreground bg-white border border-border rounded-xl p-5">
+          <p className="text-sm text-muted-foreground bg-surface border border-border rounded-xl p-5">
             No unread messages from your coach.
           </p>
         ) : (
@@ -175,7 +175,7 @@ const ClientInbox = () => {
         </div>
 
         {pendingChecks.length === 0 && reviewedChecks.length === 0 ? (
-          <p className="text-sm text-muted-foreground bg-white border border-border rounded-xl p-5">
+          <p className="text-sm text-muted-foreground bg-surface border border-border rounded-xl p-5">
             You haven't sent any form check yet. Use the "Send a form check" button under an exercise.
           </p>
         ) : (
@@ -230,8 +230,8 @@ const ThreadCard = ({
   const [open, setOpen] = useState(false);
   return (
     <div
-      className={`bg-white border rounded-xl p-4 ${
-        highlight ? "border-red-200" : "border-border"
+      className={`bg-surface border rounded-xl p-4 ${
+        highlight ? "border-red-200 dark:border-red-500/30" : "border-border"
       }`}
     >
       <button type="button" onClick={() => setOpen(!open)} className="w-full text-left">
@@ -275,8 +275,8 @@ const FormCheckClientCard = ({ check }: { check: FormCheck; videoSrc?: string })
   const [open, setOpen] = useState(false);
   return (
     <div
-      className={`bg-white border rounded-xl p-4 ${
-        check.status === "pending" ? "border-amber-200" : "border-border"
+      className={`bg-surface border rounded-xl p-4 ${
+        check.status === "pending" ? "border-amber-200 dark:border-amber-500/30" : "border-border"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -296,8 +296,8 @@ const FormCheckClientCard = ({ check }: { check: FormCheck; videoSrc?: string })
         <span
           className={`text-xs font-semibold px-2 py-1 rounded-full shrink-0 ${
             check.status === "pending"
-              ? "bg-amber-100 text-amber-700"
-              : "bg-green-100 text-green-700"
+              ? "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300"
+              : "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300"
           }`}
         >
           {check.status === "pending" ? "Awaiting review" : "Reviewed"}

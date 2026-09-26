@@ -213,7 +213,7 @@ const History = () => {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
+      <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg p-4 text-sm text-red-700 dark:text-red-300">
         {error}
       </div>
     );
@@ -239,7 +239,7 @@ const History = () => {
       </div>
 
       {sessions.length === 0 ? (
-        <div className="bg-white border border-border rounded-2xl p-8 text-center space-y-2">
+        <div className="bg-surface border border-border rounded-2xl p-8 text-center space-y-2">
           <Trophy className="mx-auto text-muted-foreground" size={28} />
           <h2 className="font-heading text-xl font-bold">No sessions yet</h2>
           <p className="text-sm text-muted-foreground">
@@ -263,7 +263,7 @@ const History = () => {
             return (
               <div
                 key={s.runId}
-                className="bg-white border border-border rounded-2xl overflow-hidden"
+                className="bg-surface border border-border rounded-2xl overflow-hidden"
               >
                 <button
                   type="button"
@@ -351,7 +351,7 @@ const ExerciseRow = ({ ex }: { ex: ExerciseGroup }) => {
   const target = formatTarget(ex.prescribedSets, ex.prescribedReps);
 
   return (
-    <div className="bg-white border border-border rounded-lg p-3">
+    <div className="bg-surface border border-border rounded-lg p-3">
       <div className="flex items-baseline justify-between gap-2 flex-wrap">
         <p className="font-semibold text-sm">{ex.name}</p>
         {target && (

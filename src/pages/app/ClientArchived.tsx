@@ -48,7 +48,7 @@ const ClientArchived = () => {
       </div>
 
       {programs.length === 0 ? (
-        <p className="text-sm text-muted-foreground bg-white border border-border rounded-xl p-5">
+        <p className="text-sm text-muted-foreground bg-surface border border-border rounded-xl p-5">
           You don't have any archived programs yet.
         </p>
       ) : (
@@ -57,7 +57,7 @@ const ClientArchived = () => {
             <Link
               key={p.id}
               to={`/app/programs/${p.slug}`}
-              className="bg-white rounded-2xl border border-border p-5 hover:border-accent/40 hover:shadow-md transition block"
+              className="bg-surface rounded-2xl border border-border p-5 hover:border-accent/40 hover:shadow-md transition block"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">

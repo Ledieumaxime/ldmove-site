@@ -51,12 +51,12 @@ const IntakeSkillRow = ({
           </p>
         </div>
         {reviewState === "validated" && (
-          <div className="inline-flex items-center gap-1.5 text-xs font-semibold bg-green-100 text-green-800 rounded-full px-2.5 py-1 shrink-0">
+          <div className="inline-flex items-center gap-1.5 text-xs font-semibold bg-green-100 dark:bg-green-500/15 text-green-800 dark:text-green-300 rounded-full px-2.5 py-1 shrink-0">
             <CheckCircle2 size={12} /> Validated
           </div>
         )}
         {reviewState === "needs_work" && (
-          <div className="inline-flex items-center gap-1.5 text-xs font-semibold bg-amber-100 text-amber-800 rounded-full px-2.5 py-1 shrink-0">
+          <div className="inline-flex items-center gap-1.5 text-xs font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 rounded-full px-2.5 py-1 shrink-0">
             <Wrench size={12} /> To work on
           </div>
         )}
@@ -73,20 +73,20 @@ const IntakeSkillRow = ({
         <div
           className={`border rounded-lg p-3 text-xs leading-relaxed ${
             reviewState === "needs_work"
-              ? "bg-amber-50/60 border-amber-100"
-              : "bg-green-50/60 border-green-100"
+              ? "bg-amber-50/60 dark:bg-amber-500/10 border-amber-100 dark:border-amber-500/20"
+              : "bg-green-50/60 dark:bg-green-500/10 border-green-100 dark:border-green-500/20"
           }`}
         >
           <p
             className={`font-semibold mb-0.5 ${
-              reviewState === "needs_work" ? "text-amber-900" : "text-green-900"
+              reviewState === "needs_work" ? "text-amber-900 dark:text-amber-200" : "text-green-900 dark:text-green-200"
             }`}
           >
             Coach note
           </p>
           <p
             className={`whitespace-pre-wrap ${
-              reviewState === "needs_work" ? "text-amber-900" : "text-green-900"
+              reviewState === "needs_work" ? "text-amber-900 dark:text-amber-200" : "text-green-900 dark:text-green-200"
             }`}
           >
             {review?.notes}
