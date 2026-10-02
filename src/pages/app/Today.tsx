@@ -197,12 +197,28 @@ const Today = () => {
         { completed_at: stamp }
       );
       if (!Array.isArray(stamped) || stamped.length === 0) {
-        // Zero rows stamped → the client didn't tick a single set
-        // (they followed the session without logging). The PATCH-only
-        // path used to be a silent no-op here, so the session never
-        // counted as done and the client kept seeing the same one.
-        // Write a completion marker so the run registers. Upsert so a
-        // race with a just-created log can't 409.
+        // Nothing logged, so nothing distinguishes a session followed
+        // without ticking anything from a thumb landing on the wrong
+        // screen. Mayur did the second on 2026-10-02, 82 seconds after
+        // finishing a real session, and the block skipped a session with
+        // no trace but a marker row on a warmup exercise.
+        //
+        // Asking here costs the honest case one tap and saves the other
+        // one entirely. It is safe to bail out at this point: the PATCH
+        // above stamped zero rows, so nothing has been written yet.
+        if (
+          !window.confirm(
+            "No sets logged for this session. Mark it as done anyway? " +
+              "If you tapped by mistake, cancel and nothing is saved."
+          )
+        ) {
+          setCompleting(false);
+          return;
+        }
+        // The PATCH-only path used to be a silent no-op here, so the
+        // session never counted as done and the client kept seeing the
+        // same one. Write a completion marker so the run registers.
+        // Upsert so a race with a just-created log can't 409.
         await sbPost(
           "workout_logs?on_conflict=client_id,program_item_id,session_run_id,set_number",
           {
