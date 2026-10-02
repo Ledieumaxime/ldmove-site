@@ -111,7 +111,7 @@ const AppLayout = () => {
           Structure borrowed from a mockup Maxime liked; none of its
           look. No XP, no badges, no streaks — this is a work tool. */}
       {isCoach && (
-        <aside className="hidden md:flex fixed inset-y-0 left-0 w-56 border-r border-border bg-surface flex-col z-30">
+        <aside className="hidden md:flex fixed inset-y-0 left-0 w-56 border-r border-border bg-surface flex-col z-30 pl-safe pt-safe">
           <Link to="/app/home" className="px-5 py-5">
             <img src={logo} alt="LD Move" className="h-9 w-auto dark:invert dark:opacity-95" />
           </Link>

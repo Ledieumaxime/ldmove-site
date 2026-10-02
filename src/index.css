@@ -45,6 +45,8 @@
       --safe-area-inset-bottom,
       env(safe-area-inset-bottom, 0px)
     );
+    --safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+    --safe-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
 
     /* The colour of a card, a panel, a sheet: everything that sits on
        top of the page background. In light mode it is plain white,
@@ -158,6 +160,27 @@
   }
   .pb-safe {
     padding-bottom: var(--safe-bottom);
+  }
+  /* Fixed bars sit outside .container's reach, so they pay it too. */
+  .px-safe {
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+  }
+  .pl-safe {
+    padding-left: var(--safe-left);
+  }
+
+  /* Sideways clearance for a notch in landscape.
+     viewport-fit=cover buys the page the whole screen, and the bill is
+     that iOS stops holding content out of the cutout: in landscape the
+     notch eats the left or right edge. Paying it on .container rather
+     than on body keeps full-bleed sections full bleed, and the value is
+     0px everywhere else, which is every screen without a cutout.
+     It lives in utilities because Tailwind emits .container's own
+     padding in the components layer, which outranks base. */
+  .container {
+    padding-left: calc(1.5rem + var(--safe-left));
+    padding-right: calc(1.5rem + var(--safe-right));
   }
   /* Clears the app's fixed bottom bar, which is itself now as tall as
      the gesture bar underneath it. */
