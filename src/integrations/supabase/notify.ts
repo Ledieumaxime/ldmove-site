@@ -104,6 +104,36 @@ export async function rewriteComment(
   }
 }
 
+/** Draft the coach note for one exercise from this client's own history
+ *  on it.
+ *
+ *  Like rewriteComment and unlike the notifications, this one is not
+ *  silent-failure: the coach pressed a button and is waiting.
+ *
+ *  `no_history` and `no_usable_cue` are answers, not faults: the first
+ *  means this client has never done this exercise before, the second
+ *  that the past exchanges held nothing worth putting on the program.
+ *  The caller tells them apart so it can say which. */
+export async function generateCom(
+  itemId: string,
+  draft: string
+): Promise<{ ok: boolean; text?: string; sources?: number; error?: string }> {
+  try {
+    const res = await callFunction("generate-com", {
+      item_id: itemId,
+      draft,
+    });
+    if (!res) return { ok: false, error: "Not signed in" };
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.text) {
+      return { ok: false, error: data.error || `HTTP ${res.status}` };
+    }
+    return { ok: true, text: data.text, sources: data.sources };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
 /** Ring the client's phone about a notification that was just created.
  *
  *  Call this right after inserting into `notifications`: the row is what

@@ -24,7 +24,15 @@
 // Y | comment". The UI splits them back into three separate fields and
 // re-serialises on save.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -38,6 +46,7 @@ import {
   Plus,
   Save,
   Send,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 import {
@@ -50,6 +59,7 @@ import {
 } from "@/integrations/supabase/api";
 import {
   cleanupArchivedVideos,
+  generateCom,
   notifyProgramPublished,
 } from "@/integrations/supabase/notify";
 import { Button } from "@/components/ui/button";
@@ -128,6 +138,23 @@ const SECTION_LABEL: Record<Section, string> = {
   WARMUP: "Warm up",
   WORKOUT: "Workout",
 };
+
+/** What makes two rows "the same exercise" across two blocks: the library
+ *  link when there is one, the name otherwise. The fallback is what the
+ *  249 hand-typed names have to live with, and it is only as good as the
+ *  spelling. */
+const exerciseIdentity = (
+  exerciseId: string | null,
+  customName: string | null
+): string =>
+  exerciseId
+    ? `lib:${exerciseId}`
+    : `txt:${(customName ?? "").replace(/^\[[^\]]*\]\s*/, "").trim().toLowerCase()}`;
+
+/** Past-reply counts by exerciseIdentity, read by the exercise row.
+ *  A context rather than two more props: SetCard and the section block
+ *  sit between the page and the row and have no use for this. */
+const PastRepliesContext = createContext<Map<string, number>>(new Map());
 
 // ----- prefix / notes helpers -------------------------------------------
 
@@ -274,6 +301,14 @@ const AdminProgramEdit = () => {
   );
   const savedTimer = useRef<number | null>(null);
 
+  /** How many usable past replies this client has on each exercise, keyed
+   *  by exerciseIdentity. Drives whether the Generate button appears at
+   *  all: offering it on an exercise with no history would promise
+   *  something the model would have to invent. */
+  const [pastReplies, setPastReplies] = useState<Map<string, number>>(
+    new Map()
+  );
+
   // session URL param is 1-indexed (?session=1)
   const sessionIdx = Math.max(
     0,
@@ -318,6 +353,68 @@ const AdminProgramEdit = () => {
       cancelled = true;
     };
   }, [id]);
+
+  // This client's history on every exercise, from their OTHER blocks.
+  // Deliberately scoped to one client: the other clients' comments on the
+  // same exercise describe other bodies and other mistakes, and a note
+  // built from them would read as generic advice.
+  useEffect(() => {
+    const clientId = program?.assigned_client_id;
+    const programId = program?.id;
+    if (!clientId || !programId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const theirPrograms = await sbGet<{ id: string }[]>(
+          `programs?select=id&assigned_client_id=eq.${clientId}&id=neq.${programId}`
+        );
+        if (theirPrograms.length === 0 || cancelled) return;
+        const theirWeeks = await sbGetAll<{ id: string }>(
+          `program_weeks?select=id&program_id=in.(${theirPrograms
+            .map((p) => p.id)
+            .join(",")})`
+        );
+        if (theirWeeks.length === 0 || cancelled) return;
+        const theirItems = await sbGetAll<{
+          id: string;
+          exercise_id: string | null;
+          custom_name: string | null;
+        }>(
+          `program_items?select=id,exercise_id,custom_name&week_id=in.(${theirWeeks
+            .map((w) => w.id)
+            .join(",")})`
+        );
+        // Every coach comment rather than a filter on 500 item ids: the
+        // whole table is a few hundred rows and the URL stays sane.
+        const coachComments = await sbGetAll<{ item_id: string; body: string }>(
+          "exercise_comments?select=item_id,body&author_role=eq.coach"
+        );
+        if (cancelled) return;
+        const keyOfItem = new Map(
+          theirItems.map((i) => [
+            i.id,
+            exerciseIdentity(i.exercise_id, i.custom_name),
+          ])
+        );
+        const counts = new Map<string, number>();
+        for (const c of coachComments) {
+          const key = keyOfItem.get(c.item_id);
+          if (!key) continue;
+          // Same bar as the comment sheet: under 20 characters it is an
+          // acknowledgement, and counting it would advertise material
+          // the model cannot use.
+          if ((c.body ?? "").trim().length < 20) continue;
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+        setPastReplies(counts);
+      } catch {
+        // The button simply never appears. Nothing else depends on this.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [program?.id, program?.assigned_client_id]);
 
   const flagSaved = useCallback(() => {
     setSaveState("saved");
@@ -1177,6 +1274,7 @@ const AdminProgramEdit = () => {
     : "/app/admin/programs";
 
   return (
+    <PastRepliesContext.Provider value={pastReplies}>
     <div className="space-y-4 max-w-5xl mx-auto pb-32">
       <Link
         to={backHref}
@@ -1462,6 +1560,7 @@ const AdminProgramEdit = () => {
         )}
       </div>
     </div>
+    </PastRepliesContext.Provider>
   );
 };
 
@@ -2002,6 +2101,37 @@ const ExerciseRow = ({
     }
   };
 
+  /** How much this client has already been told about this exercise. The
+   *  button only exists above zero: on a first block there is nothing to
+   *  draw from, and a button that produced something anyway would be
+   *  producing invention. */
+  const pastReplies = useContext(PastRepliesContext);
+  const pastCount =
+    pastReplies.get(exerciseIdentity(item.exercise_id, item.custom_name)) ?? 0;
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+
+  const generateNote = async () => {
+    setGenerating(true);
+    setGenError(null);
+    const res = await generateCom(item.id, comment);
+    setGenerating(false);
+    if (!res.ok || !res.text) {
+      setGenError(
+        res.error === "no_history"
+          ? "Nothing said to this client on this exercise yet."
+          : res.error === "no_usable_cue"
+            ? "Nothing in those replies worth putting on the program."
+            : (res.error ?? "Could not write the note.")
+      );
+      return;
+    }
+    // Commit as well as fill: every other field in this editor saves on
+    // blur, and setting the value from code never fires one.
+    setComment(res.text);
+    commitNotes({ tempo, load, comment: res.text });
+  };
+
   return (
     <div className="bg-surface border border-border rounded-md p-2.5 space-y-2">
       <div className="flex items-start gap-2">
@@ -2096,9 +2226,32 @@ const ExerciseRow = ({
       </div>
 
       <div>
-        <label className="text-[10px] font-semibold text-muted-foreground uppercase">
-          Coach note <span className="opacity-50">(adds to the description)</span>
-        </label>
+        <div className="flex items-end justify-between gap-2">
+          <label className="text-[10px] font-semibold text-muted-foreground uppercase">
+            Coach note{" "}
+            <span className="opacity-50">(adds to the description)</span>
+          </label>
+          {pastCount > 0 && (
+            <button
+              type="button"
+              onClick={generateNote}
+              disabled={generating}
+              title="Draft this note from what you already told this client about this exercise"
+              className="inline-flex items-center gap-1 text-[10px] font-semibold text-accent hover:text-accent/80 disabled:opacity-50 shrink-0"
+            >
+              {generating ? (
+                <Loader2 size={11} className="animate-spin" />
+              ) : (
+                <Sparkles size={11} />
+              )}
+              {generating
+                ? "Writing…"
+                : `Generate from ${pastCount} past repl${
+                    pastCount > 1 ? "ies" : "y"
+                  }`}
+            </button>
+          )}
+        </div>
         <Textarea
           value={comment}
           onChange={(e) => setComment(e.target.value)}
@@ -2107,6 +2260,9 @@ const ExerciseRow = ({
           rows={2}
           className="text-sm"
         />
+        {genError && (
+          <p className="text-[10px] text-amber-700 mt-1">{genError}</p>
+        )}
       </div>
     </div>
   );
