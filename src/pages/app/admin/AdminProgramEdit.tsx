@@ -48,6 +48,7 @@ import {
   Send,
   Sparkles,
   Trash2,
+  Wand2,
 } from "lucide-react";
 import {
   sbDelete,
@@ -61,6 +62,7 @@ import {
   cleanupArchivedVideos,
   generateCom,
   notifyProgramPublished,
+  rewriteComment,
 } from "@/integrations/supabase/notify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -151,10 +153,14 @@ const exerciseIdentity = (
     ? `lib:${exerciseId}`
     : `txt:${(customName ?? "").replace(/^\[[^\]]*\]\s*/, "").trim().toLowerCase()}`;
 
-/** Past-reply counts by exerciseIdentity, read by the exercise row.
- *  A context rather than two more props: SetCard and the section block
- *  sit between the page and the row and have no use for this. */
-const PastRepliesContext = createContext<Map<string, number>>(new Map());
+/** What the deepest row needs and the layers above it do not: how much
+ *  history this client has per exercise, and who the client is. A context
+ *  rather than threading two more props through SetCard and the section
+ *  block, which have no use for either. */
+const EditorContext = createContext<{
+  pastReplies: Map<string, number>;
+  clientId: string | null;
+}>({ pastReplies: new Map(), clientId: null });
 
 // ----- prefix / notes helpers -------------------------------------------
 
@@ -1274,7 +1280,9 @@ const AdminProgramEdit = () => {
     : "/app/admin/programs";
 
   return (
-    <PastRepliesContext.Provider value={pastReplies}>
+    <EditorContext.Provider
+      value={{ pastReplies, clientId: program.assigned_client_id ?? null }}
+    >
     <div className="space-y-4 max-w-5xl mx-auto pb-32">
       <Link
         to={backHref}
@@ -1560,7 +1568,7 @@ const AdminProgramEdit = () => {
         )}
       </div>
     </div>
-    </PastRepliesContext.Provider>
+    </EditorContext.Provider>
   );
 };
 
@@ -2105,11 +2113,42 @@ const ExerciseRow = ({
    *  button only exists above zero: on a first block there is nothing to
    *  draw from, and a button that produced something anyway would be
    *  producing invention. */
-  const pastReplies = useContext(PastRepliesContext);
+  const { pastReplies, clientId } = useContext(EditorContext);
   const pastCount =
     pastReplies.get(exerciseIdentity(item.exercise_id, item.custom_name)) ?? 0;
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
+
+  /** The same cleanup the inbox has on a form-check reply. A coach note
+   *  goes to the client on their program exactly like a comment does, and
+   *  carries the same French-speaker slips, so it deserves the same pass.
+   *  Undo is part of it: a rewrite the coach dislikes must cost one tap
+   *  to reverse, not a retype. */
+  const [cleaning, setCleaning] = useState(false);
+  const [beforeClean, setBeforeClean] = useState<string | null>(null);
+
+  const cleanUpNote = async () => {
+    const draft = comment.trim();
+    if (!draft || cleaning) return;
+    setCleaning(true);
+    setGenError(null);
+    const res = await rewriteComment(draft, clientId);
+    setCleaning(false);
+    if (!res.ok || !res.text) {
+      setGenError(res.error ?? "Could not clean up the note.");
+      return;
+    }
+    setBeforeClean(draft);
+    setComment(res.text);
+    commitNotes({ tempo, load, comment: res.text });
+  };
+
+  const undoClean = () => {
+    if (beforeClean === null) return;
+    setComment(beforeClean);
+    commitNotes({ tempo, load, comment: beforeClean });
+    setBeforeClean(null);
+  };
 
   const generateNote = async () => {
     setGenerating(true);
@@ -2231,26 +2270,53 @@ const ExerciseRow = ({
             Coach note{" "}
             <span className="opacity-50">(adds to the description)</span>
           </label>
-          {pastCount > 0 && (
-            <button
-              type="button"
-              onClick={generateNote}
-              disabled={generating}
-              title="Draft this note from what you already told this client about this exercise"
-              className="inline-flex items-center gap-1 text-[10px] font-semibold text-accent hover:text-accent/80 disabled:opacity-50 shrink-0"
-            >
-              {generating ? (
-                <Loader2 size={11} className="animate-spin" />
-              ) : (
-                <Sparkles size={11} />
-              )}
-              {generating
-                ? "Writing…"
-                : `Generate from ${pastCount} past repl${
-                    pastCount > 1 ? "ies" : "y"
-                  }`}
-            </button>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {beforeClean !== null && !cleaning && (
+              <button
+                type="button"
+                onClick={undoClean}
+                className="text-[10px] text-muted-foreground hover:text-foreground underline"
+              >
+                Undo
+              </button>
+            )}
+            {comment.trim() && (
+              <button
+                type="button"
+                onClick={cleanUpNote}
+                disabled={cleaning || generating}
+                title="Clean up this note in the client's language"
+                className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground hover:text-foreground disabled:opacity-50"
+              >
+                {cleaning ? (
+                  <Loader2 size={11} className="animate-spin" />
+                ) : (
+                  <Wand2 size={11} />
+                )}
+                {cleaning ? "Cleaning…" : "Clean up"}
+              </button>
+            )}
+            {pastCount > 0 && (
+              <button
+                type="button"
+                onClick={generateNote}
+                disabled={generating || cleaning}
+                title="Draft this note from what you already told this client about this exercise"
+                className="inline-flex items-center gap-1 text-[10px] font-semibold text-accent hover:text-accent/80 disabled:opacity-50 shrink-0"
+              >
+                {generating ? (
+                  <Loader2 size={11} className="animate-spin" />
+                ) : (
+                  <Sparkles size={11} />
+                )}
+                {generating
+                  ? "Writing…"
+                  : `Generate from ${pastCount} past repl${
+                      pastCount > 1 ? "ies" : "y"
+                    }`}
+              </button>
+            )}
+          </div>
         </div>
         <Textarea
           value={comment}
