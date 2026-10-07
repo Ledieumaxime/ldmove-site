@@ -2265,7 +2265,7 @@ const ExerciseRow = ({
       </div>
 
       <div>
-        <div className="flex items-end justify-between gap-2">
+        <div className="flex items-end justify-between gap-2 flex-wrap">
           <label className="text-[10px] font-semibold text-muted-foreground uppercase">
             Coach note{" "}
             <span className="opacity-50">(adds to the description)</span>
@@ -2280,22 +2280,24 @@ const ExerciseRow = ({
                 Undo
               </button>
             )}
-            {comment.trim() && (
-              <button
-                type="button"
-                onClick={cleanUpNote}
-                disabled={cleaning || generating}
-                title="Clean up this note in the client's language"
-                className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground hover:text-foreground disabled:opacity-50"
-              >
-                {cleaning ? (
-                  <Loader2 size={11} className="animate-spin" />
-                ) : (
-                  <Wand2 size={11} />
-                )}
-                {cleaning ? "Cleaning…" : "Clean up"}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={cleanUpNote}
+              disabled={!comment.trim() || cleaning || generating}
+              title={
+                comment.trim()
+                  ? "Clean up this note in the client's language"
+                  : "Write the note first, then this cleans it up in the client's language"
+              }
+              className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground hover:text-foreground disabled:opacity-40"
+            >
+              {cleaning ? (
+                <Loader2 size={11} className="animate-spin" />
+              ) : (
+                <Wand2 size={11} />
+              )}
+              {cleaning ? "Cleaning…" : "Clean up"}
+            </button>
             {pastCount > 0 && (
               <button
                 type="button"
