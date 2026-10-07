@@ -155,6 +155,38 @@ export async function sbGet<T>(path: string): Promise<T> {
 }
 
 /**
+ * Give a query a TOTAL order, so offset pagination is deterministic.
+ *
+ * Without an ORDER BY, or with one that leaves ties (order_index is the
+ * same across every session of a program, created_at can collide), Postgres
+ * is free to return rows in a different order on each page request. Page 2
+ * then overlaps page 1 and some rows are never returned at all, silently.
+ * Measured on 2026-10-07: Aman's 1742 completed sets fetched in two
+ * unordered pages came back with 23 duplicates and 23 rows missing.
+ *
+ * So `id` is always the last sort key: appended as the whole order when
+ * there is none, or as a tiebreaker after whatever the caller asked for.
+ * Only the top-level `order=` is touched. An embedded one such as
+ * `program_items.order=order_index.asc` sorts the nested array, not the
+ * pages, and is left alone (the `.` before it keeps the match off it).
+ *
+ * Every table this app pages through has an `id` primary key, checked
+ * against the live database when this was written.
+ */
+function withTotalOrder(path: string): string {
+  const q = path.indexOf("?");
+  const query = q === -1 ? "" : path.slice(q + 1);
+  const m = query.match(/(?:^|&)order=([^&]*)/);
+  if (!m) return `${path}${q === -1 ? "?" : "&"}order=id.asc`;
+  const keys = m[1].split(",").map((k) => k.split(".")[0]);
+  if (keys.includes("id")) return path;
+  return path.replace(
+    /([?&])order=([^&]*)/,
+    (_all, sep: string, val: string) => `${sep}order=${val},id.asc`
+  );
+}
+
+/**
  * Fetch every row from a PostgREST endpoint by paginating, regardless
  * of the server's max-rows ceiling (Supabase enforces ~1000 even when
  * the URL passes ?limit=50000). Loops with offset+limit until a page
@@ -171,11 +203,12 @@ export async function sbGetAll<T>(
 ): Promise<T[]> {
   const result: T[] = [];
   let offset = 0;
+  const ordered = withTotalOrder(path);
   // Cap iterations to avoid infinite loops on a backend bug.
   for (let i = 0; i < 50; i++) {
-    const sep = path.includes("?") ? "&" : "?";
+    const sep = ordered.includes("?") ? "&" : "?";
     const page = await sbGet<T[]>(
-      `${path}${sep}offset=${offset}&limit=${pageSize}`
+      `${ordered}${sep}offset=${offset}&limit=${pageSize}`
     );
     result.push(...page);
     if (page.length < pageSize) return result;

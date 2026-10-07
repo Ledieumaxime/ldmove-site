@@ -19,7 +19,13 @@ import {
   Loader2,
   Pencil,
 } from "lucide-react";
-import { sbGet, sbPatch, sbPost, sbSignUrl } from "@/integrations/supabase/api";
+import {
+  sbGet,
+  sbGetAll,
+  sbPatch,
+  sbPost,
+  sbSignUrl,
+} from "@/integrations/supabase/api";
 import { sendPush } from "@/integrations/supabase/notify";
 import { notificationCopy } from "@/lib/notification-copy";
 import { stripSection } from "@/components/ProgramItemCard";
@@ -149,7 +155,11 @@ const AdminFormChecks = () => {
     if (!silent) setLoading(true);
     try {
       const [rows, allComments] = await Promise.all([
-        sbGet<FormCheck[]>(
+        // Paged: every submission ever sent, across every client, and the
+        // server stops at 1000 without saying so. 669 in October 2026 and
+        // growing 150 to 250 a month, so a single read would have started
+        // dropping the oldest, pending ones included, within weeks.
+        sbGetAll<FormCheck>(
           "form_check_submissions?select=*,profiles(first_name,last_name),program_items(custom_name,sets,reps,rest_seconds,notes,group_name)&order=created_at.desc"
         ),
         sbGet<CommentRow[]>(

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { MessageCircle, Video, CheckCircle2, User, Clock, ChevronDown, ChevronUp } from "lucide-react";
-import { sbGet } from "@/integrations/supabase/api";
+import { sbGet, sbGetAll } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import ExerciseComments from "@/components/ExerciseComments";
 import BackToDashboard from "@/components/BackToDashboard";
@@ -57,7 +57,9 @@ const ClientInbox = () => {
         sbGet<Read[]>(
           `comment_reads?select=item_id,last_read_at&user_id=eq.${user.id}`
         ),
-        sbGet<FormCheck[]>(
+        // Paged for the same reason as the coach inbox: one client is not
+        // a safe bound any more (Fanny is at 242 and climbing).
+        sbGetAll<FormCheck>(
           `form_check_submissions?select=*,program_items(custom_name)&client_id=eq.${user.id}&order=created_at.desc`
         ),
       ]);

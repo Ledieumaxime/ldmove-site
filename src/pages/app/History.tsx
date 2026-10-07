@@ -9,7 +9,7 @@ import {
   Loader2,
   Trophy,
 } from "lucide-react";
-import { sbGet } from "@/integrations/supabase/api";
+import { sbGetAll } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { detectTracking, stripSection } from "@/components/ProgramItemCard";
 
@@ -99,7 +99,13 @@ const History = () => {
       try {
         // 3-level embed: log → program_item → program_week → program.
         // PostgREST uses parens for nested selects.
-        const rows = await sbGet<LogRow[]>(
+        //
+        // Paged, not a single sbGet. This is every completed set the
+        // client has ever logged, and the server silently stops at 1000
+        // rows. Scoping to one client used to look safe, but Aman crossed
+        // it on his own: 1742 sets by October 2026, and since the order is
+        // newest first, his 742 oldest simply were not on this page.
+        const rows = await sbGetAll<LogRow>(
           `workout_logs?` +
             `select=id,program_item_id,session_run_id,session_date,set_number,reps_done,weight_kg,completed_at,` +
             `program_items(id,custom_name,sets,reps,rest_seconds,notes,video_url,group_name,week_id,order_index,exercise:exercises(description),` +
