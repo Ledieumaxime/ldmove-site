@@ -9,6 +9,7 @@ import SectionWrapper from "@/components/SectionWrapper";
 import { toast } from "sonner";
 import { useLang } from "@/contexts/LangContext";
 import { sbInvokeAnon } from "@/integrations/supabase/api";
+import HoneypotField, { HONEYPOT_NAME, honeypotValue } from "@/components/HoneypotField";
 
 const MAX_TEXT = 200;
 const MAX_MESSAGE = 2000;
@@ -31,6 +32,7 @@ const ContactPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trap = honeypotValue(e.currentTarget as HTMLFormElement);
 
     const prenom = form.prenom.trim();
     const nom = form.nom.trim();
@@ -60,6 +62,7 @@ const ContactPage = () => {
         phone: form.noWhatsapp ? "No WhatsApp" : phone,
         country: form.country,
         message,
+        [HONEYPOT_NAME]: trap,
       });
 
       toast.success(t("contact.success"));
@@ -237,6 +240,7 @@ const ContactPage = () => {
             <Lock size={12} />
             {t("contact.confidential")}
           </p>
+          <HoneypotField />
         </form>
       </SectionWrapper>
     </Layout>

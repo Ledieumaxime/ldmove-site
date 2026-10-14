@@ -15,6 +15,19 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { first_name, last_name, email, phone, country, goal, level, duration, message } = body;
 
+    // The Apply and Contact forms carry a field people never see (see
+    // src/components/HoneypotField.tsx). Bots fill every input; if this
+    // one has anything in it, the sender is not a person. Answer as if it
+    // worked, so the bot has no signal to adapt to, and do nothing: no
+    // row, no email to the coach, and above all no automatic reply.
+    if (typeof body.ldm_check === "string" && body.ldm_check.trim() !== "") {
+      console.log("Form submission dropped by the honeypot");
+      return new Response(
+        JSON.stringify({ success: true }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Validate required fields
     if (!first_name || !last_name || !email) {
       return new Response(
@@ -116,7 +129,23 @@ Received at: ${new Date().toISOString()}`;
         const confirmationSubject = isCoachingApp
           ? "Thanks for your application, LD Move"
           : "Thanks for your message, LD Move";
-        const confirmationBody = `Hi ${first_name},
+        // The automatic reply goes to whatever address was typed, and this
+        // endpoint is public. Interpolating the first name as typed let
+        // anyone put their own text, a link included, into an email
+        // signed LD Move and sent to a stranger: an open relay for
+        // phishing, and a fast way to get ldmove.com blacklisted, which
+        // would take the client invitations down with it since they leave
+        // from the same domain. So the greeting keeps the first word only,
+        // letters only (any script, accents and combining marks kept so
+        // Thai or Hindi names survive), 30 characters at most. No dot, no
+        // slash, no colon can get through, so no link can either.
+        const safeName = String(first_name)
+          .normalize("NFC")
+          .replace(/[^\p{L}\p{M}\s'’-]/gu, "")
+          .trim()
+          .split(/\s+/)[0]
+          ?.slice(0, 30) ?? "";
+        const confirmationBody = `Hi${safeName ? " " + safeName : " there"},
 
 Thanks for reaching out to LD Move. I've received your ${isCoachingApp ? "coaching application" : "message"} and will get back to you within 48 hours.
 

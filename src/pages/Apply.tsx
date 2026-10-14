@@ -16,6 +16,7 @@ import SectionWrapper from "@/components/SectionWrapper";
 import { toast } from "sonner";
 import { useLang } from "@/contexts/LangContext";
 import { sbInvokeAnon } from "@/integrations/supabase/api";
+import HoneypotField, { HONEYPOT_NAME, honeypotValue } from "@/components/HoneypotField";
 
 const MAX_TEXT = 200;
 const MAX_MESSAGE = 2000;
@@ -41,6 +42,7 @@ const ApplyPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trap = honeypotValue(e.currentTarget as HTMLFormElement);
 
     // Client-side validation: show user-friendly messages before hitting the server.
     const prenom = form.prenom.trim();
@@ -80,6 +82,7 @@ const ApplyPage = () => {
         level: form.level,
         duration: form.duration,
         message: form.message,
+        [HONEYPOT_NAME]: trap,
       });
 
       toast.success(t("apply.success"));
@@ -312,6 +315,7 @@ const ApplyPage = () => {
             <Lock size={12} />
             {t("apply.confidential")}
           </p>
+          <HoneypotField />
         </form>
       </SectionWrapper>
     </Layout>
