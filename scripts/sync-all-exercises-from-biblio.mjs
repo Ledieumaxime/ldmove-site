@@ -16,7 +16,12 @@ import path from "node:path";
 const ROOT = "/Users/maximeledieu/Desktop/Ld_move";
 const REVIEW = path.join(ROOT, "Bibliothèque", "bibliotheque-review.md");
 const NEW_BUCKET = "Videos Mp4";
-const SIGNED_URL_EXPIRY_S = 365 * 24 * 60 * 60;
+// Ten years, like resign-video-urls.mjs. This was one year, so every
+// exercise this script inserted got a link that dies a year later, and
+// the program editor copies that link into every block it is picked in.
+// Found 2026-10-14: the twelve videos of the September batch expired on
+// 2027-09-03, four of them sitting in Aman's freshly published Block 5.
+const SIGNED_URL_EXPIRY_S = 10 * 365 * 24 * 60 * 60;
 
 const env = Object.fromEntries(
   fs

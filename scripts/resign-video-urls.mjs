@@ -36,6 +36,21 @@ const SUPABASE_URL = env.VITE_SUPABASE_URL;
 const KEY = env.SUPABASE_SERVICE_ROLE_KEY;
 const HEADERS = { apikey: KEY, Authorization: `Bearer ${KEY}` };
 
+// Several hundred sequential requests: a single dropped connection used
+// to throw and stop the run half way, leaving the remaining links on
+// their old expiry with nothing said. Retry each request instead.
+const nativeFetch = globalThis.fetch;
+async function fetch(url, opts) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await nativeFetch(url, opts);
+    } catch (e) {
+      if (attempt >= 6) throw e;
+      await new Promise((r) => setTimeout(r, 1500 * attempt));
+    }
+  }
+}
+
 // Extract "<filename>" from any storage URL pointing at the bucket.
 const fileOf = (url) => {
   if (!url) return null;
