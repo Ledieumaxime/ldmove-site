@@ -19,7 +19,14 @@ import {
   Send,
   X,
 } from "lucide-react";
-import { sbGet, sbGetAll, sbPatch, sbSignUrl } from "@/integrations/supabase/api";
+import {
+  sbDelete,
+  sbGet,
+  sbGetAll,
+  sbGetIn,
+  sbPatch,
+  sbSignUrl,
+} from "@/integrations/supabase/api";
 import { cleanupArchivedVideos } from "@/integrations/supabase/notify";
 import {
   CompletedLog,
@@ -1088,6 +1095,9 @@ const AdminClientDetail = () => {
                     (p) => !p.is_published && !p.is_archived
                   )}
                   variant="onDark"
+                  onDeleted={(id) =>
+                    setPrograms((prev) => prev.filter((p) => p.id !== id))
+                  }
                 />
                 <Link
                   to={`/app/programs/${currentProgram.slug}`}
@@ -1132,6 +1142,9 @@ const AdminClientDetail = () => {
                     (p) => !p.is_published && !p.is_archived
                   )}
                   variant="onLight"
+                  onDeleted={(id) =>
+                    setPrograms((prev) => prev.filter((p) => p.id !== id))
+                  }
                 />
               </div>
             </section>
@@ -1711,15 +1724,87 @@ const TimelineIcon = ({
 
 // Compact button + popover listing drafts in progress for the current
 // client. Lives next to "Build next block" so the coach can resume an
-// unfinished bloc without leaving the page.
+// unfinished bloc without leaving the page, or throw one away.
 const DraftBlockButton = ({
   drafts,
   variant,
+  onDeleted,
 }: {
   drafts: Program[];
   variant: "onDark" | "onLight";
+  onDeleted: (id: string) => void;
 }) => {
   const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  /** Throw a draft away.
+   *
+   *  Until now nothing in the app could delete a program, so every
+   *  abandoned draft stayed in this list for good: "k" on Pratik and
+   *  "HS w" on Grigory are empty and have sat there since August.
+   *
+   *  Deleting a program cascades: its sessions, its exercises, and with
+   *  them any logged sets and comments. A draft that was never published
+   *  has none of those, since the client never saw it. But a block that
+   *  was published, trained, then unpublished also lands in this list,
+   *  and deleting that one would wipe the client's history. So count
+   *  first, and refuse if there is anything a client did. Form checks
+   *  survive a delete (their link is set to null) but lose their
+   *  exercise, so they count too. */
+  const deleteDraft = async (p: Program) => {
+    setDeleting(p.id);
+    try {
+      const weeks = await sbGet<{ id: string }[]>(
+        `program_weeks?select=id&program_id=eq.${p.id}`
+      );
+      const items = weeks.length
+        ? await sbGetIn<{ id: string }>(
+            "program_items?select=id",
+            "week_id",
+            weeks.map((w) => w.id)
+          )
+        : [];
+      const ids = items.map((i) => i.id);
+      const [logs, comments, checks] = ids.length
+        ? await Promise.all([
+            sbGetIn<{ id: string }>("workout_logs?select=id", "program_item_id", ids),
+            sbGetIn<{ id: string }>("exercise_comments?select=id", "item_id", ids),
+            sbGetIn<{ id: string }>("form_check_submissions?select=id", "item_id", ids),
+          ])
+        : [[], [], []];
+
+      if (logs.length + comments.length + checks.length > 0) {
+        window.alert(
+          `"${p.title}" can't be deleted: the client has already trained on it ` +
+            `(${logs.length} logged set${logs.length === 1 ? "" : "s"}, ` +
+            `${comments.length} comment${comments.length === 1 ? "" : "s"}, ` +
+            `${checks.length} form check${checks.length === 1 ? "" : "s"}). ` +
+            `Deleting it would erase that history. Archive it instead.`
+        );
+        return;
+      }
+
+      if (
+        !window.confirm(
+          `Delete the draft "${p.title}"?\n\n` +
+            `${weeks.length} session${weeks.length === 1 ? "" : "s"} and ` +
+            `${ids.length} exercise${ids.length === 1 ? "" : "s"} will be removed. ` +
+            `This cannot be undone.`
+        )
+      )
+        return;
+
+      // Guarded on is_published so a block published from another tab in
+      // the meantime is never the one that gets deleted.
+      await sbDelete(`programs?id=eq.${p.id}&is_published=eq.false`);
+      onDeleted(p.id);
+    } catch (e) {
+      console.error("could not delete the draft", e);
+      window.alert("The draft could not be deleted. Check your connection and try again.");
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   if (drafts.length === 0) return null;
 
@@ -1750,11 +1835,14 @@ const DraftBlockButton = ({
             </p>
             <ul>
               {drafts.map((p) => (
-                <li key={p.id} className="border-t border-border first:border-t-0">
+                <li
+                  key={p.id}
+                  className="border-t border-border first:border-t-0 flex items-center"
+                >
                   <Link
                     to={`/app/admin/programs/${p.id}/edit`}
                     onClick={() => setOpen(false)}
-                    className="block px-3 py-2.5 hover:bg-muted/40"
+                    className="flex-1 min-w-0 block px-3 py-2.5 hover:bg-muted/40"
                   >
                     <p className="text-sm font-semibold text-foreground truncate">
                       {p.title}
@@ -1763,6 +1851,20 @@ const DraftBlockButton = ({
                       Resume editing →
                     </p>
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => deleteDraft(p)}
+                    disabled={deleting !== null}
+                    title="Delete this draft"
+                    aria-label={`Delete the draft ${p.title}`}
+                    className="shrink-0 self-stretch px-3 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-40"
+                  >
+                    {deleting === p.id ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Trash2 size={14} />
+                    )}
+                  </button>
                 </li>
               ))}
             </ul>
