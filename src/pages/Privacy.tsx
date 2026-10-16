@@ -67,12 +67,23 @@ const PrivacyPage = () => {
                   reps and loads you record while training. Your coach cannot
                   write a safe program without them, so this is the only
                   purpose they serve: they are never sold, never shared with
-                  advertisers, and never used to profile you.
+                  advertisers, and never used to profile you. They are only
+                  stored with your explicit consent, which you give by ticking
+                  a box in the questionnaire.
                 </li>
                 <li>
                   <strong>Form-check uploads:</strong> videos you voluntarily
                   send to your coach for review, together with any comment
                   attached.
+                </li>
+                <li>
+                  <strong>Messages with your coach:</strong> the comments you
+                  and your coach exchange in the app about your exercises.
+                </li>
+                <li>
+                  <strong>Notifications:</strong> if you allow notifications in
+                  the Android app, a technical identifier for your device so we
+                  can send them.
                 </li>
                 <li>
                   <strong>Payments (when active):</strong> handled directly by
@@ -110,6 +121,33 @@ const PrivacyPage = () => {
 
             <section>
               <h2 className="font-heading text-xl font-bold text-foreground mb-3">
+                Legal basis
+              </h2>
+              <ul className="list-disc pl-6 space-y-2">
+                <li>
+                  <strong>Contract:</strong> your account, programs, messages
+                  and form checks are needed to deliver the coaching you asked
+                  for.
+                </li>
+                <li>
+                  <strong>Explicit consent:</strong> your health information.
+                  You can withdraw it at any time by email; this does not
+                  affect what was done before.
+                </li>
+                <li>
+                  <strong>Legitimate interest:</strong> replying to your
+                  application or contact message, and keeping the service
+                  secure.
+                </li>
+                <li>
+                  <strong>Legal obligation:</strong> billing records, when
+                  payments are active.
+                </li>
+              </ul>
+            </section>
+
+            <section>
+              <h2 className="font-heading text-xl font-bold text-foreground mb-3">
                 Where your data is stored
               </h2>
               <ul className="list-disc pl-6 space-y-2">
@@ -129,7 +167,24 @@ const PrivacyPage = () => {
                   <strong>Vercel</strong> (website hosting and server logs).
                   Global edge network.
                 </li>
+                <li>
+                  <strong>Anthropic</strong> (AI writing assistance). Your
+                  coach can use an AI tool to help write and tidy up replies.
+                  To do so, the relevant comments from your exchanges are sent
+                  to Anthropic, which does not use them to train its models.
+                </li>
+                <li>
+                  <strong>Google Firebase</strong> (notifications in the
+                  Android app).
+                </li>
               </ul>
+              <p className="mt-3">
+                Some of these providers are based in the United States
+                (Vercel, Stripe, Anthropic, Google). These transfers rely on
+                the safeguards the GDPR provides for, such as the EU-US Data
+                Privacy Framework or the European Commission's standard
+                contractual clauses.
+              </p>
             </section>
 
             <section>
@@ -142,7 +197,7 @@ const PrivacyPage = () => {
                   last exchange, then deleted.
                 </li>
                 <li>
-                  Client accounts and form-check videos: kept as long as your
+                  Client accounts, messages and form-check videos: kept as long as your
                   account is active, then deleted upon request or after 12
                   months of inactivity.
                 </li>
@@ -175,6 +230,10 @@ const PrivacyPage = () => {
                   Object to or restrict a specific processing activity.
                 </li>
                 <li>
+                  Withdraw your consent for your health information at any
+                  time.
+                </li>
+                <li>
                   Lodge a complaint with your local data-protection authority
                   (e.g. the CNIL in France).
                 </li>
@@ -196,11 +255,13 @@ const PrivacyPage = () => {
                 Cookies
               </h2>
               <p>
-                This website uses only strictly necessary cookies required to
-                keep you logged into your client area and to remember your
-                language preference. No tracking, advertising or analytics
-                cookies are used at this time. If that changes, a cookie
-                banner will be added and your consent will be requested.
+                This website only stores what is strictly necessary on your
+                device: what keeps you logged into your client area, and your
+                display preferences such as dark mode. No tracking,
+                advertising or analytics cookies are used, and fonts are
+                served from our own domain, so no third party is contacted
+                when you browse. If that changes, a cookie banner will be
+                added and your consent will be requested.
               </p>
             </section>
 
@@ -209,7 +270,7 @@ const PrivacyPage = () => {
                 Updates to this policy
               </h2>
               <p>
-                This policy may be updated occasionally. Last updated: April
+                This policy may be updated occasionally. Last updated: October
                 2026.
               </p>
             </section>

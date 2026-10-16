@@ -107,6 +107,9 @@ const OnboardingIntake = () => {
   const [sending, setSending] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // GDPR art. 9: injuries, weight and height are health data, so storing
+  // them needs an explicit opt-in, never a pre-ticked box.
+  const [healthConsent, setHealthConsent] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -187,6 +190,10 @@ const OnboardingIntake = () => {
 
     if (missing.length) {
       setErr(`Please fill in the required fields: ${missing.slice(0, 3).join(", ")}${missing.length > 3 ? "…" : ""}`);
+      return;
+    }
+    if (!healthConsent) {
+      setErr("Please tick the box above the button so your coach can use your health information.");
       return;
     }
 
@@ -650,6 +657,24 @@ const OnboardingIntake = () => {
             />
           </Field>
         </Section>
+
+        {/* Plain text, not a link: inside the Android app a link would
+            replace this page and lose everything typed above. */}
+        <label className="flex items-start gap-3 font-body text-sm text-muted-foreground cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={healthConsent}
+            onChange={(e) => setHealthConsent(e.target.checked)}
+            className="h-4 w-4 mt-0.5 shrink-0 rounded border-input accent-primary cursor-pointer"
+          />
+          <span>
+            I agree that LD Move stores the health information in this form
+            (injuries, weight, height, training history) and uses it only to
+            build and adjust my program. I can withdraw this consent at any
+            time by emailing coach@ldmove.com. Details in the privacy policy
+            at ldmove.com/privacy.
+          </span>
+        </label>
 
         {err && (
           <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded p-3 text-sm text-red-700 dark:text-red-300">
