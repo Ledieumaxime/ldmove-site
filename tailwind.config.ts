@@ -15,11 +15,11 @@ export default {
   	extend: {
   		fontFamily: {
   			heading: [
-  				'Playfair Display',
+  				'Playfair Display Variable',
   				'serif'
   			],
   			body: [
-  				'DM Sans',
+  				'DM Sans Variable',
   				'sans-serif'
   			]
   		},
