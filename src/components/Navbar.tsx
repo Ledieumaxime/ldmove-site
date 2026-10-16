@@ -19,7 +19,6 @@ const Navbar = () => {
   const navLinks = [
     { to: "/", label: t("nav.home") },
     { to: "/coaching", label: t("nav.coaching") },
-    { to: "/programmes", label: t("nav.programs") },
     { to: "/consultation", label: t("nav.consultation") },
     { to: "/a-propos", label: t("nav.about") },
     { to: "/contact", label: t("nav.contact") },

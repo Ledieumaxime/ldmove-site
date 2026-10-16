@@ -17,14 +17,11 @@ import RouteFallback from "@/components/RouteFallback";
 // every admin editor, ...) in one 1MB+ file.
 const Index = lazy(() => import("./pages/Index"));
 const CoachingPage = lazy(() => import("./pages/Coaching"));
-const ProgrammesPage = lazy(() => import("./pages/Programmes"));
 const AProposPage = lazy(() => import("./pages/APropos"));
 const ContactPage = lazy(() => import("./pages/Contact"));
 const ApplyPage = lazy(() => import("./pages/Apply"));
 const FAQPage = lazy(() => import("./pages/FAQ"));
 const ConsultationPage = lazy(() => import("./pages/Consultation"));
-const HandstandComingSoon = lazy(() => import("./pages/HandstandComingSoon"));
-const MiddleSplitComingSoon = lazy(() => import("./pages/MiddleSplitComingSoon"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const LegalNoticePage = lazy(() => import("./pages/LegalNotice"));
 const PrivacyPage = lazy(() => import("./pages/Privacy"));
@@ -78,13 +75,13 @@ const App = () => (
               <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/coaching" element={<CoachingPage />} />
-              <Route path="/programmes" element={<ProgrammesPage />} />
+              {/* No program is on sale yet: the pages stay in src/pages for the
+                  launch, and old links land on coaching instead of "coming soon". */}
+              <Route path="/programmes/*" element={<Navigate to="/coaching" replace />} />
               <Route path="/a-propos" element={<AProposPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/apply" element={<ApplyPage />} />
               <Route path="/faq" element={<FAQPage />} />
-              <Route path="/programmes/handstand-coming-soon" element={<HandstandComingSoon />} />
-              <Route path="/programmes/middle-split-coming-soon" element={<MiddleSplitComingSoon />} />
               <Route path="/consultation" element={<ConsultationPage />} />
               <Route path="/legal" element={<LegalNoticePage />} />
               <Route path="/privacy" element={<PrivacyPage />} />

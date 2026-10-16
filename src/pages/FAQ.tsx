@@ -10,9 +10,10 @@ import { useLang } from "@/contexts/LangContext";
 const FAQPage = () => {
   const { t } = useLang();
 
-  const faqs = Array.from({ length: 10 }, (_, i) => ({
-    q: t(`faq.q${i + 1}`),
-    a: t(`faq.a${i + 1}`),
+  // q6 compares coaching with programs, which are not on sale yet
+  const faqs = [1, 2, 3, 4, 5, 7, 8, 9, 10].map((n) => ({
+    q: t(`faq.q${n}`),
+    a: t(`faq.a${n}`),
   }));
 
   return (

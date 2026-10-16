@@ -57,9 +57,6 @@ const Index = () => {
                     {t("home2.hero.cta2")} <ArrowRight size={16} />
                   </Link>
                 </Button>
-                <Button variant="ctaOutline" size="lg" asChild>
-                  <Link to="/programmes">{t("home2.hero.cta")}</Link>
-                </Button>
               </div>
             </motion.div>
             <motion.div
@@ -172,9 +169,8 @@ const Index = () => {
           <h2 className="font-heading text-3xl md:text-5xl font-bold mb-6">{t("home2.offer.title")}</h2>
           <p className="font-body text-muted-foreground text-lg">{t("home2.offer.desc")}</p>
         </div>
-        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
           {[
-            { title: t("home2.offer.programs.title"), desc: t("home2.offer.programs.desc"), cta: t("home2.offer.programs.cta"), link: "/programmes", highlight: false },
             { title: t("home2.offer.coaching.title"), desc: t("home2.offer.coaching.desc"), cta: t("home2.offer.coaching.cta"), link: "/coaching", highlight: true },
             { title: t("home2.offer.consult.title"), desc: t("home2.offer.consult.desc"), cta: t("home2.offer.consult.cta"), link: "/consultation", highlight: false },
           ].map((o, i) => (

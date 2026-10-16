@@ -9,7 +9,6 @@ const Footer = () => {
   const footerLinks = [
     { to: "/", label: t("nav.home") },
     { to: "/coaching", label: t("nav.coaching") },
-    { to: "/programmes", label: t("nav.programs") },
     { to: "/a-propos", label: t("nav.about") },
     { to: "/faq", label: t("footer.faq") },
     { to: "/contact", label: t("nav.contact") },

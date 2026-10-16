@@ -543,8 +543,8 @@ const translations: Record<string, Record<Lang, string>> = {
 
   // Ce que je propose
   "home2.offer.tag": { fr: "Ce que je propose", en: "What I Offer" },
-  "home2.offer.title": { fr: "Trois façons de travailler avec moi", en: "Three Ways to Work With Me" },
-  "home2.offer.desc": { fr: "Un accompagnement personnalisé, des programmes structurés ou une consultation ponctuelle, à toi de choisir.", en: "1:1 coaching, structured programs, or a single consultation." },
+  "home2.offer.title": { fr: "Deux façons de travailler avec moi", en: "Two Ways to Work With Me" },
+  "home2.offer.desc": { fr: "Un accompagnement personnalisé ou une consultation ponctuelle, à toi de choisir.", en: "1:1 coaching, or a single consultation." },
 
   "home2.offer.consult.title": { fr: "Consultation", en: "Consultation" },
   "home2.offer.consult.desc": { fr: "Un appel de 30 minutes pour analyser ta pratique, répondre à tes questions et te donner des pistes concrètes pour progresser.", en: "A 30-minute call to review your practice, answer your questions, and give you clear next steps." },
