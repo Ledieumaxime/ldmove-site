@@ -8,7 +8,13 @@ import {
   Upload,
   Trash2,
 } from "lucide-react";
-import { sbDelete, sbGet, sbPost, sbSignUrl } from "@/integrations/supabase/api";
+import {
+  refreshAccessToken,
+  sbDelete,
+  sbGet,
+  sbPost,
+  sbSignUrl,
+} from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 
@@ -49,37 +55,31 @@ function getToken(): string | null {
   }
 }
 
-// Force a fresh access token from the stored refresh_token and persist
-// it back to localStorage. Returns the new access token (or null if it
-// failed). Used to recover from a 401/403 'JWT expired' / 'claim
-// timestamp check failed' during upload without making the client sign
-// out and back in.
-async function refreshToken(): Promise<string | null> {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const session = JSON.parse(raw);
-    if (!session.refresh_token) return null;
-    const res = await fetch(
-      `${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,
-      {
-        method: "POST",
-        headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: session.refresh_token }),
-      }
-    );
-    if (!res.ok) return null;
-    const json = await res.json();
-    const next = {
-      access_token: json.access_token,
-      refresh_token: json.refresh_token ?? session.refresh_token,
-      expires_at: json.expires_at ?? Math.floor(Date.now() / 1000) + 3600,
-      user: session.user,
-    };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(next));
-    return json.access_token as string;
-  } catch {
-    return null;
+// Token refresh goes through the shared refreshAccessToken (api.ts). This
+// file used to carry its own copy, which skipped the shared lock: an
+// upload retry refreshing at the same moment as a set save spent the same
+// refresh token twice, which the auth server can answer by revoking the
+// session (the client signed out mid-upload). The copy also never
+// recognised a dead session, so it could not send the client to log in.
+
+/** Delete a stored video, refreshing an expired token once. A plain
+ *  fetch here ignored a 401, so the row went and the file stayed. */
+async function deleteStoredVideo(path: string): Promise<void> {
+  const send = (token: string | null) =>
+    fetch(`${SUPABASE_URL}/storage/v1/object/form-checks/${path}`, {
+      method: "DELETE",
+      headers: {
+        apikey: SUPABASE_KEY,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+  let res = await send(getToken());
+  if (res.status === 401 || res.status === 403) {
+    const fresh = await refreshAccessToken();
+    if (fresh) res = await send(fresh);
+  }
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`Video not deleted (${res.status})`);
   }
 }
 
@@ -138,21 +138,7 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
   const removeFromHistory = async (c: FormCheck) => {
     if (!window.confirm("Delete this video? This cannot be undone.")) return;
     try {
-      if (c.video_url) {
-        const token = getToken();
-        if (token) {
-          await fetch(
-            `${SUPABASE_URL}/storage/v1/object/form-checks/${c.video_url}`,
-            {
-              method: "DELETE",
-              headers: {
-                apikey: SUPABASE_KEY,
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
-        }
-      }
+      if (c.video_url) await deleteStoredVideo(c.video_url);
       await sbDelete(`form_check_submissions?id=eq.${c.id}`);
       setHistoryChecks((cs) => cs.filter((x) => x.id !== c.id));
     } catch (e) {
@@ -201,7 +187,7 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
 
       let result = await doUpload(token);
       if (result.status === 401 || result.status === 403) {
-        const fresh = await refreshToken();
+        const fresh = await refreshAccessToken();
         if (fresh) {
           token = fresh;
           setProgress(0);
