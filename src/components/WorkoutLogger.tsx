@@ -11,6 +11,8 @@ import { sbGet, sbPost, sbDelete } from "@/integrations/supabase/api";
  * Coach view (readOnly) shows a compact summary: last session line + best PR.
  */
 
+type SetPatch = { reps_done?: number | null; weight_kg?: number | null };
+
 type Props = {
   itemId: string;
   prescribedSets: number;
@@ -62,6 +64,23 @@ const WorkoutLogger = ({
   const [logs, setLogs] = useState<Log[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingSet, setSavingSet] = useState<number | null>(null);
+  // Sets whose last save or clear did not reach the server, with what to
+  // send again. A failed save used to leave the typed number in the cell
+  // with nothing to say it was not stored: the client moved on believing
+  // the set was logged, and it was missing from their history.
+  const [failed, setFailed] = useState<
+    Map<number, { clear: true } | { clear?: false; patch: SetPatch }>
+  >(new Map());
+  const markFailed = (
+    n: number,
+    what: { clear: true } | { clear?: false; patch: SetPatch } | null
+  ) =>
+    setFailed((prev) => {
+      const next = new Map(prev);
+      if (what) next.set(n, what);
+      else next.delete(n);
+      return next;
+    });
 
   useEffect(() => {
     let cancelled = false;
@@ -115,11 +134,12 @@ const WorkoutLogger = ({
     return best;
   }, [logs]);
 
-  const upsertSet = async (
-    setNumber: number,
-    patch: { reps_done?: number | null; weight_kg?: number | null }
-  ) => {
+  const upsertSet = async (setNumber: number, patch: SetPatch) => {
     setSavingSet(setNumber);
+    // A retry carries what the failed attempt was sending, so a number
+    // typed before the connection dropped is not lost.
+    const prior = failed.get(setNumber);
+    if (prior && "patch" in prior) patch = { ...prior.patch, ...patch };
     try {
       const existing = todayBySet.get(setNumber);
       const body = {
@@ -147,6 +167,10 @@ const WorkoutLogger = ({
         );
         return saved ? [...filtered, saved] : filtered;
       });
+      markFailed(setNumber, null);
+    } catch (e) {
+      console.error("set not saved", e);
+      markFailed(setNumber, { patch });
     } finally {
       setSavingSet(null);
     }
@@ -159,6 +183,10 @@ const WorkoutLogger = ({
     try {
       await sbDelete(`workout_logs?id=eq.${existing.id}`);
       setLogs((prev) => prev.filter((l) => l.id !== existing.id));
+      markFailed(setNumber, null);
+    } catch (e) {
+      console.error("set not cleared", e);
+      markFailed(setNumber, { clear: true });
     } finally {
       setSavingSet(null);
     }
@@ -272,8 +300,16 @@ const WorkoutLogger = ({
               unitLabel={unitLabel}
               showWeight={showWeight}
               disabled={readOnly}
+              failed={failed.has(n)}
               onToggle={() => {
                 if (readOnly) return;
+                // On a failed set, the chip retries what did not go through.
+                const f = failed.get(n);
+                if (f) {
+                  if (f.clear) clearSet(n);
+                  else upsertSet(n, {});
+                  return;
+                }
                 if (done) clearSet(n);
                 else upsertSet(n, {});
               }}
@@ -283,6 +319,11 @@ const WorkoutLogger = ({
           );
         })}
         </div>
+        {failed.size > 0 && (
+          <p role="alert" className="text-[11px] text-red-700 dark:text-red-300">
+            Not saved. Check your connection, then tap the red set to try again.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -297,6 +338,7 @@ const SetRow = ({
   unitLabel,
   showWeight,
   disabled,
+  failed,
   onToggle,
   onChangeReps,
   onChangeWeight,
@@ -309,6 +351,7 @@ const SetRow = ({
   unitLabel: string;
   showWeight: boolean;
   disabled: boolean;
+  failed: boolean;
   onToggle: () => void;
   onChangeReps: (v: number | null) => void;
   onChangeWeight: (v: number | null) => void;
@@ -361,16 +404,24 @@ const SetRow = ({
         onClick={onToggle}
         disabled={disabled || saving}
         aria-label={
-          done ? `Mark set ${setNumber} undone` : `Mark set ${setNumber} done`
+          failed
+            ? `Set ${setNumber} not saved, try again`
+            : done
+              ? `Mark set ${setNumber} undone`
+              : `Mark set ${setNumber} done`
         }
         className={`h-6 rounded-full border flex items-center justify-center transition-colors ${
-          done
-            ? "bg-green-500 border-green-500 text-white"
-            : "bg-surface border-border text-muted-foreground hover:border-green-400 active:scale-95"
+          failed
+            ? "bg-red-50 dark:bg-red-500/10 border-red-500 text-red-700 dark:text-red-300 active:scale-95"
+            : done
+              ? "bg-green-500 border-green-500 text-white"
+              : "bg-surface border-border text-muted-foreground hover:border-green-400 active:scale-95"
         } ${disabled ? "opacity-70 cursor-not-allowed" : ""}`}
       >
         {saving ? (
           <Loader2 size={12} className="animate-spin" />
+        ) : failed ? (
+          <span className="text-[11px] font-bold">{setNumber}</span>
         ) : done ? (
           <CheckCircle2 size={13} />
         ) : (
@@ -390,7 +441,9 @@ const SetRow = ({
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         }}
         aria-label={`Set ${setNumber} ${unitLabel}`}
-        className={inputClass(done ? "border-green-500" : "border-border")}
+        className={inputClass(
+          failed ? "border-red-500" : done ? "border-green-500" : "border-border"
+        )}
         placeholder="0"
       />
 
