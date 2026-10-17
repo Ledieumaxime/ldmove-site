@@ -67,7 +67,6 @@ type FormCheck = {
     custom_name: string | null;
     sets: number | null;
     reps: string | null;
-    rest_seconds: number | null;
     notes: string | null;
     group_name: string | null;
   } | null;
@@ -160,7 +159,7 @@ const AdminFormChecks = () => {
         // growing 150 to 250 a month, so a single read would have started
         // dropping the oldest, pending ones included, within weeks.
         sbGetAll<FormCheck>(
-          "form_check_submissions?select=*,profiles(first_name,last_name),program_items(custom_name,sets,reps,rest_seconds,notes,group_name)&order=created_at.desc"
+          "form_check_submissions?select=*,profiles(first_name,last_name),program_items(custom_name,sets,reps,notes,group_name)&order=created_at.desc"
         ),
         sbGet<CommentRow[]>(
           "exercise_comments?select=*,profiles(first_name,last_name),program_items(custom_name)&order=created_at.desc&limit=200"
@@ -707,9 +706,32 @@ const ThreadCard = ({
   );
 };
 
-/** The prescription for the exercise a form check answers: sets and
- *  reps on one line, then whatever the coach wrote on the exercise —
- *  which is where the tempo and the load live. */
+/** Notes are stored as "Tempo: … | Load: … | free text". Split out the
+ *  tempo and the load so each gets its own field, and keep the free text
+ *  exactly as written: the block editor joins it with " · ", which would
+ *  rewrite a note the coach never touched. Same matching as the client
+ *  screen (parseNotes in ProgramItemCard), so both read the same values. */
+const splitNotes = (notes: string | null) => {
+  let tempo = "";
+  let load = "";
+  const others: string[] = [];
+  for (const p of (notes ?? "").split("|").map((s) => s.trim())) {
+    const t = p.match(/^Tempo:\s*(.+)$/i);
+    const l = p.match(/^Load:\s*(.+)$/i);
+    if (t) tempo = t[1];
+    else if (l) load = l[1];
+    else if (p) others.push(p);
+  }
+  return { tempo, load, comment: others.join(" | ") };
+};
+
+const joinNotes = (tempo: string, load: string, comment: string) =>
+  [tempo && `Tempo: ${tempo}`, load && `Load: ${load}`, comment]
+    .filter(Boolean)
+    .join(" | ") || null;
+
+/** The prescription for the exercise a form check answers: sets, reps,
+ *  tempo and load on one line, then the coach's note on the exercise. */
 const Prescription = ({
   itemId,
   item,
@@ -724,19 +746,28 @@ const Prescription = ({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [draft, setDraft] = useState(item);
+  const [draft, setDraft] = useState({
+    sets: item.sets,
+    reps: item.reps ?? "",
+    ...splitNotes(item.notes),
+  });
 
+  const shown = splitNotes(current.notes);
   const parts: string[] = [];
   if (current.sets != null && current.reps)
     parts.push(`${current.sets} × ${current.reps}`);
   else if (current.reps) parts.push(current.reps);
   else if (current.sets != null)
     parts.push(groupSetsLabel(current.group_name, current.sets));
-  if (current.rest_seconds != null)
-    parts.push(`${current.rest_seconds}s rest`);
+  if (shown.tempo) parts.push(`Tempo ${shown.tempo}`);
+  if (shown.load) parts.push(shown.load);
 
   const open = () => {
-    setDraft(current);
+    setDraft({
+      sets: current.sets,
+      reps: current.reps ?? "",
+      ...splitNotes(current.notes),
+    });
     setError(null);
     setEditing(true);
   };
@@ -745,11 +776,16 @@ const Prescription = ({
     setSaving(true);
     setError(null);
     try {
+      const tempo = draft.tempo.trim();
+      const load = draft.load.trim();
+      const comment = draft.comment.trim();
+      // Only rewrite the notes when one of their three parts changed.
+      const notesChanged =
+        tempo !== shown.tempo || load !== shown.load || comment !== shown.comment;
       const patch = {
         sets: draft.sets,
-        reps: draft.reps?.trim() ? draft.reps.trim() : null,
-        rest_seconds: draft.rest_seconds,
-        notes: draft.notes?.trim() ? draft.notes.trim() : null,
+        reps: draft.reps.trim() ? draft.reps.trim() : null,
+        ...(notesChanged ? { notes: joinNotes(tempo, load, comment) } : {}),
       };
       await sbPatch(`program_items?id=eq.${itemId}`, patch);
       setCurrent({ ...current, ...patch });
@@ -761,25 +797,19 @@ const Prescription = ({
     }
   };
 
-  // A number field that means "not prescribed" when left empty, rather
-  // than 0: a block with no rest and a block that never mentioned rest
-  // are different things, and the client screen reads them differently.
-  const numberField = (
+  const textField = (
     label: string,
-    value: number | null,
-    onChange: (v: number | null) => void
+    key: "reps" | "tempo" | "load",
+    placeholder: string
   ) => (
-    <label className="flex-1 min-w-[70px]">
+    <label className="min-w-0">
       <span className="block text-[10px] uppercase text-muted-foreground mb-0.5">
         {label}
       </span>
       <Input
-        type="number"
-        inputMode="numeric"
-        value={value ?? ""}
-        onChange={(e) =>
-          onChange(e.target.value === "" ? null : Number(e.target.value))
-        }
+        value={draft[key]}
+        onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
+        placeholder={placeholder}
         className="h-8 text-sm"
       />
     </label>
@@ -791,31 +821,33 @@ const Prescription = ({
         <p className="text-[10px] font-bold uppercase text-muted-foreground mb-2">
           Prescribed
         </p>
-        <div className="flex gap-2 mb-2">
-          {numberField("Sets", draft.sets, (v) =>
-            setDraft((d) => ({ ...d, sets: v }))
-          )}
-          <label className="flex-1 min-w-[70px]">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+          {/* Empty means "not prescribed", not 0. */}
+          <label className="min-w-0">
             <span className="block text-[10px] uppercase text-muted-foreground mb-0.5">
-              Reps
+              Sets
             </span>
             <Input
-              value={draft.reps ?? ""}
+              type="number"
+              inputMode="numeric"
+              value={draft.sets ?? ""}
               onChange={(e) =>
-                setDraft((d) => ({ ...d, reps: e.target.value }))
+                setDraft((d) => ({
+                  ...d,
+                  sets: e.target.value === "" ? null : Number(e.target.value),
+                }))
               }
-              placeholder="8, 30s, AMRAP…"
               className="h-8 text-sm"
             />
           </label>
-          {numberField("Rest (s)", draft.rest_seconds, (v) =>
-            setDraft((d) => ({ ...d, rest_seconds: v }))
-          )}
+          {textField("Reps", "reps", "8, 30s, AMRAP…")}
+          {textField("Tempo", "tempo", "3/1/1/0")}
+          {textField("Load", "load", "10kg, band…")}
         </div>
         <Textarea
-          value={draft.notes ?? ""}
-          onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
-          placeholder="Tempo, load, cues…"
+          value={draft.comment}
+          onChange={(e) => setDraft((d) => ({ ...d, comment: e.target.value }))}
+          placeholder="Cues for the client…"
           rows={3}
           className="text-xs"
         />
@@ -859,15 +891,15 @@ const Prescription = ({
       {parts.length > 0 ? (
         <p className="text-sm font-semibold">{parts.join("  ·  ")}</p>
       ) : (
-        !current.notes && (
+        !shown.comment && (
           <p className="text-xs text-muted-foreground italic">
             Nothing prescribed yet.
           </p>
         )
       )}
-      {current.notes && (
+      {shown.comment && (
         <p className="text-xs text-muted-foreground whitespace-pre-wrap mt-1">
-          {current.notes}
+          {shown.comment}
         </p>
       )}
     </div>
