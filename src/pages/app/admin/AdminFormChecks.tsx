@@ -20,7 +20,6 @@ import {
   Pencil,
 } from "lucide-react";
 import {
-  sbGet,
   sbGetAll,
   sbPatch,
   sbPost,
@@ -161,8 +160,11 @@ const AdminFormChecks = () => {
         sbGetAll<FormCheck>(
           "form_check_submissions?select=*,profiles(first_name,last_name),program_items(custom_name,sets,reps,notes,group_name)&order=created_at.desc"
         ),
-        sbGet<CommentRow[]>(
-          "exercise_comments?select=*,profiles(first_name,last_name),program_items(custom_name)&order=created_at.desc&limit=200"
+        // Every comment, paged. A cap of the latest 200 (about five weeks
+        // in October 2026, 778 in total) hid any thread whose last
+        // exchange was older: a client answering there never surfaced.
+        sbGetAll<CommentRow>(
+          "exercise_comments?select=*,profiles(first_name,last_name),program_items(custom_name)&order=created_at.desc"
         ),
       ]);
       setChecks(rows);
