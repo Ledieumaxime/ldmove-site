@@ -191,6 +191,20 @@ export async function deleteClient(clientId: string): Promise<{
   }
 }
 
+/** A client deleting their own account. Same function as the coach's
+ *  delete, which only ever lets a client name themselves. */
+export async function deleteMyAccount(): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await callFunction("delete-client", {});
+    if (!res) return { ok: false, error: "Not signed in" };
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: data.error || `HTTP ${res.status}` };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
 export async function cleanupArchivedVideos(
   programId: string
 ): Promise<{ ok: boolean; deleted?: number; error?: string }> {

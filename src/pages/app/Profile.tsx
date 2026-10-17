@@ -6,7 +6,10 @@ import { sbGet } from "@/integrations/supabase/api";
 import { Button } from "@/components/ui/button";
 import BackToDashboard from "@/components/BackToDashboard";
 import { getPushStatus, onPushStatus, isNativeApp } from "@/lib/push";
+import { deleteMyAccount } from "@/integrations/supabase/notify";
 import {
+  Loader2,
+  Trash2,
   LogOut,
   Mail,
   User as UserIcon,
@@ -102,6 +105,97 @@ const Profile = () => {
         <Button variant="outline" className="gap-2" onClick={handleSignOut}>
           <LogOut size={16} />
           Sign out
+        </Button>
+      </div>
+
+      {profile?.role === "client" && (
+        <DeleteAccount
+          onDeleted={async () => {
+            await signOut();
+            navigate("/app/login?deleted=1", { replace: true });
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+/** Delete my account, from inside the app. Apple requires it (guideline
+ *  5.1.1(v)); before this a client had to email the coach.
+ *
+ *  Two steps on purpose: the link only opens the explanation, and the
+ *  red button inside it is the one that deletes. Nothing can be undone,
+ *  so the client reads what goes before they can confirm it. */
+const DeleteAccount = ({ onDeleted }: { onDeleted: () => Promise<void> }) => {
+  const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const run = async () => {
+    setDeleting(true);
+    setError(null);
+    const res = await deleteMyAccount();
+    if (res.ok) {
+      await onDeleted();
+      return;
+    }
+    setDeleting(false);
+    setError(
+      "Your account could not be deleted. Check your connection and try again, or email coach@ldmove.com."
+    );
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-sm text-muted-foreground hover:text-red-700 dark:hover:text-red-300 underline underline-offset-4"
+      >
+        Delete my account
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-red-200 dark:border-red-500/30 bg-surface p-5 space-y-3">
+      <p className="font-heading font-bold">Delete my account</p>
+      <p className="text-sm text-muted-foreground">
+        This permanently deletes your account and everything attached to it:
+        your programs and everything you logged, your intake and assessment,
+        your form-check videos and your comment threads with your coach. It
+        cannot be undone.
+      </p>
+      <p className="text-sm text-muted-foreground">
+        It does not cancel anything you pay for outside the app. Talk to your
+        coach about that.
+      </p>
+      {error && (
+        <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="destructive"
+          className="gap-2"
+          onClick={run}
+          disabled={deleting}
+        >
+          {deleting ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Trash2 size={16} />
+          )}
+          {deleting ? "Deleting…" : "Delete permanently"}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setOpen(false);
+            setError(null);
+          }}
+          disabled={deleting}
+        >
+          Cancel
         </Button>
       </div>
     </div>

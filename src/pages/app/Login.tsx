@@ -16,6 +16,8 @@ const Login = () => {
   // (refresh token definitively rejected by the auth server).
   const [searchParams] = useSearchParams();
   const sessionExpired = searchParams.get("expired") === "1";
+  // Set by Profile after a client deleted their own account.
+  const accountDeleted = searchParams.get("deleted") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -110,6 +112,12 @@ const Login = () => {
             Sign in to continue your training.
           </p>
         </div>
+
+        {accountDeleted && !error && !info && (
+          <div className="text-sm text-muted-foreground bg-muted/50 border border-border rounded-xl px-4 py-3 mb-4">
+            Your account and all its data have been deleted.
+          </div>
+        )}
 
         {sessionExpired && !error && !info && (
           <div className="text-sm text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl px-4 py-3 mb-4">

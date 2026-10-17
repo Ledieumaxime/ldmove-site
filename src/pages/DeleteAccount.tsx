@@ -35,10 +35,15 @@ const DeleteAccountPage = () => {
 
             <section>
               <h2 className="font-heading text-xl font-bold text-foreground mb-3">
-                How to ask
+                How to delete it
               </h2>
               <p className="mb-3">
-                Email{" "}
+                In the app or on ldmove.com, sign in and go to{" "}
+                <strong>Profile</strong>, then <strong>Delete my account</strong>.
+                It is immediate.
+              </p>
+              <p className="mb-3">
+                If you cannot sign in, email{" "}
                 <a
                   href="mailto:coach@ldmove.com?subject=Delete%20my%20account"
                   className="text-accent hover:underline"
@@ -87,7 +92,7 @@ const DeleteAccountPage = () => {
                 <a href="/privacy" className="text-accent hover:underline">
                   privacy policy
                 </a>{" "}
-                for what we collect and why. Last updated: August 2026.
+                for what we collect and why. Last updated: October 2026.
               </p>
             </section>
           </div>
