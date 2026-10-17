@@ -59,7 +59,6 @@ import {
   sbPost,
 } from "@/integrations/supabase/api";
 import {
-  cleanupArchivedVideos,
   generateCom,
   notifyProgramPublished,
   rewriteComment,
@@ -1293,13 +1292,14 @@ const AdminProgramEdit = () => {
       const list = others.map((p) => `  · ${p.title}`).join("\n");
       const ok = window.confirm(
         `Published.\n\n${others.length === 1 ? "This block is" : "These blocks are"} still active for this client:\n\n${list}\n\n` +
-          `Archive ${others.length === 1 ? "it" : "them"} now? The client keeps access to ${others.length === 1 ? "it" : "them"} in their archive, and ${others.length === 1 ? "its" : "their"} form-check videos are cleaned up.`
+          `Archive ${others.length === 1 ? "it" : "them"} now? The client keeps access to ${others.length === 1 ? "it" : "them"} in their archive.`
       );
       if (!ok) return;
       setSaveState("saving");
+      // Form-check videos are kept: they are what the coach rewatches
+      // to build the next block (client page, Videos by exercise).
       for (const p of others) {
         await sbPatch(`programs?id=eq.${p.id}`, { is_archived: true });
-        cleanupArchivedVideos(p.id).catch(() => {});
       }
       flagSaved();
     } catch (e) {

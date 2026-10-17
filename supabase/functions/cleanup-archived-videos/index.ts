@@ -1,5 +1,11 @@
 // When a program is archived, delete all form-check video files attached to
 // exercises in that program. Keeps the DB rows (notes + feedback stay as history).
+//
+// NO LONGER CALLED by the app since 2026-10-17. Deleting on archive destroyed
+// exactly what the coach rewatches to build the next block (Cym: 27 exercises
+// of Block 12 already filmed, 5 videos left). Videos now live as long as the
+// account (delete-client wipes them). Kept deployed for a deliberate manual
+// cleanup if storage ever becomes a problem.
 // deno-lint-ignore-file no-explicit-any
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";

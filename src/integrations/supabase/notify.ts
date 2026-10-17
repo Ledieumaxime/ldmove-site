@@ -205,18 +205,3 @@ export async function deleteMyAccount(): Promise<{ ok: boolean; error?: string }
   }
 }
 
-export async function cleanupArchivedVideos(
-  programId: string
-): Promise<{ ok: boolean; deleted?: number; error?: string }> {
-  try {
-    const res = await callFunction("cleanup-archived-videos", {
-      program_id: programId,
-    });
-    if (!res) return { ok: false, error: "Not signed in" };
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) return { ok: false, error: data.error || `HTTP ${res.status}` };
-    return { ok: true, deleted: data.deleted };
-  } catch (e) {
-    return { ok: false, error: String(e) };
-  }
-}

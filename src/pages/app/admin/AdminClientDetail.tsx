@@ -27,7 +27,6 @@ import {
   sbPatch,
   sbSignUrl,
 } from "@/integrations/supabase/api";
-import { cleanupArchivedVideos } from "@/integrations/supabase/notify";
 import {
   CompletedLog,
   countCompletedSessions,
@@ -37,6 +36,7 @@ import {
 import { detectTracking, stripSection } from "@/components/ProgramItemCard";
 import DeleteClientDialog from "@/components/DeleteClientDialog";
 import LazyVideo from "@/components/LazyVideo";
+import ClientVideoLibrary from "@/components/ClientVideoLibrary";
 import BlockCalendar from "@/components/BlockCalendar";
 
 /**
@@ -459,9 +459,8 @@ const AdminClientDetail = () => {
    *  lists but keep everything that tells their story (programs, coach
    *  notes, comments, logged sets, assessment videos, and any form
    *  check flagged as progress). Their active block is archived at the
-   *  same time so they stop seeing a program that no longer runs, and
-   *  the ordinary form-check videos of that block are cleaned up.
-   *  Fully reversible from the same button. */
+   *  same time so they stop seeing a program that no longer runs. Their
+   *  form-check videos are kept. Fully reversible from the same button. */
   const archiveClient = async (reason: string) => {
     if (!client) return;
     setArchiving(true);
@@ -475,7 +474,6 @@ const AdminClientDetail = () => {
         await sbPatch(`programs?id=eq.${currentProgram.id}`, {
           is_archived: true,
         });
-        cleanupArchivedVideos(currentProgram.id).catch(() => {});
         setPrograms((prev) =>
           prev.map((p) =>
             p.id === currentProgram.id ? { ...p, is_archived: true } : p
@@ -558,13 +556,9 @@ const AdminClientDetail = () => {
       await sbPatch(`programs?id=eq.${currentProgram.id}`, {
         is_archived: true,
       });
-      // Mirror the cleanup the program editor runs when its archive
-      // toggle flips: form check videos for this block aren't useful
-      // anymore and their storage cost adds up. Comments stay so the
-      // coaching history remains consultable on the archived program.
-      // Fire-and-forget — failure is non-blocking, the cleanup can
-      // be retried from the editor if needed.
-      cleanupArchivedVideos(currentProgram.id).catch(() => {});
+      // Form-check videos used to be deleted here. They are kept now:
+      // they are what the coach rewatches to build the next block
+      // (Videos by exercise, on this page). They go with the account.
       setPrograms((prev) =>
         prev.map((p) =>
           p.id === currentProgram.id ? { ...p, is_archived: true } : p
@@ -859,9 +853,8 @@ const AdminClientDetail = () => {
               <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                 They leave your client lists but nothing of their work is
                 lost. Their programs, your notes, the comments, every set
-                they logged, their assessment videos and any form check you
-                flagged as progress all stay. Only the ordinary form-check
-                videos of their current block are cleaned up.
+                they logged, their assessment videos and their form-check
+                videos all stay.
               </p>
               {currentProgram && (
                 <p className="text-xs text-muted-foreground mt-2">
@@ -1559,6 +1552,8 @@ const AdminClientDetail = () => {
               )
             )}
           </section>
+
+          <ClientVideoLibrary clientId={client.id} />
 
           {/* Past blocks */}
           {programs.filter((p) => p.is_archived).length > 0 && (
