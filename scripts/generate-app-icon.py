@@ -36,6 +36,10 @@ from PIL import Image, ImageDraw
 ROOT = Path(__file__).resolve().parent.parent
 LOGO = ROOT / "src/assets/logo-ldmove.png"
 RES = ROOT / "android/app/src/main/res"
+# iOS takes a single 1024px square and draws every size and the rounded
+# mask itself. It must be opaque: App Store Connect rejects an icon with
+# an alpha channel.
+IOS_ICON = ROOT / "ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png"
 
 BACKGROUND = (26, 24, 22, 255)   # near-black, warmer than pure #000
 FOREGROUND = (245, 240, 232, 255)  # the sand of the site
@@ -195,6 +199,12 @@ def main():
     if stale.exists():
         stale.unlink()
         print("supprime: drawable-v24/ic_launcher_foreground.xml")
+
+    # Same proportion as the Android square icon: iOS has no adaptive
+    # canvas, and its rounded mask never reaches a centred ring.
+    if IOS_ICON.parent.exists():
+        render(art, 1024, LEGACY_FRACTION, BACKGROUND).convert("RGB").save(IOS_ICON)
+        print("ios: 1024px")
 
 
 if __name__ == "__main__":
