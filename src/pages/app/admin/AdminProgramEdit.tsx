@@ -289,6 +289,64 @@ const nextGroupLabel = (
   return `${stem} ${n}`;
 };
 
+// ----- order updates -------------------------------------------------------
+
+/** A new position and / or group label for one row. A key left out
+ *  leaves that column alone; group_name null makes the row a single. */
+type OrderUpdate = { id: string; order_index?: number; group_name?: string | null };
+
+const mergeOrderUpdates = (updates: OrderUpdate[]): OrderUpdate[] => {
+  const byId = new Map<string, OrderUpdate>();
+  for (const u of updates) byId.set(u.id, { ...byId.get(u.id), ...u });
+  return [...byId.values()];
+};
+
+const applyOrderLocally = (list: Item[], updates: OrderUpdate[]): Item[] => {
+  const byId = new Map(mergeOrderUpdates(updates).map((u) => [u.id, u]));
+  return list.map((it) => {
+    const u = byId.get(it.id);
+    if (!u) return it;
+    return {
+      ...it,
+      ...(u.order_index !== undefined ? { order_index: u.order_index } : {}),
+      ...(u.group_name !== undefined ? { group_name: u.group_name } : {}),
+    };
+  });
+};
+
+/** The group_name changes that make Superset / Drop set / Circuit numbers
+ *  follow the visible order in one section of one session (1, 2, 3 per
+ *  type, restarting in each section), so the numbering never reads
+ *  'Superset 4 → Superset 10' after groups were moved or removed. */
+const renumberUpdates = (
+  source: Item[],
+  weekId: string,
+  section: Section
+): OrderUpdate[] => {
+  const sets = buildSets(
+    source.filter(
+      (it) => it.week_id === weekId && sectionOf(it.custom_name) === section
+    ),
+    section
+  );
+  const counters = { Superset: 0, Circuit: 0, "Drop set": 0 };
+  const updates: OrderUpdate[] = [];
+  for (const set of sets) {
+    if (set.type === "Single" || !set.group_name) continue;
+    const stem =
+      set.type === "Superset"
+        ? "Superset"
+        : set.type === "Circuit"
+          ? "Circuit"
+          : "Drop set";
+    counters[stem] += 1;
+    const target = `${stem} ${counters[stem]}`;
+    if (set.group_name === target) continue;
+    for (const it of set.items) updates.push({ id: it.id, group_name: target });
+  }
+  return updates;
+};
+
 // ============================================================ Page =====
 
 const AdminProgramEdit = () => {
@@ -300,12 +358,22 @@ const AdminProgramEdit = () => {
   const [weeks, setWeeks] = useState<Week[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  // Two kinds of failure, shown two ways. A block that cannot load has
+  // nothing to show, so it replaces the page. A change that cannot save
+  // must NOT: replacing the editor used to wipe the screen mid-edit and
+  // take whatever the coach was typing with it. It gets a banner instead.
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
     "idle"
   );
   const savedTimer = useRef<number | null>(null);
+  // One structural change at a time (add, delete, move, regroup). Every
+  // one of them computes positions from the items on screen, so a second
+  // tap while the first is in flight read the same positions and gave two
+  // exercises the same rank.
+  const busyRef = useRef(false);
 
   /** How many usable past replies this client has on each exercise, keyed
    *  by exerciseIdentity. Drives whether the Generate button appears at
@@ -437,12 +505,44 @@ const AdminProgramEdit = () => {
         return res;
       } catch (e) {
         setSaveState("idle");
-        setError(String(e));
+        setSaveError(String(e));
         throw e;
       }
     },
     [flagSaved]
   );
+
+  /** Run a structural change unless one is already running. Its failure
+   *  is already in the banner, so it is not rethrown into the click. */
+  const exclusive =
+    <A extends unknown[]>(fn: (...args: A) => Promise<unknown>) =>
+    async (...args: A) => {
+      if (busyRef.current) return;
+      busyRef.current = true;
+      try {
+        await fn(...args);
+      } catch {
+        // reported by safeSave or the action's own catch
+      } finally {
+        busyRef.current = false;
+      }
+    };
+
+  /** Send new positions and group labels for many rows in ONE request
+   *  (migration 036) instead of one PATCH per row. Updates to the same
+   *  row are merged first, since the database would apply only one. */
+  const saveOrder = async (updates: OrderUpdate[]) => {
+    const merged = mergeOrderUpdates(updates);
+    if (merged.length === 0) return;
+    const n = await sbPost<number>("rpc/apply_item_order", {
+      p_updates: merged,
+    });
+    if (n !== merged.length) {
+      throw new Error(
+        `Only ${n} of ${merged.length} exercises were updated. Your login may have expired.`
+      );
+    }
+  };
 
   // ----- session navigation ----------------------------------------------
 
@@ -548,7 +648,7 @@ const AdminProgramEdit = () => {
         { replace: true }
       );
     } catch (e) {
-      setError(String(e));
+      setSaveError(String(e));
       setSaveState("idle");
     }
   };
@@ -595,7 +695,7 @@ const AdminProgramEdit = () => {
         { replace: true }
       );
     } catch (e) {
-      setError(String(e));
+      setSaveError(String(e));
       setSaveState("idle");
     }
   };
@@ -662,7 +762,7 @@ const AdminProgramEdit = () => {
         { replace: true }
       );
     } catch (e) {
-      setError(String(e));
+      setSaveError(String(e));
       setSaveState("idle");
     }
   };
@@ -731,12 +831,16 @@ const AdminProgramEdit = () => {
       }));
       const created = await sbPost<Item[]>("program_items", payload);
       const after = [...items, ...created];
-      setItems(after);
+      const renumber = [
+        ...renumberUpdates(after, activeWeek.id, "WARMUP"),
+        ...renumberUpdates(after, activeWeek.id, "WORKOUT"),
+      ];
+      setItems((prev) => [...prev, ...created]);
+      await saveOrder(renumber);
+      setItems((prev) => applyOrderLocally(prev, renumber));
       flagSaved();
-      await renumberSection("WARMUP", after);
-      await renumberSection("WORKOUT", after);
     } catch (e) {
-      setError(String(e));
+      setSaveError(String(e));
       setSaveState("idle");
     }
   };
@@ -771,18 +875,12 @@ const AdminProgramEdit = () => {
   ) => {
     if (!activeWeek) return;
     let nextOrderIndex = maxOrderIndex + 1;
-    let bumped: Item[] = [];
+    let bumps: OrderUpdate[] = [];
     if (insertAfterOrderIndex !== undefined) {
       const targetOrder = insertAfterOrderIndex + 1;
-      bumped = sessionItems.filter((it) => it.order_index >= targetOrder);
-      // Bump in descending order so the UNIQUE constraint on
-      // (week_id, order_index) isn't briefly violated.
-      const desc = [...bumped].sort((a, b) => b.order_index - a.order_index);
-      for (const it of desc) {
-        await sbPatch(`program_items?id=eq.${it.id}`, {
-          order_index: it.order_index + 1,
-        });
-      }
+      bumps = sessionItems
+        .filter((it) => it.order_index >= targetOrder)
+        .map((it) => ({ id: it.id, order_index: it.order_index + 1 }));
       nextOrderIndex = targetOrder;
     }
     const payload = {
@@ -798,18 +896,14 @@ const AdminProgramEdit = () => {
       exercise_id: null,
       ...overrides,
     };
-    const [created] = await safeSave(() =>
-      sbPost<Item[]>("program_items", payload)
-    );
-    const bumpedIds = new Set(bumped.map((b) => b.id));
-    const nextItems = items
-      .map((it) =>
-        bumpedIds.has(it.id)
-          ? { ...it, order_index: it.order_index + 1 }
-          : it
-      )
-      .concat(created);
-    setItems(nextItems);
+    const [created] = await safeSave(async () => {
+      await saveOrder(bumps);
+      return sbPost<Item[]>("program_items", payload);
+    });
+    // The returned list feeds the renumber pass; the state itself is
+    // updated from `prev` so a field saved meanwhile is not rolled back.
+    const nextItems = applyOrderLocally(items, bumps).concat(created);
+    setItems((prev) => applyOrderLocally(prev, bumps).concat(created));
     return nextItems;
   };
 
@@ -826,37 +920,61 @@ const AdminProgramEdit = () => {
     // the group; later groups in the same section should slide down
     // a number).
     const target = items.find((it) => it.id === id);
+    const name = target ? stripPrefix(target.custom_name) : "this exercise";
 
-    // Data-loss guard: workout_logs and exercise_comments cascade on
-    // program_items delete. If the client already logged sets on this
-    // exercise, deleting it silently erases their history — make the
-    // coach confirm with full knowledge.
+    // Data-loss guard. Deleting a program_item erases the client's
+    // logged sets and the comment thread on it (both cascade), and
+    // detaches their form-check videos from the exercise. Count all
+    // three and make the coach confirm knowing exactly what goes.
+    let history: string[];
     try {
-      const logs = await sbGet<Array<{ id: string }>>(
-        `workout_logs?select=id&program_item_id=eq.${id}&limit=1000`
-      );
-      if (logs.length > 0) {
-        const name = target ? stripPrefix(target.custom_name) : "this exercise";
-        if (
-          !confirm(
-            `⚠ The client has already logged ${logs.length} set${
-              logs.length > 1 ? "s" : ""
-            } on "${name}".\n\nDeleting it will permanently erase that training history (and any comments on it). Continue?`
-          )
-        )
-          return;
-      }
+      const [logs, comments, checks] = await Promise.all([
+        sbGet<Array<{ id: string }>>(
+          `workout_logs?select=id&program_item_id=eq.${id}&limit=1000`
+        ),
+        sbGet<Array<{ id: string }>>(
+          `exercise_comments?select=id&item_id=eq.${id}&limit=1000`
+        ),
+        sbGet<Array<{ id: string }>>(
+          `form_check_submissions?select=id&item_id=eq.${id}&limit=1000`
+        ),
+      ]);
+      const count = (n: number, one: string) =>
+        `${n} ${one}${n > 1 ? "s" : ""}`;
+      history = [
+        logs.length ? `${count(logs.length, "logged set")} (erased)` : "",
+        comments.length ? `${count(comments.length, "comment")} (erased)` : "",
+        checks.length
+          ? `${count(checks.length, "form-check video")} (kept, but no longer linked to an exercise)`
+          : "",
+      ].filter(Boolean);
     } catch {
-      // If the check itself fails, fall through to the delete — the
-      // guard is best-effort, not a gate.
+      // The check failing used to mean deleting without a word, which
+      // is exactly when history could vanish unseen. Ask instead.
+      if (
+        !confirm(
+          `Could not check whether the client has history on "${name}".\n\nDelete it anyway?`
+        )
+      )
+        return;
+      history = [];
     }
+    if (
+      history.length > 0 &&
+      !confirm(
+        `The client already has history on "${name}":\n\n· ${history.join(
+          "\n· "
+        )}\n\nDelete this exercise anyway? This cannot be undone.`
+      )
+    )
+      return;
 
     await safeSave(() => sbDelete(`program_items?id=eq.${id}`));
     // Compute the post-delete array locally so we can hand it to
     // renumberSection — without this, React's batched state update
     // means the renumber pass would still see the row we just wiped.
     const nextItems = items.filter((it) => it.id !== id);
-    setItems(nextItems);
+    setItems((prev) => prev.filter((it) => it.id !== id));
     if (target) {
       await renumberSection(sectionOf(target.custom_name), nextItems);
     }
@@ -865,10 +983,8 @@ const AdminProgramEdit = () => {
   // Swap a set / superset / drop set with its neighbour in the given
   // section. The set being moved (A) and its partner (B) trade
   // order_index ranges so the rendered position changes accordingly.
-  //
-  // To stay safe under the (week_id, order_index) UNIQUE constraint
-  // we first park every affected row at a sentinel order beyond the
-  // session's current max, then settle each row at its final value.
+  // The new positions and the renumbered group labels go out together
+  // in a single request, so the swap can no longer stop halfway.
   const moveSet = async (
     section: Section,
     setIdx: number,
@@ -906,48 +1022,24 @@ const AdminProgramEdit = () => {
       bShift = -aSize;
     }
 
-    const sessionMax = sessionItems.reduce(
-      (m, i) => (i.order_index > m ? i.order_index : m),
-      0
-    );
-    let sentinel = sessionMax + 100;
+    const moves: OrderUpdate[] = [
+      ...aItems.map((it) => ({ id: it.id, order_index: it.order_index + aShift })),
+      ...bItems.map((it) => ({ id: it.id, order_index: it.order_index + bShift })),
+    ];
+    // After the swap the visible sequence has changed, so the Superset /
+    // Drop set numbers must follow the new order.
+    const all = [
+      ...moves,
+      ...renumberUpdates(applyOrderLocally(items, moves), activeWeek.id, section),
+    ];
 
     setSaveState("saving");
     try {
-      // Park every affected row at a guaranteed-free order_index.
-      for (const it of [...aItems, ...bItems]) {
-        await sbPatch(`program_items?id=eq.${it.id}`, {
-          order_index: sentinel++,
-        });
-      }
-      // Settle each row at its target.
-      for (const it of aItems) {
-        await sbPatch(`program_items?id=eq.${it.id}`, {
-          order_index: it.order_index + aShift,
-        });
-      }
-      for (const it of bItems) {
-        await sbPatch(`program_items?id=eq.${it.id}`, {
-          order_index: it.order_index + bShift,
-        });
-      }
-      const aIds = new Set(aItems.map((x) => x.id));
-      const bIds = new Set(bItems.map((x) => x.id));
-      const nextItems = items.map((it) => {
-        if (aIds.has(it.id))
-          return { ...it, order_index: it.order_index + aShift };
-        if (bIds.has(it.id))
-          return { ...it, order_index: it.order_index + bShift };
-        return it;
-      });
-      setItems(nextItems);
+      await saveOrder(all);
+      setItems((prev) => applyOrderLocally(prev, all));
       flagSaved();
-      // After the swap, the visible sequence has changed → make the
-      // Superset / Drop set numbers follow the new order. Pass the
-      // post-mutation array so we don't read the stale state closure.
-      await renumberSection(section, nextItems);
     } catch (e) {
-      setError(String(e));
+      setSaveError(String(e));
       setSaveState("idle");
     }
   };
@@ -985,52 +1077,19 @@ const AdminProgramEdit = () => {
     itemsOverride?: Item[]
   ) => {
     if (!activeWeek) return;
-    const source = itemsOverride ?? items;
-    const sectionItems = source.filter(
-      (it) =>
-        it.week_id === activeWeek.id &&
-        sectionOf(it.custom_name) === section
+    const updates = renumberUpdates(
+      itemsOverride ?? items,
+      activeWeek.id,
+      section
     );
-    const sets = buildSets(sectionItems, section);
-    let supersetN = 0;
-    let dropsetN = 0;
-    let circuitN = 0;
-    const updates: Array<{ id: string; group_name: string }> = [];
-    for (const set of sets) {
-      if (set.type === "Single" || !set.group_name) continue;
-      let target: string;
-      if (set.type === "Superset") {
-        supersetN += 1;
-        target = `Superset ${supersetN}`;
-      } else if (set.type === "Circuit") {
-        circuitN += 1;
-        target = `Circuit ${circuitN}`;
-      } else {
-        dropsetN += 1;
-        target = `Drop set ${dropsetN}`;
-      }
-      if (set.group_name === target) continue;
-      for (const it of set.items) {
-        updates.push({ id: it.id, group_name: target });
-      }
-    }
     if (updates.length === 0) return;
     setSaveState("saving");
     try {
-      for (const u of updates) {
-        await sbPatch(`program_items?id=eq.${u.id}`, {
-          group_name: u.group_name,
-        });
-      }
-      setItems((prev) => {
-        const byId = new Map(updates.map((u) => [u.id, u.group_name]));
-        return prev.map((it) =>
-          byId.has(it.id) ? { ...it, group_name: byId.get(it.id)! } : it
-        );
-      });
+      await saveOrder(updates);
+      setItems((prev) => applyOrderLocally(prev, updates));
       flagSaved();
     } catch (e) {
-      setError(String(e));
+      setSaveError(String(e));
       setSaveState("idle");
     }
   };
@@ -1082,20 +1141,26 @@ const AdminProgramEdit = () => {
     const sets = buildSets(sessionItems, section);
     const label =
       nextType === "Single" ? null : nextGroupLabel(nextType, sets);
+    if (!activeWeek) return;
+    const relabel: OrderUpdate[] = set.items.map((it) => ({
+      id: it.id,
+      group_name: label,
+    }));
+    const all = [
+      ...relabel,
+      ...renumberUpdates(
+        applyOrderLocally(items, relabel),
+        activeWeek.id,
+        section
+      ),
+    ];
     setSaveState("saving");
     try {
-      for (const it of set.items) {
-        await sbPatch(`program_items?id=eq.${it.id}`, { group_name: label });
-      }
-      const ids = new Set(set.items.map((i) => i.id));
-      const after = items.map((it) =>
-        ids.has(it.id) ? { ...it, group_name: label } : it
-      );
-      setItems(after);
+      await saveOrder(all);
+      setItems((prev) => applyOrderLocally(prev, all));
       flagSaved();
-      await renumberSection(section, after);
     } catch (e) {
-      setError(String(e));
+      setSaveError(String(e));
       setSaveState("idle");
     }
   };
@@ -1130,15 +1195,9 @@ const AdminProgramEdit = () => {
     const sectionLast = lastOrderIndexInSection(section);
     const baseIdx = sectionLast ?? 0;
     const shiftCount = template.exercises.length;
-    const toBump = sessionItems
+    const bumps: OrderUpdate[] = sessionItems
       .filter((it) => it.order_index > baseIdx)
-      .sort((a, b) => b.order_index - a.order_index); // desc to avoid UNIQUE clash
-    setSaveState("saving");
-    for (const it of toBump) {
-      await sbPatch(`program_items?id=eq.${it.id}`, {
-        order_index: it.order_index + shiftCount,
-      });
-    }
+      .map((it) => ({ id: it.id, order_index: it.order_index + shiftCount }));
     const payload = template.exercises.map((ex, i) => {
       const hit = libByName.get(ex.name.toLowerCase());
       const parts: string[] = [];
@@ -1161,18 +1220,12 @@ const AdminProgramEdit = () => {
         exercise_id: useCustomVideo ? null : hit?.id ?? null,
       };
     });
-    const created = await safeSave(() =>
-      sbPost<Item[]>("program_items", payload)
-    );
-    const bumpedIds = new Set(toBump.map((b) => b.id));
-    const nextItems = items
-      .map((it) =>
-        bumpedIds.has(it.id)
-          ? { ...it, order_index: it.order_index + shiftCount }
-          : it
-      )
-      .concat(created);
-    setItems(nextItems);
+    const created = await safeSave(async () => {
+      await saveOrder(bumps);
+      return sbPost<Item[]>("program_items", payload);
+    });
+    const nextItems = applyOrderLocally(items, bumps).concat(created);
+    setItems((prev) => applyOrderLocally(prev, bumps).concat(created));
     // Templates carry their own Superset 1 / Drop set 1 etc. labels;
     // applying one into a section that already has groups can produce
     // duplicates or collisions. Renumber the section so the final
@@ -1250,7 +1303,7 @@ const AdminProgramEdit = () => {
       }
       flagSaved();
     } catch (e) {
-      setError(String(e));
+      setSaveError(String(e));
       setSaveState("idle");
     }
   };
@@ -1290,6 +1343,34 @@ const AdminProgramEdit = () => {
       >
         <ArrowLeft size={16} /> Back
       </Link>
+
+      {/* Sticky so it stays in view wherever the coach is scrolled, and
+          the editor stays underneath so nothing typed is lost. */}
+      {saveError && (
+        <div
+          role="alert"
+          className="sticky top-2 z-30 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-500/30 rounded-lg p-3 text-sm text-red-800 dark:text-red-200 shadow-sm"
+        >
+          <p className="font-semibold">Your last change was not saved.</p>
+          <p className="mt-1">
+            The screen may not match what the client sees. Copy anything you
+            just typed, then reload to see the saved version.
+          </p>
+          <p className="mt-1 text-xs opacity-75 break-words">{saveError}</p>
+          <div className="flex gap-2 mt-2">
+            <Button size="sm" onClick={() => window.location.reload()}>
+              Reload
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setSaveError(null)}
+            >
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* ----- Header ----- */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -1454,7 +1535,7 @@ const AdminProgramEdit = () => {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => moveCurrentSession("up")}
+                  onClick={exclusive(() => moveCurrentSession("up"))}
                   disabled={sessionIdx === 0}
                   className="px-2"
                   title="Move session up"
@@ -1465,7 +1546,7 @@ const AdminProgramEdit = () => {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => moveCurrentSession("down")}
+                  onClick={exclusive(() => moveCurrentSession("down"))}
                   disabled={sessionIdx === weeks.length - 1}
                   className="px-2"
                   title="Move session down"
@@ -1477,7 +1558,7 @@ const AdminProgramEdit = () => {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={duplicateCurrentSession}
+                onClick={exclusive(duplicateCurrentSession)}
                 className="gap-1.5 shrink-0"
                 title="Create a copy of this session right after it"
               >
@@ -1497,7 +1578,7 @@ const AdminProgramEdit = () => {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={deleteCurrentSession}
+                onClick={exclusive(deleteCurrentSession)}
                 className="gap-1.5 shrink-0 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300 border-red-200 dark:border-red-500/30"
                 title="Delete this session and all its exercises"
               >
@@ -1511,13 +1592,13 @@ const AdminProgramEdit = () => {
               key={section}
               section={section}
               items={sessionItems}
-              onAddSet={(type) => addSet(section, type)}
-              onAddRow={(set) => addRowToSet(section, set)}
+              onAddSet={exclusive((type: SetType) => addSet(section, type))}
+              onAddRow={exclusive((set: UISet) => addRowToSet(section, set))}
               onPatch={patchItem}
-              onDelete={deleteItem}
-              onMoveSet={(setIdx, dir) => moveSet(section, setIdx, dir)}
-              onChangeType={(set, type) => changeSetType(section, set, type)}
-              onUseTemplate={(t) => applyTemplate(t, section)}
+              onDelete={exclusive(deleteItem)}
+              onMoveSet={exclusive((setIdx: number, dir: "up" | "down") => moveSet(section, setIdx, dir))}
+              onChangeType={exclusive((set: UISet, type: SetType) => changeSetType(section, set, type))}
+              onUseTemplate={exclusive((t: TemplateRow) => applyTemplate(t, section))}
             />
           ))}
         </div>
@@ -1526,7 +1607,7 @@ const AdminProgramEdit = () => {
       <ImportSessionDialog
         open={importOpen}
         onClose={() => setImportOpen(false)}
-        onImport={importSessionFromWeek}
+        onImport={exclusive(importSessionFromWeek)}
         currentWeekId={activeWeek?.id ?? null}
       />
 
