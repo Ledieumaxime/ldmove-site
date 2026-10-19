@@ -55,6 +55,18 @@ const config: CapacitorConfig = {
     // Android; letting iOS add its own inset as well would pad twice.
     contentInset: "never",
   },
+  // iOS only: show a notification even while the app is open. Android's
+  // behaviour is left as it is, which would change on its next release
+  // if this applied to both.
+  ...(platform === "ios"
+    ? {
+        plugins: {
+          PushNotifications: {
+            presentationOptions: ["badge", "sound", "banner", "list"],
+          },
+        },
+      }
+    : {}),
 };
 
 export default config;

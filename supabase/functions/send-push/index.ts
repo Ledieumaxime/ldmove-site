@@ -9,10 +9,13 @@
 // for a short-lived OAuth token, then POST to the v1 send endpoint. Doing
 // it by hand avoids pulling the whole Admin SDK into an edge function.
 //
+// iPhones go to Apple directly, see ../_shared/apns.ts.
+//
 // Coach-only, or callable with the service role from another function.
 // deno-lint-ignore-file no-explicit-any
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { b64url, pemToDer, sendApns } from "../_shared/apns.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,23 +39,6 @@ const COMMENT_PUSH_WINDOW_MS = 60 * 60 * 1000;
  *  costs a round trip and an RSA signature; they last an hour and a burst
  *  of notifications would otherwise pay for it on every single send. */
 let cachedToken: { value: string; expiresAt: number } | null = null;
-
-function pemToDer(pem: string): Uint8Array {
-  const body = pem
-    .replace(/-----BEGIN PRIVATE KEY-----/, "")
-    .replace(/-----END PRIVATE KEY-----/, "")
-    .replace(/\s+/g, "");
-  const raw = atob(body);
-  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
-}
-
-function b64url(bytes: Uint8Array | string): string {
-  const str =
-    typeof bytes === "string"
-      ? bytes
-      : String.fromCharCode(...Array.from(bytes));
-  return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
 
 async function getAccessToken(sa: ServiceAccount): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
@@ -111,9 +97,6 @@ Deno.serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const rawSa = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
-    if (!rawSa) return json({ error: "Firebase not configured" }, 500);
-    const sa: ServiceAccount = JSON.parse(rawSa);
 
     const admin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },
@@ -167,7 +150,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: devices } = await admin
       .from("push_tokens")
-      .select("token")
+      .select("token, platform")
       .eq("user_id", user_id);
 
     if (!devices?.length) {
@@ -176,13 +159,29 @@ Deno.serve(async (req: Request) => {
       return json({ sent: 0, reason: "no device registered" });
     }
 
-    const accessToken = await getAccessToken(sa);
-    const endpoint = `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`;
-
     let sent = 0;
     const stale: string[] = [];
 
-    for (const d of devices) {
+    for (const d of devices.filter((x) => x.platform === "ios")) {
+      const { result } = await sendApns(d.token, title, body ?? "", link_url);
+      if (result === "sent") sent++;
+      else if (result === "stale") stale.push(d.token);
+    }
+
+    // Firebase is only asked for a token when there is an Android phone
+    // to ring, so an iPhone-only client never depends on it.
+    const androids = devices.filter((x) => x.platform !== "ios");
+    let accessToken = "";
+    let endpoint = "";
+    if (androids.length) {
+      const rawSa = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
+      if (!rawSa) return json({ error: "Firebase not configured" }, 500);
+      const sa: ServiceAccount = JSON.parse(rawSa);
+      accessToken = await getAccessToken(sa);
+      endpoint = `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`;
+    }
+
+    for (const d of androids) {
       const res = await fetch(endpoint, {
         method: "POST",
         headers: {
