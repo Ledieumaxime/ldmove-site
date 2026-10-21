@@ -833,7 +833,7 @@ export const ClientDashboardBody = ({
             className="fixed inset-0 z-40 bg-black/40"
             onClick={() => setSkipOpen(false)}
           />
-          <div className="fixed z-50 inset-x-4 top-[10%] max-w-md mx-auto bg-surface border border-border rounded-2xl shadow-xl p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+          <div className="fixed z-50 inset-x-safe-4 top-[10%] max-w-md mx-auto bg-surface border border-border rounded-2xl shadow-xl p-5 space-y-4 max-h-[80vh] overflow-y-auto">
             <div>
               <h2 className="font-heading text-lg font-bold">Skip session</h2>
               <p className="text-sm text-muted-foreground mt-2 leading-relaxed">

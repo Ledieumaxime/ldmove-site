@@ -153,6 +153,17 @@
   /* Background paints the full screen, content stays out from under the
      bars. Both halves matter: padding alone would leave the strip
      uncoloured, and colour alone would hide the content behind it. */
+  /* Full-screen overlays: 1rem of breathing room, or the safe-area
+     inset where it is bigger (notch, home indicator, the iPhone Duo's
+     side column), so a close button never lands under the hardware. */
+  .p-safe-4 {
+    padding: max(1rem, var(--safe-top)) max(1rem, var(--safe-right))
+      max(1rem, var(--safe-bottom)) max(1rem, var(--safe-left));
+  }
+  .inset-x-safe-4 {
+    left: max(1rem, var(--safe-left));
+    right: max(1rem, var(--safe-right));
+  }
   .pt-safe {
     padding-top: var(--safe-top);
   }

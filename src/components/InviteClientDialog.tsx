@@ -127,7 +127,7 @@ const InviteClientDialog = ({ open, onClose, onInvited }: Props) => {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-safe-4 bg-black/40 backdrop-blur-sm"
       onClick={() => !sending && onClose()}
     >
       <div
