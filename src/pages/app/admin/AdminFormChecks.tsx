@@ -80,12 +80,16 @@ type CommentRow = {
   body: string;
   dismissed_at: string | null;
   profiles?: { first_name: string | null; last_name: string | null } | null;
-  program_items?: { custom_name: string | null } | null;
+  program_items?: FormCheck["program_items"];
 };
 
 type Thread = {
   item_id: string;
   exerciseName: string;
+  /** What was prescribed on the exercise, shown above the conversation
+   *  as on a form check: a question like "what is the difference" only
+   *  makes sense next to the sets, reps and cues it is about. */
+  item: FormCheck["program_items"];
   clientId: string | null;
   clientName: string;
   lastBody: string;
@@ -164,7 +168,7 @@ const AdminFormChecks = () => {
         // in October 2026, 778 in total) hid any thread whose last
         // exchange was older: a client answering there never surfaced.
         sbGetAll<CommentRow>(
-          "exercise_comments?select=*,profiles(first_name,last_name),program_items(custom_name)&order=created_at.desc"
+          "exercise_comments?select=*,profiles(first_name,last_name),program_items(custom_name,sets,reps,notes,group_name)&order=created_at.desc"
         ),
       ]);
       setChecks(rows);
@@ -183,6 +187,7 @@ const AdminFormChecks = () => {
         threadsOut.push({
           item_id,
           exerciseName: cs[0]?.program_items?.custom_name ?? "Exercise",
+          item: cs[0]?.program_items ?? null,
           clientId: clientMsg?.author_id ?? null,
           clientName: clientMsg?.profiles?.first_name ?? "Client",
           lastBody: last.body,
@@ -679,6 +684,9 @@ const ThreadCard = ({
       </button>
       {open && (
         <div className="mt-3 pt-3 border-t border-border">
+          {thread.item && (
+            <Prescription itemId={thread.item_id} item={thread.item} />
+          )}
           <ExerciseComments
             itemId={thread.item_id}
             clientId={thread.clientId}
