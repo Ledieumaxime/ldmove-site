@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import logo from "@/assets/logo-ldmove.png";
 import AppIntro from "@/components/AppIntro";
+import StoreBadges, { showStoreBadges } from "@/components/StoreBadges";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -194,6 +195,16 @@ const Login = () => {
           </button>
         </div>
 
+        {/* Clients reach this page from the site or a link in a browser.
+            It is where they are most likely to need the app. */}
+        {showStoreBadges() && (
+          <div className="mt-auto pt-10 md:mt-12 md:pt-0 text-center">
+            <p className="text-xs text-muted-foreground mb-3">
+              Train with the LD Move app
+            </p>
+            <StoreBadges className="justify-center" />
+          </div>
+        )}
       </div>
       </div>
     </div>

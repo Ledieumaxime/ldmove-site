@@ -5,6 +5,7 @@ import { ArrowRight, Lock, Dumbbell, Scale, TrendingUp, CheckCircle2 } from "luc
 import Layout from "@/components/Layout";
 import SectionWrapper from "@/components/SectionWrapper";
 import Seo from "@/components/Seo";
+import StoreBadges, { showStoreBadges } from "@/components/StoreBadges";
 import { useLang } from "@/contexts/LangContext";
 import heroHome from "@/assets/hero-home.jpg";
 import heroVideo from "@/assets/hero-intro.mp4";
@@ -59,21 +60,37 @@ const Index = () => {
                 </Button>
               </div>
             </motion.div>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="relative mx-auto max-w-[320px] aspect-[9/16] rounded-2xl overflow-hidden shadow-xl"
-            >
-              <video
-                src={heroVideo}
-                autoPlay
-                muted
-                loop
-                playsInline
-                className="w-full h-full object-cover bg-foreground"
-              />
-            </motion.div>
+            <div className="mx-auto w-full max-w-[320px]">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+                className="relative aspect-[9/16] rounded-2xl overflow-hidden shadow-xl"
+              >
+                <video
+                  src={heroVideo}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className="w-full h-full object-cover bg-foreground"
+                />
+              </motion.div>
+              {/* Seen with the first impression: the coaching comes with a
+                  real app, on both stores. */}
+              {showStoreBadges() && (
+                <div className="mt-8 text-center">
+                  <p className="font-body text-accent font-semibold text-sm uppercase tracking-widest mb-2">
+                    The LD Move app
+                  </p>
+                  <p className="font-body text-sm text-muted-foreground mb-4">
+                    Your program, your sets and my feedback on your form, on
+                    iPhone and Android.
+                  </p>
+                  <StoreBadges className="justify-center" />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>

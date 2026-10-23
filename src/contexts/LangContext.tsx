@@ -22,6 +22,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "footer.desc": { fr: "Handstand, mobilité et calisthenics pour adultes occupés. Coaching en ligne depuis Bali.", en: "Handstand, mobility, and calisthenics coaching for busy adults. Online from Bali." },
   "footer.nav": { fr: "Navigation", en: "Navigation" },
   "footer.follow": { fr: "Suivre LD Move", en: "Follow LD Move" },
+  "footer.app": { fr: "Télécharger l'app", en: "Get the app" },
   "footer.rights": { fr: "Tous droits réservés.", en: "All rights reserved." },
   "footer.faq": { fr: "FAQ", en: "FAQ" },
 

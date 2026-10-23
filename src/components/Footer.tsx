@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Instagram } from "lucide-react";
 import { useLang } from "@/contexts/LangContext";
 import logoWhite from "@/assets/logo-ldmove-white.png";
+import StoreBadges, { showStoreBadges } from "@/components/StoreBadges";
 
 const Footer = () => {
   const { t } = useLang();
@@ -48,6 +49,12 @@ const Footer = () => {
                 @ld_move
               </a>
             </div>
+            {showStoreBadges() && (
+              <div>
+                <h4 className="font-body font-semibold text-sm uppercase tracking-wider mb-4 text-primary-foreground/50">{t("footer.app")}</h4>
+                <StoreBadges stacked />
+              </div>
+            )}
           </div>
 
           {/* Right: logo — bottom-aligned on md+, top-aligned on mobile */}
