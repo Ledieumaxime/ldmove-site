@@ -17,6 +17,7 @@ import {
 } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { compressVideo } from "@/lib/compressVideo";
 
 /**
  * Action-first upload UI for the client.
@@ -42,7 +43,10 @@ type FormCheck = {
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 const SESSION_KEY = "ldmove-session";
+/** What may be sent, once compressed. */
 const MAX_SIZE_MB = 100;
+/** What may be picked: a long phone clip shrinks well under the limit. */
+const MAX_ORIGINAL_MB = 500;
 const SUCCESS_FLASH_MS = 4000;
 
 function getToken(): string | null {
@@ -91,6 +95,7 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [stage, setStage] = useState<"preparing" | "uploading">("preparing");
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [justSent, setJustSent] = useState(false);
@@ -150,15 +155,24 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
   const upload = async (file: File) => {
     if (!user) return;
     setError(null);
-    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      setError(`File too large. Max ${MAX_SIZE_MB} MB.`);
+    if (file.size > MAX_ORIGINAL_MB * 1024 * 1024) {
+      setError(`File too large. Max ${MAX_ORIGINAL_MB} MB.`);
       return;
     }
     setUploading(true);
+    setStage("preparing");
     setProgress(0);
     try {
-      const ext = file.name.split(".").pop() || "mp4";
-      const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      // Shrunk on the phone first: see compressVideo for why.
+      const prepared = await compressVideo(file, (p) =>
+        setProgress(Math.round(p * 100))
+      );
+      if (prepared.file.size > MAX_SIZE_MB * 1024 * 1024) {
+        throw new Error(`File too large. Max ${MAX_SIZE_MB} MB.`);
+      }
+      setStage("uploading");
+      setProgress(0);
+      const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${prepared.ext}`;
       let token = getToken();
       if (!token) throw new Error("Not signed in");
 
@@ -182,7 +196,7 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
           xhr.onload = () =>
             resolve({ status: xhr.status, body: xhr.responseText });
           xhr.onerror = () => reject(new Error("Upload failed"));
-          xhr.send(file);
+          xhr.send(prepared.file);
         });
 
       let result = await doUpload(token);
@@ -271,7 +285,10 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
             <div className="bg-surface border border-border rounded-lg p-3 text-xs">
               <div className="flex items-center gap-2 mb-2">
                 <Loader2 size={14} className="animate-spin text-accent" />
-                <span>Uploading… {progress}%</span>
+                <span>
+                  {stage === "preparing" ? "Preparing video…" : "Uploading…"}{" "}
+                  {progress}%
+                </span>
               </div>
               <div className="h-1 bg-muted rounded overflow-hidden">
                 <div
@@ -318,7 +335,7 @@ const FormCheckUpload = ({ itemId }: { itemId: string }) => {
                 </Button>
               </div>
               <p className="text-[10px] text-muted-foreground">
-                Max {MAX_SIZE_MB} MB. MP4 / MOV / WebM. Use the comments
+                Max {MAX_ORIGINAL_MB} MB. MP4 / MOV / WebM. Use the comments
                 below to add context.
               </p>
             </div>

@@ -13,6 +13,7 @@ import { refreshAccessToken, sbGet, sbPost, sbSignUrl } from "@/integrations/sup
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import BackToDashboard from "@/components/BackToDashboard";
+import { compressVideo } from "@/lib/compressVideo";
 import {
   ASSESSMENT_EXERCISES,
   AssessmentExercise,
@@ -53,6 +54,7 @@ const OnboardingAssessmentUpload = () => {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState<number | null>(null);
+  const [stage, setStage] = useState<"preparing" | "uploading">("preparing");
   const [progress, setProgress] = useState(0);
 
   const load = async () => {
@@ -99,10 +101,16 @@ const OnboardingAssessmentUpload = () => {
       return;
     }
     setUploading(exercise.n);
+    setStage("preparing");
     setProgress(0);
     try {
-      const ext = file.name.split(".").pop() || "mp4";
-      const path = `${user.id}/${exercise.n}-${Date.now()}.${ext}`;
+      // Shrunk on the phone first, same as form checks: see compressVideo.
+      const prepared = await compressVideo(file, (p) =>
+        setProgress(Math.round(p * 100))
+      );
+      setStage("uploading");
+      setProgress(0);
+      const path = `${user.id}/${exercise.n}-${Date.now()}.${prepared.ext}`;
       let token = getToken();
       if (!token) throw new Error("Not signed in");
 
@@ -147,7 +155,7 @@ const OnboardingAssessmentUpload = () => {
           xhr.onload = () =>
             resolve({ status: xhr.status, body: xhr.responseText });
           xhr.onerror = () => reject(new Error("Upload failed"));
-          xhr.send(file);
+          xhr.send(prepared.file);
         });
       let result = await doUpload(token);
       if (result.status === 401 || result.status === 403) {
@@ -289,6 +297,7 @@ const OnboardingAssessmentUpload = () => {
                   signedUrl={signedUrls[e.n] ?? null}
                   uploading={uploading === e.n}
                   progress={uploading === e.n ? progress : 0}
+                  stage={stage}
                   onFile={(file) => uploadFor(e, file)}
                 />
               ))}
@@ -312,6 +321,7 @@ const ExerciseSlot = ({
   signedUrl,
   uploading,
   progress,
+  stage,
   onFile,
 }: {
   exercise: AssessmentExercise;
@@ -319,6 +329,7 @@ const ExerciseSlot = ({
   signedUrl: string | null;
   uploading: boolean;
   progress: number;
+  stage: "preparing" | "uploading";
   onFile: (file: File) => void;
 }) => {
   const fileInput = useRef<HTMLInputElement>(null);
@@ -365,7 +376,10 @@ const ExerciseSlot = ({
         <div className="border border-border rounded-lg p-3 text-xs">
           <div className="flex items-center gap-2 mb-2">
             <Loader2 size={14} className="animate-spin text-accent" />
-            <span>Uploading… {progress}%</span>
+            <span>
+              {stage === "preparing" ? "Preparing video…" : "Uploading…"}{" "}
+              {progress}%
+            </span>
           </div>
           <div className="h-1 bg-muted rounded overflow-hidden">
             <div
