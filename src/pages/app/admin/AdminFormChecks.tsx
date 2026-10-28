@@ -30,7 +30,11 @@ import { sendPush } from "@/integrations/supabase/notify";
 import { notificationCopy } from "@/lib/notification-copy";
 import { stripSection } from "@/components/ProgramItemCard";
 import LazyVideo from "@/components/LazyVideo";
-import { groupSetsLabel } from "@/lib/programSections";
+import {
+  blockStatsLabel,
+  groupSetsLabel,
+  groupTypeLabel,
+} from "@/lib/programSections";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -79,6 +83,58 @@ type FormCheck = {
     } | null;
   } | null;
 };
+
+/** One exercise of a session, as read to rebuild its group. */
+type GroupMember = {
+  id: string;
+  week_id: string;
+  order_index: number;
+  custom_name: string | null;
+  sets: number | null;
+  reps: string | null;
+  notes: string | null;
+  group_name: string | null;
+  rest_seconds: number | null;
+};
+
+/** A superset, drop set or circuit: the exercises in order. */
+type ItemGroup = { name: string; members: GroupMember[] };
+
+const sectionOf = (name: string | null) =>
+  name?.match(/^\[([^\]]+)\]/)?.[1].trim().toUpperCase() ?? "";
+
+/** Groups are runs of consecutive exercises sharing a group_name in the
+ *  same section, exactly as the session screen draws them: the name alone
+ *  is not enough, a warm-up "Superset 1" and a workout "Superset 1" often
+ *  live in the same session. Single-exercise runs are left out. */
+function buildGroups(items: GroupMember[]): Record<string, ItemGroup> {
+  const out: Record<string, ItemGroup> = {};
+  let run: GroupMember[] = [];
+  const flush = () => {
+    if (run.length > 1) {
+      const group = { name: run[0].group_name!, members: run };
+      for (const m of run) out[m.id] = group;
+    }
+    run = [];
+  };
+  for (const it of items) {
+    const prev = run[run.length - 1];
+    if (
+      it.group_name &&
+      prev &&
+      prev.week_id === it.week_id &&
+      prev.group_name === it.group_name &&
+      sectionOf(prev.custom_name) === sectionOf(it.custom_name)
+    ) {
+      run.push(it);
+    } else {
+      flush();
+      if (it.group_name) run = [it];
+    }
+  }
+  flush();
+  return out;
+}
 
 /** Embedded with every form check and comment: the prescription, plus the
  *  session it belongs to. */
@@ -157,6 +213,8 @@ const waitingBadgeClass: Record<"red" | "amber" | "grey", string> = {
 const AdminFormChecks = () => {
   const [checks, setChecks] = useState<FormCheck[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
+  /** Group (superset, drop set, circuit) of each pending item, by item id. */
+  const [groups, setGroups] = useState<Record<string, ItemGroup>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
@@ -220,6 +278,29 @@ const AdminFormChecks = () => {
         (a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime()
       );
       setThreads(threadsOut);
+
+      // The rest of the superset / drop set / circuit each pending item
+      // sits in. Only the sessions that hold one are read.
+      const groupWeeks = [
+        ...new Set(
+          [
+            ...rows
+              .filter((r) => r.status === "pending" && r.program_items?.group_name)
+              .map((r) => r.program_items!.week_id),
+            ...threadsOut
+              .filter((t) => t.needsReply && t.item?.group_name)
+              .map((t) => t.item!.week_id),
+          ].filter(Boolean)
+        ),
+      ];
+      if (groupWeeks.length > 0) {
+        const weekItems = await sbGetAll<GroupMember>(
+          `program_items?select=id,week_id,order_index,custom_name,sets,reps,notes,group_name,rest_seconds&week_id=in.(${groupWeeks.join(",")})&order=week_id.asc,order_index.asc,id.asc`
+        );
+        setGroups(buildGroups(weekItems));
+      } else {
+        setGroups({});
+      }
 
       // Sign every video URL in parallel — sequential awaits used to
       // multiply ~250 ms by the number of pending videos and made the
@@ -539,6 +620,11 @@ const AdminFormChecks = () => {
                             key={`fc-${it.check.id}`}
                             domId={`fc-${it.check.id}`}
                             check={it.check}
+                            group={
+                              it.check.item_id
+                                ? groups[it.check.item_id]
+                                : undefined
+                            }
                             videoSrc={signedUrls[it.check.id]}
                             onUpdated={() =>
                               handleCleared(`fc-${it.check.id}`)
@@ -549,6 +635,7 @@ const AdminFormChecks = () => {
                             key={`th-${it.thread.item_id}`}
                             domId={`th-${it.thread.item_id}`}
                             thread={it.thread}
+                            group={groups[it.thread.item_id]}
                             onReplied={() =>
                               handleCleared(`th-${it.thread.item_id}`)
                             }
@@ -622,11 +709,13 @@ const AdminFormChecks = () => {
 
 const ThreadCard = ({
   thread,
+  group,
   compact = false,
   onReplied,
   domId,
 }: {
   thread: Thread;
+  group?: ItemGroup;
   compact?: boolean;
   onReplied?: () => void;
   /** Anchor the inbox scrolls to when the card above this one is
@@ -699,7 +788,7 @@ const ThreadCard = ({
       {open && (
         <div className="mt-3 pt-3 border-t border-border">
           {thread.item && (
-            <Prescription itemId={thread.item_id} item={thread.item} />
+            <Prescription itemId={thread.item_id} item={thread.item} group={group} />
           )}
           <ExerciseComments
             itemId={thread.item_id}
@@ -756,12 +845,23 @@ const joinNotes = (tempo: string, load: string, comment: string) =>
 
 /** The prescription for the exercise a form check answers: sets, reps,
  *  tempo and load on one line, then the coach's note on the exercise. */
+/** One line of a member of a group: reps, tempo and load. The set count
+ *  belongs to the whole group, so it is shown once, in the group header. */
+const memberLine = (m: { reps: string | null; notes: string | null }) => {
+  const n = splitNotes(m.notes);
+  return [m.reps, n.tempo && `Tempo ${n.tempo}`, n.load].filter(Boolean).join("  ·  ");
+};
+
 const Prescription = ({
   itemId,
   item,
+  group,
 }: {
   itemId: string;
   item: NonNullable<FormCheck["program_items"]>;
+  /** Set when the exercise is part of a superset, drop set or circuit:
+   *  the client's remark is about the whole chain, not one line of it. */
+  group?: ItemGroup;
 }) => {
   // The row is edited in place rather than refetched through the page:
   // reloading the inbox to see one number change would rebuild every
@@ -897,13 +997,36 @@ const Prescription = ({
     );
   }
 
+  // In a group, the exercise is shown inside its chain, in order, the way
+  // the client sees it: "3 × 3 · BW" alone says nothing about the band
+  // that follows it in a drop set. The line being discussed stands out,
+  // and reads from `current` so an Adjust shows straight away.
+  const members = group?.members.map((m) =>
+    m.id === itemId ? { ...m, ...current } : m
+  );
+  const groupStats = members
+    ? blockStatsLabel(
+        group!.name,
+        members.find((m) => m.sets != null)?.sets ?? null,
+        [...members].reverse().find((m) => (m.rest_seconds ?? 0) > 0)
+          ?.rest_seconds ?? null
+      )
+    : null;
+
   return (
     <div className="border border-border rounded-lg p-3 mb-2">
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between gap-3 mb-1">
         <p className="text-[10px] font-bold uppercase text-muted-foreground">
           Prescribed
+          {group && (
+            <>
+              {"  ·  "}
+              {groupTypeLabel(group.name)}
+              {groupStats && <span className="font-medium normal-case">{`  ·  ${groupStats}`}</span>}
+            </>
+          )}
         </p>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           {/* A new tab, so the inbox keeps its place and its drafts. */}
           {/* The preview, as the client sees it: reading the session in
               context, not editing it (Adjust is right next to it). */}
@@ -928,7 +1051,38 @@ const Prescription = ({
           </button>
         </div>
       </div>
-      {parts.length > 0 ? (
+      {members ? (
+        <ol className="space-y-1 mt-1.5">
+          {members.map((m, i) => {
+            const isThis = m.id === itemId;
+            return (
+              <li
+                key={m.id}
+                className={`flex items-baseline gap-2 text-sm ${
+                  isThis ? "font-semibold" : "text-muted-foreground"
+                }`}
+              >
+                <span
+                  className={`w-4 shrink-0 tabular-nums text-xs ${
+                    isThis ? "text-accent" : ""
+                  }`}
+                >
+                  {i + 1}
+                </span>
+                <span className="min-w-0">
+                  {stripSection(m.custom_name)}
+                  {memberLine(m) && (
+                    <span className={isThis ? "" : "font-normal"}>
+                      {"  ·  "}
+                      {memberLine(m)}
+                    </span>
+                  )}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      ) : parts.length > 0 ? (
         <p className="text-sm font-semibold">{parts.join("  ·  ")}</p>
       ) : (
         !shown.comment && (
@@ -948,11 +1102,13 @@ const Prescription = ({
 
 const CheckCard = ({
   check,
+  group,
   videoSrc,
   onUpdated,
   domId,
 }: {
   check: FormCheck;
+  group?: ItemGroup;
   videoSrc: string | undefined;
   onUpdated: () => void;
   /** Anchor the inbox scrolls to when the card above this one is
@@ -1106,7 +1262,7 @@ const CheckCard = ({
           check means comparing the two, and the coach was having to
           remember the prescription or open the program in another tab. */}
       {check.item_id && check.program_items && (
-        <Prescription itemId={check.item_id} item={check.program_items} />
+        <Prescription itemId={check.item_id} item={check.program_items} group={group} />
       )}
 
       {check.client_note && (
