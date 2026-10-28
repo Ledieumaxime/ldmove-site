@@ -73,14 +73,17 @@ type FormCheck = {
      *  like "I'm doing it with 40kg" needs the rest of the session to
      *  make sense. */
     week_id: string;
-    program_weeks?: { program_id: string; week_number: number } | null;
+    program_weeks?: {
+      week_number: number;
+      programs?: { slug: string } | null;
+    } | null;
   } | null;
 };
 
 /** Embedded with every form check and comment: the prescription, plus the
  *  session it belongs to. */
 const ITEM_FIELDS =
-  "program_items(custom_name,sets,reps,notes,group_name,week_id,program_weeks(program_id,week_number))";
+  "program_items(custom_name,sets,reps,notes,group_name,week_id,program_weeks(week_number,programs(slug)))";
 
 type CommentRow = {
   id: string;
@@ -902,13 +905,15 @@ const Prescription = ({
         </p>
         <div className="flex items-center gap-3">
           {/* A new tab, so the inbox keeps its place and its drafts. */}
-          {item.program_weeks && (
+          {/* The preview, as the client sees it: reading the session in
+              context, not editing it (Adjust is right next to it). */}
+          {item.program_weeks?.programs?.slug && (
             <a
-              href={`/app/admin/programs/${item.program_weeks.program_id}/edit?week=${item.week_id}&item=${itemId}`}
+              href={`/app/programs/${item.program_weeks.programs.slug}?week=${item.week_id}&item=${itemId}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-[11px]"
-              title="Open the whole session in the program editor"
+              title="Open the whole session, as the client sees it"
             >
               <ExternalLink size={11} /> Session {item.program_weeks.week_number}
             </a>

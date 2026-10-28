@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import {
   Lock,
   ArrowLeft,
@@ -129,6 +129,43 @@ const ProgramDetail = () => {
     };
     load();
   }, [slug, user]);
+
+  // Opened from the coach's inbox (?week=<id>&item=<id>): unfold that
+  // session and its sections, then bring the exercise into view and
+  // outline it for a moment, so the client's remark is read in context.
+  const [searchParams] = useSearchParams();
+  const focusWeek = searchParams.get("week");
+  const focusItem = searchParams.get("item");
+  const focusedRef = useRef(false);
+  useEffect(() => {
+    if (loading || !focusWeek || !weeks.some((w) => w.id === focusWeek)) return;
+    const dayItems = items
+      .filter((i) => i.week_id === focusWeek)
+      .sort((a, b) => a.order_index - b.order_index);
+    // Same keys as the render below: one per run of a [SECTION] prefix.
+    const keys: string[] = [];
+    let prev: string | null = null;
+    for (const it of dayItems) {
+      const m = it.custom_name?.match(/^\[([^\]]+)\]/);
+      const section = m ? m[1].trim().toUpperCase() : "EXERCISES";
+      if (section !== prev) keys.push(`${focusWeek}:${section}:${keys.length}`);
+      prev = section;
+    }
+    setOpenDays(new Set([focusWeek]));
+    setOpenSections(new Set(keys));
+  }, [loading, focusWeek, weeks, items]);
+  useEffect(() => {
+    if (!focusItem || focusedRef.current) return;
+    const el = document.getElementById(`item-${focusItem}`);
+    if (!el) return;
+    focusedRef.current = true;
+    el.scrollIntoView({ block: "center" });
+    el.style.boxShadow = "0 0 0 2px hsl(var(--accent))";
+    el.style.borderRadius = "12px";
+    window.setTimeout(() => {
+      el.style.boxShadow = "";
+    }, 2500);
+  }, [focusItem, openDays, openSections]);
 
   const handleUnlock = async () => {
     if (!program || !user) return;
@@ -475,7 +512,8 @@ const ProgramDetail = () => {
                                           {items.map((it, i) => (
                                             <div
                                               key={it.id}
-                                              className={`flex items-start gap-3 py-4 ${
+                                              id={`item-${it.id}`}
+                                              className={`flex items-start gap-3 py-4 scroll-mt-24 transition-shadow ${
                                                 i < items.length - 1
                                                   ? "border-b border-foreground/10"
                                                   : ""

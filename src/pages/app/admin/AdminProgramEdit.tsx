@@ -382,33 +382,11 @@ const AdminProgramEdit = () => {
     new Map()
   );
 
-  // session URL param is 1-indexed (?session=1). The inbox links with
-  // ?week=<id> instead: a session's position can shift when one is
-  // deleted, its id never does. Switching tabs rewrites the params to
-  // ?session= alone, so the link only decides where the editor opens.
-  const weekParam = searchParams.get("week");
-  const weekParamIdx = weekParam ? weeks.findIndex((w) => w.id === weekParam) : -1;
-  const sessionIdx =
-    weekParamIdx >= 0
-      ? weekParamIdx
-      : Math.max(0, parseInt(searchParams.get("session") ?? "1", 10) - 1);
-
-  // Opened from the inbox on one exercise: bring it into view and outline
-  // it for a moment, so the coach lands on what the client wrote about
-  // instead of at the top of a long session.
-  const focusItemId = searchParams.get("item");
-  const focusedRef = useRef(false);
-  useEffect(() => {
-    if (loading || !focusItemId || focusedRef.current) return;
-    const el = document.getElementById(`item-${focusItemId}`);
-    if (!el) return;
-    focusedRef.current = true;
-    el.scrollIntoView({ block: "center" });
-    el.style.boxShadow = "0 0 0 2px hsl(var(--accent))";
-    window.setTimeout(() => {
-      el.style.boxShadow = "";
-    }, 2500);
-  }, [loading, focusItemId, items, sessionIdx]);
+  // session URL param is 1-indexed (?session=1)
+  const sessionIdx = Math.max(
+    0,
+    parseInt(searchParams.get("session") ?? "1", 10) - 1
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -2275,10 +2253,7 @@ const ExerciseRow = ({
   };
 
   return (
-    <div
-      id={`item-${item.id}`}
-      className="bg-surface border border-border rounded-md p-2.5 space-y-2 scroll-mt-24 transition-shadow"
-    >
+    <div className="bg-surface border border-border rounded-md p-2.5 space-y-2">
       <div className="flex items-start gap-2">
         <div className="flex-1 space-y-1.5">
           {isCustom ? (
