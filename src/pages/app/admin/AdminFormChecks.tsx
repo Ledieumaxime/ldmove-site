@@ -18,6 +18,7 @@ import {
   Inbox as InboxIcon,
   Loader2,
   Pencil,
+  ExternalLink,
 } from "lucide-react";
 import {
   sbGetAll,
@@ -68,8 +69,18 @@ type FormCheck = {
     reps: string | null;
     notes: string | null;
     group_name: string | null;
+    /** Where the exercise sits, for the "Open session" link: a remark
+     *  like "I'm doing it with 40kg" needs the rest of the session to
+     *  make sense. */
+    week_id: string;
+    program_weeks?: { program_id: string; week_number: number } | null;
   } | null;
 };
+
+/** Embedded with every form check and comment: the prescription, plus the
+ *  session it belongs to. */
+const ITEM_FIELDS =
+  "program_items(custom_name,sets,reps,notes,group_name,week_id,program_weeks(program_id,week_number))";
 
 type CommentRow = {
   id: string;
@@ -162,13 +173,13 @@ const AdminFormChecks = () => {
         // growing 150 to 250 a month, so a single read would have started
         // dropping the oldest, pending ones included, within weeks.
         sbGetAll<FormCheck>(
-          "form_check_submissions?select=*,profiles(first_name,last_name),program_items(custom_name,sets,reps,notes,group_name)&order=created_at.desc"
+          `form_check_submissions?select=*,profiles(first_name,last_name),${ITEM_FIELDS}&order=created_at.desc`
         ),
         // Every comment, paged. A cap of the latest 200 (about five weeks
         // in October 2026, 778 in total) hid any thread whose last
         // exchange was older: a client answering there never surfaced.
         sbGetAll<CommentRow>(
-          "exercise_comments?select=*,profiles(first_name,last_name),program_items(custom_name,sets,reps,notes,group_name)&order=created_at.desc"
+          `exercise_comments?select=*,profiles(first_name,last_name),${ITEM_FIELDS}&order=created_at.desc`
         ),
       ]);
       setChecks(rows);
@@ -889,14 +900,28 @@ const Prescription = ({
         <p className="text-[10px] font-bold uppercase text-muted-foreground">
           Prescribed
         </p>
-        <button
-          type="button"
-          onClick={open}
-          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-[11px]"
-          title="Adjust this exercise"
-        >
-          <Pencil size={11} /> Adjust
-        </button>
+        <div className="flex items-center gap-3">
+          {/* A new tab, so the inbox keeps its place and its drafts. */}
+          {item.program_weeks && (
+            <a
+              href={`/app/admin/programs/${item.program_weeks.program_id}/edit?week=${item.week_id}&item=${itemId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-[11px]"
+              title="Open the whole session in the program editor"
+            >
+              <ExternalLink size={11} /> Session {item.program_weeks.week_number}
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={open}
+            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-[11px]"
+            title="Adjust this exercise"
+          >
+            <Pencil size={11} /> Adjust
+          </button>
+        </div>
       </div>
       {parts.length > 0 ? (
         <p className="text-sm font-semibold">{parts.join("  ·  ")}</p>
