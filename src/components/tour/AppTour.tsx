@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowRight } from "lucide-react";
 import { TOUR_COPY } from "./tourCopy";
 import tour1 from "@/assets/tour/tour-1.webp";
@@ -46,12 +47,15 @@ const AppTour = ({ onClose }: { onClose: () => void }) => {
     if (index + 1 < total) new Image().src = IMAGES[index + 1];
   }, [index, total]);
 
-  return (
+  // Rendered straight into <body>: opened from inside a page, it took
+  // that page's spacing (Profile's list gave it a 24px top margin) and a
+  // strip of the page showed above it on the phone.
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-label="How the app works"
-      className="fixed inset-0 z-[80] bg-background flex flex-col"
+      className="fixed inset-0 z-[80] bg-surface flex flex-col"
       style={{
         paddingTop: "calc(var(--safe-top) + 12px)",
         paddingBottom: "calc(var(--safe-bottom) + 20px)",
@@ -108,7 +112,8 @@ const AppTour = ({ onClose }: { onClose: () => void }) => {
           {last ? "Let's train" : "Next"} <ArrowRight size={16} />
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
