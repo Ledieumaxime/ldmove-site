@@ -85,8 +85,9 @@ function loggableItems(items: ProgramItem[]): ProgramItem[] {
 }
 
 /** Opens on "Complete workout" when an exercise with a tracker was left
- *  without its numbers (nothing logged on it, or a set ticked with no
- *  number typed). Nothing is saved while it is open: "Got it" completes
+ *  without its numbers (nothing logged on it, or a row without a number
+ *  left from when a set could be ticked without one). Nothing is saved
+ *  while it is open: "Got it" completes
  *  the session, "Log them now" closes it so the boxes can be filled.
  *
  *  It is shown on the session page itself. A toast on the dashboard,
@@ -153,8 +154,8 @@ const LogReminder = ({
 );
 
 /** A small copy of the tracker, drawn with the tracker's own styles: two
- *  sets filled in and the third box marked as the place to type. Ticking
- *  the round chip without typing is exactly the habit it corrects. */
+ *  sets filled in and the third box marked as the place to type: the
+ *  number in the box is what turns a set green. */
 const TrackerSketch = () => (
   <div aria-hidden className="mx-auto flex items-start gap-1.5 w-[180px]">
     {[1, 2, 3].map((n) => {

@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { CheckCircle2, Trophy, Loader2 } from "lucide-react";
 import { sbGet, sbPost, sbDelete } from "@/integrations/supabase/api";
 
 /**
- * Per-exercise workout logger. The client checks each set as they do it,
- * logs reps and (optional) weight. Sessions are grouped by date — opening
+ * Per-exercise workout logger. The client types what they did on each
+ * set (reps, seconds or tries), which is what marks it done. Sessions are
+ * grouped by date: opening
  * the page tomorrow shows a fresh tracker while still surfacing yesterday's
  * numbers as context.
  *
@@ -283,7 +284,8 @@ const WorkoutLogger = ({
             Today · {unitLabel}
           </p>
           <p className="text-[10px] font-semibold tracking-wide text-muted-foreground">
-            {currentRunLogs.length}/{prescribedSets} done
+            {currentRunLogs.filter((l) => l.reps_done != null).length}/
+            {prescribedSets} done
           </p>
         </div>
         {/* One row of cells rather than one row per set. A five-set
@@ -295,7 +297,9 @@ const WorkoutLogger = ({
         <div className="flex items-start gap-1.5">
         {setsArray.map((n) => {
           const log = todayBySet.get(n);
-          const done = !!log;
+          // A set is done when it has its number. A row without one is
+          // left over from when the chip could tick a set on its own.
+          const done = log?.reps_done != null;
           const saving = savingSet === n;
           return (
             <SetRow
@@ -309,19 +313,16 @@ const WorkoutLogger = ({
               showWeight={showWeight}
               disabled={readOnly}
               failed={failed.has(n)}
-              onToggle={() => {
+              onRetry={() => {
                 if (readOnly) return;
-                // On a failed set, the chip retries what did not go through.
+                // The red chip retries what did not go through.
                 const f = failed.get(n);
-                if (f) {
-                  if (f.clear) clearSet(n);
-                  else upsertSet(n, {});
-                  return;
-                }
-                if (done) clearSet(n);
+                if (!f) return;
+                if (f.clear) clearSet(n);
                 else upsertSet(n, {});
               }}
               onChangeReps={(v) => upsertSet(n, { reps_done: v })}
+              onClearReps={() => clearSet(n)}
               onChangeWeight={(v) => upsertSet(n, { weight_kg: v })}
             />
           );
@@ -353,8 +354,9 @@ const SetRow = ({
   showWeight,
   disabled,
   failed,
-  onToggle,
+  onRetry,
   onChangeReps,
+  onClearReps,
   onChangeWeight,
 }: {
   setNumber: number;
@@ -366,10 +368,12 @@ const SetRow = ({
   showWeight: boolean;
   disabled: boolean;
   failed: boolean;
-  onToggle: () => void;
-  onChangeReps: (v: number | null) => void;
+  onRetry: () => void;
+  onChangeReps: (v: number) => void;
+  onClearReps: () => void;
   onChangeWeight: (v: number | null) => void;
 }) => {
+  const inputId = useId();
   const [repsLocal, setRepsLocal] = useState(reps != null ? String(reps) : "");
   const [weightLocal, setWeightLocal] = useState(
     weight != null ? String(weight) : ""
@@ -386,7 +390,8 @@ const SetRow = ({
   const commitReps = () => {
     const trimmed = repsLocal.trim();
     if (trimmed === "") {
-      if (reps != null) onChangeReps(null);
+      // Emptying the box undoes the set.
+      if (reps != null) onClearReps();
       return;
     }
     const n = parseInt(trimmed, 10);
@@ -409,41 +414,49 @@ const SetRow = ({
     `w-full rounded-md border bg-surface text-center py-2 text-sm tabular-nums focus:outline-none focus:border-accent disabled:bg-muted disabled:cursor-not-allowed ${extra}`;
 
   return (
-    // One column per set. The cell keeps both actions the stacked row
-    // had: the chip on top marks the set done without typing, the field
-    // under it records what was actually done.
+    // One column per set, one action: typing the number is what marks
+    // the set done. The chip on top used to tick a set on its own, so a
+    // client could finish a session green without a single number;
+    // Maxime found the two controls confusing on 2026-11-12. The chip
+    // now only says where the set stands, and tapping it puts the
+    // cursor in the box. Red, after a failed save, it retries.
     <div className="flex-1 min-w-0 flex flex-col items-stretch gap-1">
-      <button
-        type="button"
-        onClick={onToggle}
-        disabled={disabled || saving}
-        aria-label={
-          failed
-            ? `Set ${setNumber} not saved, try again`
-            : done
-              ? `Mark set ${setNumber} undone`
-              : `Mark set ${setNumber} done`
-        }
-        className={`h-6 rounded-full border flex items-center justify-center transition-colors ${
-          failed
-            ? "bg-red-50 dark:bg-red-500/10 border-red-500 text-red-700 dark:text-red-300 active:scale-95"
-            : done
+      {failed ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          disabled={disabled || saving}
+          aria-label={`Set ${setNumber} not saved, try again`}
+          className="h-6 rounded-full border flex items-center justify-center transition-colors bg-red-50 dark:bg-red-500/10 border-red-500 text-red-700 dark:text-red-300 active:scale-95"
+        >
+          {saving ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <span className="text-[11px] font-bold">{setNumber}</span>
+          )}
+        </button>
+      ) : (
+        <label
+          htmlFor={inputId}
+          aria-hidden
+          className={`h-6 rounded-full border flex items-center justify-center transition-colors ${
+            done
               ? "bg-green-500 border-green-500 text-white"
-              : "bg-surface border-border text-muted-foreground hover:border-green-400 active:scale-95"
-        } ${disabled ? "opacity-70 cursor-not-allowed" : ""}`}
-      >
-        {saving ? (
-          <Loader2 size={12} className="animate-spin" />
-        ) : failed ? (
-          <span className="text-[11px] font-bold">{setNumber}</span>
-        ) : done ? (
-          <CheckCircle2 size={13} />
-        ) : (
-          <span className="text-[11px] font-bold">{setNumber}</span>
-        )}
-      </button>
+              : "bg-surface border-border text-muted-foreground"
+          } ${disabled ? "opacity-70" : ""}`}
+        >
+          {saving ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : done ? (
+            <CheckCircle2 size={13} />
+          ) : (
+            <span className="text-[11px] font-bold">{setNumber}</span>
+          )}
+        </label>
+      )}
 
       <input
+        id={inputId}
         type="number"
         inputMode="numeric"
         min={0}
