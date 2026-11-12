@@ -184,9 +184,6 @@ const Slide = ({
       <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground/45">
         {n} / {TOTAL}
       </span>
-      {n < TOTAL && (
-        <span className="text-[13px] text-foreground/45">Skip tour</span>
-      )}
     </div>
     <h1 className="font-heading text-[30px] leading-[1.08] font-bold tracking-[-0.02em] mt-4">
       {title}
