@@ -9,7 +9,6 @@ import {
   SkipForward,
   Trophy,
 } from "lucide-react";
-import { toast } from "sonner";
 import { sbGet, sbPatch, sbPost } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -85,47 +84,108 @@ function loggableItems(items: ProgramItem[]): ProgramItem[] {
   return out;
 }
 
-/** The body of the "didn't log all your sets" toast: the sentence, then
- *  a small copy of the tracker drawn with the tracker's own styles, two
+/** Opens on "Complete workout" when an exercise with a tracker was left
+ *  without its numbers (nothing logged on it, or a set ticked with no
+ *  number typed). Nothing is saved while it is open: "Got it" completes
+ *  the session, "Log them now" closes it so the boxes can be filled.
+ *
+ *  It is shown on the session page itself. A toast on the dashboard,
+ *  after the fact, was tried first on 2026-11-12: the client had already
+ *  left the page and could do nothing about it.
+ *
+ *  It also replaces the browser's own "No sets logged" confirm, which
+ *  Mayur's mis-tap of 2026-10-02 had made necessary (he hit Complete on
+ *  the next session 82 seconds after finishing a real one): a session
+ *  with nothing ticked opens this with its own title, and backing out
+ *  still saves nothing. */
+const LogReminder = ({
+  none,
+  busy,
+  onConfirm,
+  onBack,
+}: {
+  none: boolean;
+  busy: boolean;
+  onConfirm: () => void;
+  onBack: () => void;
+}) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-safe-4 bg-black/40 backdrop-blur-sm">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="log-reminder-title"
+      className="bg-surface rounded-2xl border border-border w-full max-w-sm shadow-xl p-6 space-y-5"
+    >
+      <div className="space-y-2">
+        <h2
+          id="log-reminder-title"
+          className="font-heading text-xl font-bold leading-tight"
+        >
+          {none
+            ? "You didn't log any sets this session."
+            : "You didn't log all your sets this session."}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Make sure to type what you did under each set to track your
+          progress.
+        </p>
+      </div>
+      <TrackerSketch />
+      <div className="space-y-1">
+        <Button
+          onClick={onConfirm}
+          disabled={busy}
+          className="w-full h-[50px] rounded-full bg-foreground text-white hover:bg-foreground/90 text-base font-semibold"
+        >
+          {busy ? <Loader2 size={16} className="animate-spin" /> : "Got it"}
+        </Button>
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={busy}
+          className="w-full py-2.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          Log them now
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+/** A small copy of the tracker, drawn with the tracker's own styles: two
  *  sets filled in and the third box marked as the place to type. Ticking
  *  the round chip without typing is exactly the habit it corrects. */
-const LogHowTo = () => (
-  <div className="space-y-2.5 pt-0.5">
-    <p>
-      Next time, make sure to type what you did under each set to track
-      your progress.
-    </p>
-    <div aria-hidden className="flex items-start gap-1.5 w-[168px]">
-      {[1, 2, 3].map((n) => {
-        const done = n < 3;
-        return (
-          <div key={n} className="flex-1 flex flex-col gap-1">
-            <span
-              className={`h-5 rounded-full border flex items-center justify-center ${
-                done
-                  ? "bg-green-500 border-green-500 text-white"
-                  : "bg-surface border-border text-muted-foreground"
-              }`}
-            >
-              {done ? (
-                <CheckCircle2 size={11} />
-              ) : (
-                <span className="text-[10px] font-bold">{n}</span>
-              )}
-            </span>
-            <span
-              className={`rounded-md border bg-surface text-center py-1 text-xs tabular-nums ${
-                done
-                  ? "border-green-500 text-foreground"
-                  : "border-accent border-2 text-accent font-semibold"
-              }`}
-            >
-              {done ? 8 : "?"}
-            </span>
-          </div>
-        );
-      })}
-    </div>
+const TrackerSketch = () => (
+  <div aria-hidden className="mx-auto flex items-start gap-1.5 w-[180px]">
+    {[1, 2, 3].map((n) => {
+      const done = n < 3;
+      return (
+        <div key={n} className="flex-1 flex flex-col gap-1">
+          <span
+            className={`h-6 rounded-full border flex items-center justify-center ${
+              done
+                ? "bg-green-500 border-green-500 text-white"
+                : "bg-surface border-border text-muted-foreground"
+            }`}
+          >
+            {done ? (
+              <CheckCircle2 size={13} />
+            ) : (
+              <span className="text-[11px] font-bold">{n}</span>
+            )}
+          </span>
+          <span
+            className={`rounded-md bg-surface text-center py-2 text-sm tabular-nums ${
+              done
+                ? "border border-green-500 text-foreground"
+                : "border-2 border-accent text-accent font-semibold"
+            }`}
+          >
+            {done ? 8 : "?"}
+          </span>
+        </div>
+      );
+    })}
   </div>
 );
 
@@ -139,6 +199,9 @@ const Today = () => {
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Open when "Complete workout" found sets left without their numbers;
+  // `none` when nothing at all was logged.
+  const [reminder, setReminder] = useState<{ none: boolean } | null>(null);
 
   const loadAll = async () => {
     if (!user) return;
@@ -260,7 +323,44 @@ const Today = () => {
     return freshRunIdRef.current;
   }, [todaysWorkout, logs]);
 
+  /** "Complete workout": checks the numbers first. If an exercise with a
+   *  tracker was left without them, the reminder opens and nothing is
+   *  saved until the client taps "Got it". Otherwise the session is
+   *  completed straight away. */
   const completeWorkout = async () => {
+    if (!todaysWorkout || !user) return;
+    setCompleting(true);
+    setError(null);
+    try {
+      // Read from the server: the trackers keep their own state, and
+      // this page's `logs` is a snapshot from mount.
+      const rows = await sbGet<
+        { program_item_id: string; reps_done: number | null }[]
+      >(
+        `workout_logs?client_id=eq.${user.id}` +
+          `&session_run_id=eq.${sessionRunId}` +
+          `&completed_at=is.null&select=program_item_id,reps_done`
+      );
+      // On 2026-11-12, over the previous month, this was true of about
+      // two sessions in three, most often for a single exercise, and one
+      // client had validated all 22 of theirs with nothing ticked.
+      const incomplete = loggableItems(todaysWorkout.items).some((it) => {
+        const mine = rows.filter((l) => l.program_item_id === it.id);
+        return mine.length === 0 || mine.some((l) => l.reps_done == null);
+      });
+      if (incomplete) {
+        setReminder({ none: rows.length === 0 });
+        setCompleting(false);
+        return;
+      }
+      await finishWorkout();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setCompleting(false);
+    }
+  };
+
+  const finishWorkout = async () => {
     if (!todaysWorkout || !user) return;
     setCompleting(true);
     setError(null);
@@ -270,33 +370,15 @@ const Today = () => {
       // authoritative (server-side): it catches logs created by the
       // WorkoutLogger children even though this page's local `logs`
       // state is a snapshot from mount.
-      const stamped = await sbPatch<
-        { program_item_id: string; reps_done: number | null }[]
-      >(
+      const stamped = await sbPatch<unknown[]>(
         `workout_logs?client_id=eq.${user.id}` +
           `&session_run_id=eq.${sessionRunId}` +
           `&completed_at=is.null`,
         { completed_at: stamp }
       );
       if (!Array.isArray(stamped) || stamped.length === 0) {
-        // Nothing logged, so nothing distinguishes a session followed
-        // without ticking anything from a thumb landing on the wrong
-        // screen. Mayur did the second on 2026-10-02, 82 seconds after
-        // finishing a real session, and the block skipped a session with
-        // no trace but a marker row on a warmup exercise.
-        //
-        // Asking here costs the honest case one tap and saves the other
-        // one entirely. It is safe to bail out at this point: the PATCH
-        // above stamped zero rows, so nothing has been written yet.
-        if (
-          !window.confirm(
-            "No sets logged for this session. Mark it as done anyway? " +
-              "If you tapped by mistake, cancel and nothing is saved."
-          )
-        ) {
-          setCompleting(false);
-          return;
-        }
+        // Nothing logged: the client went through the reminder ("You
+        // didn't log any sets") or the session has no tracker at all.
         // The PATCH-only path used to be a silent no-op here, so the
         // session never counted as done and the client kept seeing the
         // same one. Write a completion marker so the run registers.
@@ -316,25 +398,6 @@ const Today = () => {
           { merge: true }
         );
       }
-      // One exercise with a tracker left without its numbers (nothing
-      // logged on it, or a set ticked with no number typed) and the
-      // client hears about it on the way out. The session still counts.
-      // That includes a session validated through the confirm above with
-      // nothing ticked at all: as of 2026-11-12 one client had done all
-      // 22 of their sessions that way.
-      const rows = Array.isArray(stamped) ? stamped : [];
-      const incomplete = loggableItems(todaysWorkout.items).some((it) => {
-        const mine = rows.filter((l) => l.program_item_id === it.id);
-        return mine.length === 0 || mine.some((l) => l.reps_done == null);
-      });
-      if (incomplete) {
-        toast("You didn't log all your sets this session.", {
-          description: <LogHowTo />,
-          position: "top-center",
-          duration: 12000,
-          closeButton: true,
-        });
-      }
       // Reset the freshly-minted run id so the next session gets its own.
       freshRunIdRef.current = null;
       // The loop moved on, so anything pushed back earlier is pending
@@ -344,6 +407,7 @@ const Today = () => {
       // shows up as the new "Start Session N" CTA.
       navigate("/app/home");
     } catch (e) {
+      setReminder(null);
       setError(e instanceof Error ? e.message : String(e));
       setCompleting(false);
     }
@@ -643,6 +707,15 @@ const Today = () => {
           Locks your numbers and unlocks the next session.
         </p>
       </div>
+
+      {reminder && (
+        <LogReminder
+          none={reminder.none}
+          busy={completing}
+          onConfirm={finishWorkout}
+          onBack={() => setReminder(null)}
+        />
+      )}
 
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>
