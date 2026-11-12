@@ -150,9 +150,6 @@ type Props = {
    *  round count); the followers have sets=null. Pass the group's sets
    *  here so the logger still renders one row per round on every item. */
   setsOverride?: number | null;
-  /** Shows "Log your reps to track your progress." in the tracker. Only
-   *  for a client who has never entered a number, see Today. */
-  loggerHint?: boolean;
   /** UUID of the current session run. Required when the logger is
    *  interactive; ignored in read-only / coach views. */
   sessionRunId?: string;
@@ -228,7 +225,6 @@ const ProgramItemCard = ({
   loggerClientId = null,
   loggerReadOnly = false,
   setsOverride = null,
-  loggerHint = false,
   sessionRunId = "00000000-0000-0000-0000-000000000000",
   flush = false,
   noPadding = false,
@@ -356,7 +352,6 @@ const ProgramItemCard = ({
             readOnly={loggerReadOnly}
             unitLabel={tracking.unitLabel}
             showWeight={tracking.showWeight}
-            showHint={loggerHint}
           />
         );
       })()}

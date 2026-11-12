@@ -13,7 +13,11 @@ import { toast } from "sonner";
 import { sbGet, sbPatch, sbPost } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import ProgramItemCard, { ProgramItem } from "@/components/ProgramItemCard";
+import ProgramItemCard, {
+  ProgramItem,
+  detectTracking,
+  getSection,
+} from "@/components/ProgramItemCard";
 import BackToDashboard from "@/components/BackToDashboard";
 import {
   CompletedLog,
@@ -50,6 +54,81 @@ const todayISO = () => {
   return `${y}-${m}-${day}`;
 };
 
+/** The items of a session that show a tracker, by the same rules as
+ *  the page: a section that logs, and sets on the item or, inside a
+ *  superset, drop set or circuit, on the group's first member. */
+function loggableItems(items: ProgramItem[]): ProgramItem[] {
+  const out: ProgramItem[] = [];
+  let i = 0;
+  while (i < items.length) {
+    const first = items[i];
+    let j = i + 1;
+    if (first.group_name) {
+      while (
+        j < items.length &&
+        items[j].group_name === first.group_name &&
+        getSection(items[j].custom_name) === getSection(first.custom_name)
+      )
+        j++;
+    }
+    const run = items.slice(i, j);
+    const groupSets = first.group_name
+      ? run.find((it) => it.sets != null)?.sets ?? null
+      : null;
+    for (const it of run) {
+      const sets = first.group_name ? groupSets : it.sets;
+      if (sets != null && sets > 0 && detectTracking(it).mode !== "none")
+        out.push(it);
+    }
+    i = j;
+  }
+  return out;
+}
+
+/** The body of the "didn't log all your sets" toast: the sentence, then
+ *  a small copy of the tracker drawn with the tracker's own styles, two
+ *  sets filled in and the third box marked as the place to type. Ticking
+ *  the round chip without typing is exactly the habit it corrects. */
+const LogHowTo = () => (
+  <div className="space-y-2.5 pt-0.5">
+    <p>
+      Next time, make sure to type what you did under each set to track
+      your progress.
+    </p>
+    <div aria-hidden className="flex items-start gap-1.5 w-[168px]">
+      {[1, 2, 3].map((n) => {
+        const done = n < 3;
+        return (
+          <div key={n} className="flex-1 flex flex-col gap-1">
+            <span
+              className={`h-5 rounded-full border flex items-center justify-center ${
+                done
+                  ? "bg-green-500 border-green-500 text-white"
+                  : "bg-surface border-border text-muted-foreground"
+              }`}
+            >
+              {done ? (
+                <CheckCircle2 size={11} />
+              ) : (
+                <span className="text-[10px] font-bold">{n}</span>
+              )}
+            </span>
+            <span
+              className={`rounded-md border bg-surface text-center py-1 text-xs tabular-nums ${
+                done
+                  ? "border-green-500 text-foreground"
+                  : "border-accent border-2 text-accent font-semibold"
+              }`}
+            >
+              {done ? 8 : "?"}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+);
+
 const Today = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -60,20 +139,9 @@ const Today = () => {
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Whether this client has ever typed a number in the tracker, on any
-  // block. Until they have, each tracker says why it matters. Unknown
-  // (null) or a failed lookup shows nothing.
-  const [hasLoggedNumbers, setHasLoggedNumbers] = useState<boolean | null>(
-    null
-  );
 
   const loadAll = async () => {
     if (!user) return;
-    sbGet<{ id: string }[]>(
-      `workout_logs?client_id=eq.${user.id}&reps_done=not.is.null&select=id&limit=1`
-    )
-      .then((rows) => setHasLoggedNumbers(rows.length > 0))
-      .catch(() => setHasLoggedNumbers(null));
     try {
       // Active custom program for this client (most recent non-archived published).
       const programs = await sbGet<Program[]>(
@@ -202,7 +270,9 @@ const Today = () => {
       // authoritative (server-side): it catches logs created by the
       // WorkoutLogger children even though this page's local `logs`
       // state is a snapshot from mount.
-      const stamped = await sbPatch<{ reps_done: number | null }[]>(
+      const stamped = await sbPatch<
+        { program_item_id: string; reps_done: number | null }[]
+      >(
         `workout_logs?client_id=eq.${user.id}` +
           `&session_run_id=eq.${sessionRunId}` +
           `&completed_at=is.null`,
@@ -246,20 +316,23 @@ const Today = () => {
           { merge: true }
         );
       }
-      // Sets ticked but not one number typed in the whole session: the
-      // session counts, but the coach has nothing to read and the client
-      // gets no "Last" or "Best" next time. Said once, on the way out,
-      // rather than blocking the completion. A session with no set ticked
-      // at all already went through the confirm above.
-      if (
-        Array.isArray(stamped) &&
-        stamped.length > 0 &&
-        stamped.every((l) => l.reps_done == null)
-      ) {
-        toast("You didn't log your reps or times this session.", {
-          description: "Log them next time to track your progress.",
+      // One exercise with a tracker left without its numbers (nothing
+      // logged on it, or a set ticked with no number typed) and the
+      // client hears about it on the way out. The session still counts.
+      // That includes a session validated through the confirm above with
+      // nothing ticked at all: as of 2026-11-12 one client had done all
+      // 22 of their sessions that way.
+      const rows = Array.isArray(stamped) ? stamped : [];
+      const incomplete = loggableItems(todaysWorkout.items).some((it) => {
+        const mine = rows.filter((l) => l.program_item_id === it.id);
+        return mine.length === 0 || mine.some((l) => l.reps_done == null);
+      });
+      if (incomplete) {
+        toast("You didn't log all your sets this session.", {
+          description: <LogHowTo />,
           position: "top-center",
-          duration: 8000,
+          duration: 12000,
+          closeButton: true,
         });
       }
       // Reset the freshly-minted run id so the next session gets its own.
@@ -536,7 +609,6 @@ const Today = () => {
                             loggerClientId={user?.id ?? null}
                             loggerReadOnly={false}
                             setsOverride={isGroup ? groupSets : undefined}
-                            loggerHint={hasLoggedNumbers === false}
                             sessionRunId={sessionRunId}
                             flush
                             noPadding

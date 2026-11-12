@@ -26,15 +26,10 @@ type Props = {
    *  whether we show the weight field. */
   unitLabel?: string;
   showWeight?: boolean;
-  /** Says under the sets why the number matters. Passed only for a
-   *  client who has never entered one: on 2026-11-12, 98% of the sets
-   *  ticked in two months carried a number, and the exception was one
-   *  client ticking 30 sets without ever typing what they did. Shown to
-   *  everyone, it would sit on twenty exercises a session for people
-   *  who already log everything. */
-  showHint?: boolean;
 };
 
+/** Said under the sets of every client tracker, so ticking a set
+ *  without typing what was done reads as half the job. */
 const HINTS: Record<string, string> = {
   reps: "Log your reps to track your progress.",
   sec: "Log your time to track your progress.",
@@ -72,7 +67,6 @@ const WorkoutLogger = ({
   readOnly = false,
   unitLabel = "reps",
   showWeight = false,
-  showHint = false,
 }: Props) => {
   const today = useMemo(() => todayISO(), []);
   const [logs, setLogs] = useState<Log[]>([]);
@@ -333,9 +327,8 @@ const WorkoutLogger = ({
           );
         })}
         </div>
-        {/* Gone as soon as a number is typed here: from then on the
-            "Last" and "Best" lines above say the same thing better. */}
-        {showHint && !pr && failed.size === 0 && (
+        {/* The "not saved" alert takes this line when it shows. */}
+        {failed.size === 0 && (
           <p className="text-[11px] text-muted-foreground">
             {HINTS[unitLabel] ?? HINTS.reps}
           </p>
