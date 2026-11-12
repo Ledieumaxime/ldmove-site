@@ -17,6 +17,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      // A toast shown at the top would otherwise sit under the status bar
+      // and the notch in the app, which draws edge to edge.
+      offset={{ top: "calc(var(--safe-top) + 24px)" }}
+      mobileOffset={{ top: "calc(var(--safe-top) + 12px)" }}
       icons={{
         success: <CircleCheck className="h-4 w-4" />,
         info: <Info className="h-4 w-4" />,

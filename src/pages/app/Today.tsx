@@ -9,6 +9,7 @@ import {
   SkipForward,
   Trophy,
 } from "lucide-react";
+import { toast } from "sonner";
 import { sbGet, sbPatch, sbPost } from "@/integrations/supabase/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -59,9 +60,20 @@ const Today = () => {
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Whether this client has ever typed a number in the tracker, on any
+  // block. Until they have, each tracker says why it matters. Unknown
+  // (null) or a failed lookup shows nothing.
+  const [hasLoggedNumbers, setHasLoggedNumbers] = useState<boolean | null>(
+    null
+  );
 
   const loadAll = async () => {
     if (!user) return;
+    sbGet<{ id: string }[]>(
+      `workout_logs?client_id=eq.${user.id}&reps_done=not.is.null&select=id&limit=1`
+    )
+      .then((rows) => setHasLoggedNumbers(rows.length > 0))
+      .catch(() => setHasLoggedNumbers(null));
     try {
       // Active custom program for this client (most recent non-archived published).
       const programs = await sbGet<Program[]>(
@@ -190,7 +202,7 @@ const Today = () => {
       // authoritative (server-side): it catches logs created by the
       // WorkoutLogger children even though this page's local `logs`
       // state is a snapshot from mount.
-      const stamped = await sbPatch<unknown[]>(
+      const stamped = await sbPatch<{ reps_done: number | null }[]>(
         `workout_logs?client_id=eq.${user.id}` +
           `&session_run_id=eq.${sessionRunId}` +
           `&completed_at=is.null`,
@@ -233,6 +245,22 @@ const Today = () => {
           },
           { merge: true }
         );
+      }
+      // Sets ticked but not one number typed in the whole session: the
+      // session counts, but the coach has nothing to read and the client
+      // gets no "Last" or "Best" next time. Said once, on the way out,
+      // rather than blocking the completion. A session with no set ticked
+      // at all already went through the confirm above.
+      if (
+        Array.isArray(stamped) &&
+        stamped.length > 0 &&
+        stamped.every((l) => l.reps_done == null)
+      ) {
+        toast("You didn't log your reps or times this session.", {
+          description: "Log them next time to track your progress.",
+          position: "top-center",
+          duration: 8000,
+        });
       }
       // Reset the freshly-minted run id so the next session gets its own.
       freshRunIdRef.current = null;
@@ -508,6 +536,7 @@ const Today = () => {
                             loggerClientId={user?.id ?? null}
                             loggerReadOnly={false}
                             setsOverride={isGroup ? groupSets : undefined}
+                            loggerHint={hasLoggedNumbers === false}
                             sessionRunId={sessionRunId}
                             flush
                             noPadding
