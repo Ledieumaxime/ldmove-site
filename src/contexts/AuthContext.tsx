@@ -10,6 +10,8 @@ export type Profile = {
   avatar_url: string | null;
   /** Language the coach's feedback is written in for this client. */
   language: "en" | "fr";
+  /** When the client went through the app tour; null until then. */
+  tour_seen_at?: string | null;
 };
 
 type SessionLike = {

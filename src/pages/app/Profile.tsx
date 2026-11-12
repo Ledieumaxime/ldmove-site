@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
+import { markTourSeen } from "@/components/tour/TourGate";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { sbGet } from "@/integrations/supabase/api";
@@ -18,12 +19,17 @@ import {
   ChevronRight,
   Moon,
   Sun,
+  BookOpen,
 } from "lucide-react";
+
+// Loaded only when the client opens it.
+const AppTour = lazy(() => import("@/components/tour/AppTour"));
 
 const Profile = () => {
   const { profile, user, signOut } = useAuth();
   const navigate = useNavigate();
   const [intakeLocked, setIntakeLocked] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
 
   useEffect(() => {
     if (!user || profile?.role !== "client") return;
@@ -95,6 +101,37 @@ const Profile = () => {
           </div>
           <ChevronRight size={18} className="text-muted-foreground" />
         </Link>
+      )}
+
+      {profile?.role === "client" && (
+        <button
+          type="button"
+          onClick={() => setTourOpen(true)}
+          className="w-full flex items-center justify-between bg-surface border border-border rounded-2xl p-5 hover:border-accent/60 transition-colors text-left"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-foreground/70">
+              <BookOpen size={18} />
+            </div>
+            <div>
+              <p className="font-heading font-bold">How the app works</p>
+              <p className="text-xs text-muted-foreground">
+                The short tour: sessions, logging, videos, your coach.
+              </p>
+            </div>
+          </div>
+          <ChevronRight size={18} className="text-muted-foreground" />
+        </button>
+      )}
+      {tourOpen && (
+        <Suspense fallback={null}>
+          <AppTour
+            onClose={() => {
+              setTourOpen(false);
+              void markTourSeen();
+            }}
+          />
+        </Suspense>
       )}
 
       <Appearance />

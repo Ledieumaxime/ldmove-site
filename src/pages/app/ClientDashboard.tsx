@@ -16,6 +16,7 @@ import {
 import { sbGet, sbGetIn, sbPatch } from "@/integrations/supabase/api";
 import BlockCalendar from "@/components/BlockCalendar";
 import { useAuth } from "@/contexts/AuthContext";
+import TourGate from "@/components/tour/TourGate";
 import { IntakeAnswers, visibleExercises } from "@/lib/assessment";
 import {
   chooseWeek,
@@ -649,6 +650,7 @@ export const ClientDashboardBody = ({
 
   return (
     <div className="space-y-5">
+      {!coachView && <TourGate hasActiveBlock={!!currentProgram} />}
       {/* Date rail. The block name and week used to sit in one grey line
           above the greeting; splitting them across a ruled row gives the
           screen a masthead and tells the client what day they are on,
