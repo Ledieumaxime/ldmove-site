@@ -766,6 +766,35 @@ const AdminProgramEdit = () => {
     }
   };
 
+  // A new, empty session at the end of the block. Until 2026-11-21 a
+  // session could only come from the block's creation or from Duplicate,
+  // so a block started with three sessions could not get a fourth without
+  // copying one and emptying it. An empty session never reaches the
+  // client: the workout loop skips it until it has exercises.
+  const addSession = async () => {
+    if (!program) return;
+    const next =
+      (weeks.length ? Math.max(...weeks.map((w) => w.week_number)) : 0) + 1;
+    setSaveState("saving");
+    try {
+      const [created] = await sbPost<Week[]>("program_weeks", {
+        program_id: program.id,
+        week_number: next,
+        title: "",
+        notes: null,
+      });
+      setWeeks((prev) =>
+        [...prev, created].sort((a, b) => a.week_number - b.week_number)
+      );
+      flagSaved();
+      // Land on it, ready to be named and filled.
+      setSearchParams({ session: String(next) }, { replace: true });
+    } catch (e) {
+      setSaveError(String(e));
+      setSaveState("idle");
+    }
+  };
+
   // Copy every item of a session from ANY program (typically another
   // client's block) into the active session. Deep clone: new
   // program_items rows, so editing the copy never touches the source.
@@ -1503,6 +1532,14 @@ const AdminProgramEdit = () => {
             </button>
           );
         })}
+        <button
+          type="button"
+          onClick={exclusive(addSession)}
+          className="shrink-0 text-xs font-semibold rounded-lg px-3 py-1.5 text-muted-foreground hover:text-foreground flex items-center gap-1"
+          title="Add an empty session at the end of the block"
+        >
+          <Plus size={14} /> Add session
+        </button>
       </div>
 
       {/* ----- Active session ----- */}
