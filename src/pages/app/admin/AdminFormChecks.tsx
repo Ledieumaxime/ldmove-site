@@ -763,13 +763,17 @@ const ThreadCard = ({
               />
               <span className="font-semibold">{thread.exerciseName}</span>
             </div>
-            <p className="text-sm text-muted-foreground mt-1 truncate inline-flex items-center gap-1.5">
+            {/* A block flex row with the text in its own truncated span.
+                As an inline-flex paragraph it took the width of the whole
+                comment, so a long one ran past the card's edge and under
+                the date and count on the right. */}
+            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5 min-w-0">
               {thread.needsReply ? (
                 <MessageCircle size={12} className="shrink-0 text-accent" />
               ) : (
                 <Check size={12} className="shrink-0 text-green-600 dark:text-green-400" />
               )}
-              "{thread.lastBody}"
+              <span className="truncate">"{thread.lastBody}"</span>
             </p>
           </div>
           <div className="text-right shrink-0">

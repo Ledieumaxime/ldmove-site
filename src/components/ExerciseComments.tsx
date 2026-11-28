@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, FormEvent } from "react";
-import { ImagePlus, Loader2, MessageCircle, Send, Trash2, Wand2, X } from "lucide-react";
+import { ImagePlus, Loader2, MessageCircle, Pencil, Send, Trash2, Wand2, X } from "lucide-react";
 import {
   sbGet,
   sbPost,
@@ -474,6 +474,48 @@ const ExerciseComments = ({
     }
   };
 
+  // Editing a comment already sent. Coach only: Maxime asked for it on
+  // 2026-11-28 (a typo or a cue to add, without deleting and reposting
+  // and losing the order of the thread). The database already lets the
+  // coach update any comment; a client still deletes and reposts. The
+  // client is not notified again: it is the same message, corrected.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const startEdit = (c: Comment) => {
+    setEditingId(c.id);
+    setEditText(c.body ?? "");
+    setEditError(null);
+  };
+
+  const saveEdit = async () => {
+    if (!editingId || savingEdit) return;
+    const target = comments.find((c) => c.id === editingId);
+    const text = editText.trim();
+    // A comment with no picture needs words; one with pictures may lose them.
+    if (!text && !target?.image_urls?.length) return;
+    if (text === (target?.body ?? "").trim()) {
+      setEditingId(null);
+      return;
+    }
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      await sbPatch(`exercise_comments?id=eq.${editingId}`, { body: text });
+      setComments((cs) =>
+        cs.map((c) => (c.id === editingId ? { ...c, body: text } : c))
+      );
+      setEditingId(null);
+    } catch (e) {
+      console.error(e);
+      setEditError("Could not save. Try again.");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   const remove = async (id: string) => {
     if (!confirm("Delete this comment?")) return;
     const target = comments.find((c) => c.id === id);
@@ -659,6 +701,17 @@ const ExerciseComments = ({
                         minute: "2-digit",
                       })}
                     </span>
+                    {isMine && profile?.role === "coach" && !readOnly && editingId !== c.id && (
+                      <button
+                        type="button"
+                        onClick={() => startEdit(c)}
+                        className="text-muted-foreground hover:text-foreground"
+                        title="Edit"
+                        aria-label="Edit comment"
+                      >
+                        <Pencil size={11} />
+                      </button>
+                    )}
                     {isMine && (
                       <button
                         onClick={() => remove(c.id)}
@@ -670,7 +723,53 @@ const ExerciseComments = ({
                     )}
                   </div>
                 </div>
-                {c.body && <p className="whitespace-pre-wrap">{c.body}</p>}
+                {editingId === c.id ? (
+                  <div className="space-y-1.5">
+                    <Textarea
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") setEditingId(null);
+                      }}
+                      rows={3}
+                      autoFocus
+                      className="text-xs"
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                      {editError && (
+                        <span className="text-[11px] text-red-700 dark:text-red-300 mr-auto">
+                          {editError}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(null)}
+                        disabled={savingEdit}
+                        className="text-[11px] font-semibold text-muted-foreground hover:text-foreground px-2 py-1"
+                      >
+                        Cancel
+                      </button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={saveEdit}
+                        disabled={
+                          savingEdit ||
+                          (!editText.trim() && !c.image_urls?.length)
+                        }
+                        className="h-7 text-[11px]"
+                      >
+                        {savingEdit ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          "Save"
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  c.body && <p className="whitespace-pre-wrap">{c.body}</p>
+                )}
                 <CommentImages srcs={signed[c.id]} />
               </div>
             );
