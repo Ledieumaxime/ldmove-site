@@ -798,6 +798,10 @@ const ThreadCard = ({
             itemId={thread.item_id}
             clientId={thread.clientId}
             onReplied={onReplied}
+            // Archived threads only: the card is opened on purpose to
+            // read the exchange again. The pending cards stay as they
+            // are, since opening a thread marks it read.
+            defaultOpen={compact}
           />
           {thread.needsReply && thread.lastClientCommentId && (
             <div className="mt-2 flex justify-end">

@@ -194,9 +194,16 @@ const ExerciseComments = ({
   onReplied,
   clientId,
   onDraftChange,
+  defaultOpen = false,
 }: {
   itemId: string;
   readOnly?: boolean;
+  /** Starts with the conversation shown instead of behind "Add a
+   *  comment". For a thread the coach opened on purpose to read it again
+   *  (the archived answered comments): collapsed, the messages and their
+   *  edit pencils were hidden behind a label that reads like an empty
+   *  thread. */
+  defaultOpen?: boolean;
   previewLastOnly?: boolean;
   onReplied?: () => void;
   /** Whose thread this is. Only used to pick the language the rewrite
@@ -210,7 +217,7 @@ const ExerciseComments = ({
   onDraftChange?: (hasDraft: boolean) => void;
 }) => {
   const { user, profile } = useAuth();
-  const [open, setOpen] = useState(readOnly);
+  const [open, setOpen] = useState(readOnly || defaultOpen);
   const [userToggled, setUserToggled] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [body, setBody] = useState("");
